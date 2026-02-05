@@ -220,6 +220,25 @@ namespace DatevBridge.UI.Strings
             public const string PipeName = "Pipe: \\\\.\\pipe\\3CX_tsp_server_{0}";
             public const string Softphone3CXRunning = "3CX Softphone läuft in dieser Sitzung";
             public const string Softphone3CXNotRunning = "3CX Softphone nicht erkannt — bitte starten";
+
+            // Webclient mode
+            public const string WebclientConfig = "Webclient (Browser-Erweiterung)";
+            public const string WebclientDesc = "Sie verwenden den 3CX Webclient im Browser.\nAnrufereignisse werden über die Browser-Erweiterung empfangen.";
+            public const string WebclientInstallSteps = "1. Browser-Erweiterung installieren (Chrome/Edge)\n2. Native Messaging Host registrieren\n3. 3CX Webclient im Browser öffnen\n4. Erweiterung mit Ihrer Nebenstelle verbinden";
+            public const string WebclientConnected = "Browser-Erweiterung verbunden";
+            public const string WebclientWaiting = "Warte auf Browser-Erweiterung...";
+            public const string WebclientNotDetected = "Browser-Erweiterung nicht erkannt";
+
+            // Telephony mode selection (setup wizard)
+            public const string ModeSelectionTitle = "Telefonie-Modus";
+            public const string ModeSelectionDesc = "Wie verbinden Sie sich mit 3CX?";
+            public const string ModeOptionTapi = "3CX Windows Client (Desktop / TAPI)";
+            public const string ModeOptionPipe = "3CX Windows Client (Terminal Server / Pipe)";
+            public const string ModeOptionWebclient = "3CX Webclient (nur Browser / WebRTC)";
+            public const string ModeOptionAuto = "Automatisch erkennen";
+            public const string FeatureWebclient = "Webclient / Browser-Erweiterung konfigurieren";
+            public const string CopyDiagnostics = "Diagnose kopieren";
+            public const string DiagnosticsCopied = "Diagnosedaten in Zwischenablage kopiert";
         }
 
         // ===== TRAY NOTIFICATIONS =====
@@ -231,6 +250,8 @@ namespace DatevBridge.UI.Strings
             public const string PipeDisconnected = "3CX Softphone-Verbindung getrennt";
             public const string DatevFound = "DATEV erkannt — Kontakte werden geladen";
             public const string DatevLost = "DATEV Arbeitsplatz nicht gefunden.\nBitte DATEV starten.";
+            public const string WebclientConnected = "Webclient verbunden (Nebenstelle {0})";
+            public const string WebclientDisconnected = "Browser-Erweiterung getrennt";
         }
 
         // ===== KEYBOARD SHORTCUTS =====
@@ -320,6 +341,13 @@ namespace DatevBridge.UI.Strings
             public const string TsRestartOrder = "Reihenfolge beim Start beachten";
             public const string TsRestartOrderDesc = "Starten Sie zuerst die Bridge, dann den 3CX Softphone (oder TAPI neu aktivieren).";
 
+            // Webclient problems
+            public const string WebclientProblems = "Webclient-Probleme";
+            public const string WebclientNoExtension = "Browser-Erweiterung nicht verbunden";
+            public const string WebclientNoExtensionDesc = "Installieren Sie die 3CX-DATEV Browser-Erweiterung und stellen Sie sicher, dass Native Messaging aktiviert ist.";
+            public const string WebclientTimeout = "Verbindungs-Timeout";
+            public const string WebclientTimeoutDesc = "Erhöhen Sie Webclient.ConnectTimeoutSec in 3CXDATEVBridge.ini.";
+
             // General
             public const string CommonProblems = "Häufige Probleme";
             public const string Solutions = "Lösungen";
@@ -341,6 +369,8 @@ namespace DatevBridge.UI.Strings
             public const string Advanced = "Erweitert";
             public const string CallerId = "Anruferkennung";
             public const string CallHistorySection = "Anrufliste";
+            public const string Webclient = "Webclient";
+            public const string TelephonyMode = "Telefonie-Modus";
         }
 
         // ===== SETTINGS LABELS =====
@@ -364,6 +394,13 @@ namespace DatevBridge.UI.Strings
             public const string Extension = "Nst: {0}";
             public const string Sync = "Sync: {0}";
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
+            public const string TelephonyMode = "Telefonie-Modus:";
+            public const string TelephonyModeAuto = "Automatisch";
+            public const string TelephonyModeTapi = "TAPI (Desktop)";
+            public const string TelephonyModePipe = "Named Pipe (TS)";
+            public const string TelephonyModeWebclient = "Webclient (Browser)";
+            public const string WebclientTimeout = "Webclient Timeout:";
+            public const string ActiveMode = "Aktiver Modus: {0}";
         }
     }
 }

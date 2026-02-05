@@ -64,5 +64,11 @@ namespace DatevBridge.Core
 
         // ===== Notifications =====
         public const string MuteNotifications = "MuteNotifications";
+
+        // ===== Telephony Mode =====
+        public const string TelephonyMode = "TelephonyMode";
+        public const string AutoDetectionTimeoutSec = "Auto.DetectionTimeoutSec";
+        public const string WebclientConnectTimeoutSec = "Webclient.ConnectTimeoutSec";
+        public const string WebclientNativeMessagingEnabled = "Webclient.NativeMessagingEnabled";
     }
 }

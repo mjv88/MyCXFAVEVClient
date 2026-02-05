@@ -66,6 +66,12 @@ namespace DatevBridge.Core.Config
 
             // DATEV
             { ConfigKeys.ActiveContactsOnly, "false" },
+
+            // Telephony Mode
+            { ConfigKeys.TelephonyMode, "Auto" },
+            { ConfigKeys.AutoDetectionTimeoutSec, "10" },
+            { ConfigKeys.WebclientConnectTimeoutSec, "8" },
+            { ConfigKeys.WebclientNativeMessagingEnabled, "true" },
         };
 
         // Section grouping for INI file layout
@@ -113,6 +119,12 @@ namespace DatevBridge.Core.Config
             { ConfigKeys.LogMaxSizeMB, SectionLogging },
             { ConfigKeys.LogMaxFiles, SectionLogging },
             { ConfigKeys.LogAsync, SectionLogging },
+
+            // Telephony Mode
+            { ConfigKeys.TelephonyMode, SectionConnection },
+            { ConfigKeys.AutoDetectionTimeoutSec, SectionConnection },
+            { ConfigKeys.WebclientConnectTimeoutSec, SectionConnection },
+            { ConfigKeys.WebclientNativeMessagingEnabled, SectionConnection },
         };
 
         /// <summary>
@@ -315,6 +327,18 @@ namespace DatevBridge.Core.Config
                     writer.WriteLine();
                     writer.WriteLine("; DATEV Contacts");
                     writer.WriteLine("ActiveContactsOnly=false");
+                    writer.WriteLine();
+
+                    writer.WriteLine("[Connection]");
+                    writer.WriteLine("; TelephonyMode: Auto, Tapi, Pipe, Webclient");
+                    writer.WriteLine("; Auto = detect best provider at startup (Webclient -> Pipe -> TAPI)");
+                    writer.WriteLine("TelephonyMode=Auto");
+                    writer.WriteLine("; Auto-detection timeout in seconds");
+                    writer.WriteLine("Auto.DetectionTimeoutSec=10");
+                    writer.WriteLine("; Webclient extension connect timeout in seconds");
+                    writer.WriteLine("Webclient.ConnectTimeoutSec=8");
+                    writer.WriteLine("; Enable Native Messaging host for browser extension");
+                    writer.WriteLine("Webclient.NativeMessagingEnabled=true");
                 }
             }
             catch

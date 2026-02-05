@@ -13,6 +13,7 @@ using DatevBridge.Datev.PluginData;
 using DatevBridge.Interop;
 using DatevBridge.Tapi;
 using DatevBridge.UI;
+using DatevBridge.Webclient;
 
 namespace DatevBridge.Core
 {
@@ -47,6 +48,10 @@ namespace DatevBridge.Core
 
         // Call history
         private readonly CallHistoryStore _callHistory;
+
+        // Telephony mode selection
+        private volatile TelephonyMode _selectedMode = TelephonyMode.Auto;
+        private string _detectionDiagnostics;
 
         /// <summary>
         /// Event fired when connection status changes
@@ -127,6 +132,16 @@ namespace DatevBridge.Core
         public CallHistoryStore CallHistory => _callHistory;
 
         /// <summary>
+        /// The selected telephony mode (after auto-detection or explicit config).
+        /// </summary>
+        public TelephonyMode SelectedTelephonyMode => _selectedMode;
+
+        /// <summary>
+        /// Diagnostic summary from provider auto-detection (for Setup Wizard / troubleshooting).
+        /// </summary>
+        public string DetectionDiagnostics => _detectionDiagnostics;
+
+        /// <summary>
         /// Get all cached contacts (for developer diagnostics)
         /// </summary>
         public List<DatevContactInfo> GetCachedContacts() => DatevCache.GetAllContacts();
@@ -174,31 +189,43 @@ namespace DatevBridge.Core
         {
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            // ── Step 1: Detect constellation ─────────────────────────────
+            // ── Step 1: Log startup info ─────────────────────────────────
             LogManager.Log("========================================");
             LogManager.Log("3CX-DATEV Bridge");
             LogManager.Log("========================================");
             SessionManager.LogSessionInfo();
-            bool isTerminalServer = SessionManager.IsTerminalSession;
-            LogManager.Log("Mode: {0}", isTerminalServer ? "Terminal Server (Named Pipe)" : "Desktop (TAPI)");
+
+            var configuredMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            LogManager.Log("TelephonyMode: {0} (configured)", configuredMode);
             LogManager.Log("Extension: {0}", _extension);
 
-            // ── Step 2: On Terminal Server, create pipe FIRST ────────────
-            // The 3CX Softphone polls for \\.\pipe\3CX_tsp_server_{ext} every 2 seconds.
-            // Pipe must exist before Softphone gives up — start it before anything else.
-            if (isTerminalServer)
+            // ── Step 2: Provider selection / auto-detection ──────────────
+            LogManager.Log("========================================");
+            LogManager.Log("Telephony Provider Selection");
+            LogManager.Log("========================================");
+
+            var selectionResult = await TelephonyProviderSelector.SelectProviderAsync(
+                _extension, _cts.Token);
+
+            _selectedMode = selectionResult.SelectedMode;
+            _detectionDiagnostics = selectionResult.DiagnosticSummary;
+
+            LogManager.Log("TelephonyMode chosen: {0} (reason: {1})",
+                _selectedMode, selectionResult.Reason);
+
+            // For Pipe mode on Terminal Server, start the pipe FIRST before DATEV init
+            // so the 3CX Softphone can find it while we load contacts
+            bool isPipeMode = _selectedMode == TelephonyMode.Pipe;
+            if (isPipeMode && selectionResult.Success)
             {
                 LogManager.Log("========================================");
-                LogManager.Log("3CX Pipe Server");
+                LogManager.Log("3CX Pipe Server (early start)");
                 LogManager.Log("========================================");
                 _pipeServerTask = ConnectWithRetryAsync(_cts.Token);
-                // Give the pipe server a moment to create the named pipe
                 await Task.Delay(100, cancellationToken);
             }
 
             // ── Step 3: DATEV initialization ─────────────────────────────
-            // Register adapter, check availability, load contacts.
-            // On TS this runs while the Softphone connects in the background.
             try
             {
                 AdapterManager.Register(_datevAdapter);
@@ -224,16 +251,26 @@ namespace DatevBridge.Core
             DebugConfigWatcher.Start();
 
             // ── Step 4: Telephony connection ─────────────────────────────
-            if (isTerminalServer)
+            if (!selectionResult.Success)
+            {
+                // No provider detected — log diagnostics and wait for wizard
+                LogManager.Warning("========================================");
+                LogManager.Warning("No telephony provider detected!");
+                LogManager.Warning("========================================");
+                LogManager.Warning(selectionResult.DiagnosticSummary ?? "No diagnostics available");
+                Status = BridgeStatus.Disconnected;
+                return;
+            }
+
+            if (isPipeMode)
             {
                 // Pipe server already running — await it
                 await _pipeServerTask;
             }
             else
             {
-                // Desktop: start TAPI connection now
                 LogManager.Log("========================================");
-                LogManager.Log("3CX Telephony Connection");
+                LogManager.Log("3CX Telephony Connection ({0})", _selectedMode);
                 LogManager.Log("========================================");
                 await ConnectWithRetryAsync(_cts.Token);
             }
@@ -337,18 +374,26 @@ namespace DatevBridge.Core
         }
 
         /// <summary>
-        /// Create the appropriate telephony provider based on environment.
-        /// Desktop sessions use TAPI 2.x; terminal server sessions use Named Pipe.
+        /// Create the appropriate telephony provider based on the selected mode.
+        /// Supports TAPI 2.x, Named Pipe, and Webclient (browser extension).
         /// </summary>
         private ITelephonyProvider CreateTelephonyProvider(string lineFilter)
         {
-            if (SessionManager.IsTerminalSession)
+            switch (_selectedMode)
             {
-                LogManager.Log("Terminal Server erkannt - verwende Named Pipe Provider");
-                return new PipeTelephonyProvider(_extension);
-            }
+                case TelephonyMode.Webclient:
+                    LogManager.Log("Webclient-Modus - verwende WebclientTelephonyProvider");
+                    return new WebclientTelephonyProvider(_extension);
 
-            return new TapiLineMonitor(lineFilter, _extension);
+                case TelephonyMode.Pipe:
+                    LogManager.Log("Terminal Server / Pipe-Modus - verwende Named Pipe Provider");
+                    return new PipeTelephonyProvider(_extension);
+
+                case TelephonyMode.Tapi:
+                default:
+                    LogManager.Log("Desktop / TAPI-Modus - verwende TapiLineMonitor");
+                    return new TapiLineMonitor(lineFilter, _extension);
+            }
         }
 
         /// <summary>
