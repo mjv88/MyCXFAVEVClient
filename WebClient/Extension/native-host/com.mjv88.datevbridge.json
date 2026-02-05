@@ -1,0 +1,10 @@
+{
+  "name": "com.mjv88.datevbridge",
+  "description": "3CX DATEV Bridge Native Messaging Host",
+  "path": "C:\\Users\\<USERNAME>\\AppData\\Local\\Programs\\3CXDATEVBridge\\3CXDatevNativeHost.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://<YOUR_EXTENSION_ID>/",
+    "edge-extension://<YOUR_EXTENSION_ID>/"
+  ]
+}
