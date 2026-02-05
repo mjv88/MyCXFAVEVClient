@@ -501,3 +501,225 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 6. Output: `bin\Release\3cxDatevBridge.exe`
 
 The project uses old-style `.csproj` with explicit `<Compile Include>` entries. When adding or removing files, update the `.csproj` accordingly.
+
+---
+
+## Webclient Mode (Browser Extension)
+
+### Overview
+
+The Webclient mode enables DATEV integration for users who use ONLY the 3CX Webclient (browser-based, WebRTC). No 3CX Windows application is required.
+
+Call events are received from a browser extension (Chrome/Edge) via a Named Pipe IPC mechanism. The bridge sends Dial/Drop commands back to the extension using the same channel.
+
+### Architecture
+
+```
+Browser Extension (Chrome/Edge)
+        |
+        | Native Messaging (stdin/stdout JSON)
+        v
+Native Messaging Host (subprocess)
+        |
+        | Named Pipe: \\.\pipe\3CX_DATEV_Webclient_{ext}_{sessionId}
+        v
+3CX-DATEV Bridge (WebclientTelephonyProvider)
+        |
+        | ITelephonyProvider events (TapiCallEvent)
+        v
+BridgeService -> DATEV (COM/ROT)
+```
+
+### Protocol (v1)
+
+All messages are JSON with a `"v": 1` version field. Messages are framed using Chrome Native Messaging format: 4-byte little-endian length prefix + UTF-8 JSON payload.
+
+#### Extension -> Bridge: HELLO
+
+Sent by the extension after connecting. Must be the first message.
+
+```json
+{
+  "v": 1,
+  "type": "HELLO",
+  "extension": "101",
+  "identity": "3CX Webclient Extension v1.0"
+}
+```
+
+#### Bridge -> Extension: HELLO_ACK
+
+Sent after receiving HELLO. Indicates the bridge is ready.
+
+```json
+{
+  "v": 1,
+  "type": "HELLO_ACK",
+  "bridgeVersion": "1.0",
+  "extension": "101",
+  "ready": true
+}
+```
+
+#### Extension -> Bridge: CALL_EVENT
+
+Sent for each call state change.
+
+```json
+{
+  "v": 1,
+  "type": "CALL_EVENT",
+  "ts": 1730000000000,
+  "call": {
+    "id": "webcall-abc123",
+    "direction": "inbound",
+    "remoteNumber": "+49891234567",
+    "remoteName": "Max Mustermann",
+    "state": "offered",
+    "reason": ""
+  },
+  "context": {
+    "extension": "101",
+    "tabId": "tab-42"
+  }
+}
+```
+
+**Call states:**
+| Extension State | TAPI Mapping | DATEV Result |
+|----------------|--------------|--------------|
+| `offered` (inbound) | `LINECALLSTATE_OFFERING` | NewCall(eCSOffered, eDirIncoming) |
+| `dialing` (outbound) | `LINECALLSTATE_RINGBACK` | NewCall(eCSOffered, eDirOutgoing) |
+| `ringing` (outbound) | `LINECALLSTATE_RINGBACK` | NewCall(eCSOffered, eDirOutgoing) |
+| `connected` | `LINECALLSTATE_CONNECTED` | CallStateChanged(eCSConnected) |
+| `ended` (was connected) | `LINECALLSTATE_DISCONNECTED` | CallStateChanged(eCSFinished) |
+| `ended` (never connected) | `LINECALLSTATE_DISCONNECTED` | CallStateChanged(eCSAbsence) |
+
+**End reasons:** `hangup`, `busy`, `failed`, `unknown`
+
+#### Bridge -> Extension: COMMAND
+
+```json
+{
+  "v": 1,
+  "type": "COMMAND",
+  "cmd": "DIAL",
+  "number": "+49891234567",
+  "context": { "syncId": "optional-datev-syncid" }
+}
+```
+
+```json
+{
+  "v": 1,
+  "type": "COMMAND",
+  "cmd": "DROP",
+  "callId": "webcall-abc123"
+}
+```
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `Webclient/Protocol.cs` | Message types, constants, JSON parser, framing |
+| `Webclient/NativeMessagingHost.cs` | Read/write loop for Native Messaging streams |
+| `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider implementation |
+
+### RDS / Terminal Server
+
+- The Named Pipe name includes the Windows session ID: `3CX_DATEV_Webclient_{extension}_{sessionId}`
+- Each user session gets its own pipe, preventing cross-session call mixing
+- DACL restricts pipe access to the current user
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check Native Messaging host registration |
+| Extension connects but no HELLO | Protocol version mismatch | Verify extension sends `"v": 1` and `"type": "HELLO"` |
+| Calls not appearing in DATEV | State mapping issue | Check logs for "WebclientTelephonyProvider" entries |
+| Timeout during auto-detection | Extension takes too long | Increase `Webclient.ConnectTimeoutSec` in INI |
+
+---
+
+## Auto Detection
+
+### Overview
+
+When `TelephonyMode = Auto` (default), the bridge attempts to detect the best available telephony provider at startup.
+
+### Detection Order
+
+| Priority | Provider | Detection Method | Success Criteria |
+|----------|----------|-----------------|-----------------|
+| A | **Webclient** | Start pipe listener, wait for extension HELLO | Extension connects and sends HELLO within `Webclient.ConnectTimeoutSec` |
+| B | **Pipe** | Check `SessionManager.IsTerminalSession` and pipe availability | Running in a terminal server session |
+| C | **TAPI** | Default fallback for desktop environments | Desktop environment detected |
+| D | **None** | All detection methods failed | Setup Wizard is shown |
+
+### Configuration Keys
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `Webclient` |
+| `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
+| `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
+| `Webclient.NativeMessagingEnabled` | `true` | Enable/disable Webclient detection in Auto mode |
+
+### Explicit Mode
+
+When `TelephonyMode` is explicitly set to `Tapi`, `Pipe`, or `Webclient`, only that provider is used. If it fails to start, the bridge logs a guided error.
+
+### Diagnostic Logs
+
+During auto-detection, the bridge logs a diagnostic summary:
+
+```
+TelephonyProviderSelector: Auto-detection starting (timeout=10s)
+TelephonyProviderSelector: [A] Trying Webclient (timeout=8s)
+TelephonyProviderSelector: [A] Webclient not detected
+TelephonyProviderSelector: [B] Trying Pipe
+TelephonyProviderSelector: [B] Pipe not applicable
+TelephonyProviderSelector: [C] Trying TAPI
+TelephonyProviderSelector: TAPI selected - Desktop environment
+TelephonyMode chosen: Tapi (reason: Desktop environment - using TAPI)
+```
+
+### Console Test Mode
+
+A developer-only console mode is available for testing the Webclient provider:
+
+```
+3CXDatevBridge.exe --test-webclient [extension]
+```
+
+This reads JSON CALL_EVENT lines from stdin and logs the DATEV notifications that would be emitted.
+
+**Example JSON traces:**
+
+Inbound missed call:
+```json
+{"v":1,"type":"CALL_EVENT","ts":1700000001,"call":{"id":"c1","direction":"inbound","remoteNumber":"+49891111111","state":"offered"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000010,"call":{"id":"c1","direction":"inbound","remoteNumber":"+49891111111","state":"ended","reason":"unknown"}}
+```
+
+Inbound answered call:
+```json
+{"v":1,"type":"CALL_EVENT","ts":1700000001,"call":{"id":"c2","direction":"inbound","remoteNumber":"+49892222222","state":"offered"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000005,"call":{"id":"c2","direction":"inbound","remoteNumber":"+49892222222","state":"connected"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000060,"call":{"id":"c2","direction":"inbound","remoteNumber":"+49892222222","state":"ended","reason":"hangup"}}
+```
+
+Outbound answered call:
+```json
+{"v":1,"type":"CALL_EVENT","ts":1700000001,"call":{"id":"c3","direction":"outbound","remoteNumber":"+49893333333","state":"dialing"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000005,"call":{"id":"c3","direction":"outbound","remoteNumber":"+49893333333","state":"connected"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000120,"call":{"id":"c3","direction":"outbound","remoteNumber":"+49893333333","state":"ended","reason":"hangup"}}
+```
+
+Outbound no-answer (absence):
+```json
+{"v":1,"type":"CALL_EVENT","ts":1700000001,"call":{"id":"c4","direction":"outbound","remoteNumber":"+49894444444","state":"dialing"}}
+{"v":1,"type":"CALL_EVENT","ts":1700000030,"call":{"id":"c4","direction":"outbound","remoteNumber":"+49894444444","state":"ended","reason":"unknown"}}
+```

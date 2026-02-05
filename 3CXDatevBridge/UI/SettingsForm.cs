@@ -61,6 +61,11 @@ namespace DatevBridge.UI
         // Advanced - Tray
         private CheckBox _chkTrayDoubleClickCallHistory;
 
+        // Telephony Mode
+        private ComboBox _cboTelephonyMode;
+        private NumericUpDown _numWebclientTimeout;
+        private Label _lblActiveMode;
+
         // Popup - Journaling
         private CheckBox _chkJournaling;
 
@@ -84,7 +89,7 @@ namespace DatevBridge.UI
         private void InitializeComponent()
         {
             Text = UIStrings.FormTitles.Overview;
-            Size = new Size(540, 494);
+            Size = new Size(540, 554);
             BackColor = UITheme.FormBackground;
             ForeColor = UITheme.TextPrimary;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -141,6 +146,12 @@ namespace DatevBridge.UI
             advancedCard.Location = new Point(UITheme.SpacingL, 293);
             advancedCard.Size = new Size(492, 130);
             root.Controls.Add(advancedCard);
+
+            // === TELEPHONY MODE ===
+            var telephonyCard = BuildTelephonyModeCard();
+            telephonyCard.Location = new Point(UITheme.SpacingL, 430);
+            telephonyCard.Size = new Size(492, 50);
+            root.Controls.Add(telephonyCard);
 
             // === BUTTONS ===
             var buttonPanel = new Panel
@@ -410,6 +421,72 @@ namespace DatevBridge.UI
             return card;
         }
 
+        // ========== TELEPHONY MODE CARD ==========
+
+        private Panel BuildTelephonyModeCard()
+        {
+            var card = new Panel { BackColor = UITheme.CardBackground };
+            card.Paint += CardBorder_Paint;
+
+            int col1 = UITheme.SpacingL;
+            int col2 = 180;
+            int col3 = 340;
+            int row1 = UITheme.SpacingS;
+
+            // Title
+            card.Controls.Add(new Label
+            {
+                Text = UIStrings.Sections.TelephonyMode,
+                Font = UITheme.FontLabel,
+                ForeColor = UITheme.TextPrimary,
+                AutoSize = true,
+                Location = new Point(col1, row1)
+            });
+
+            // Mode dropdown
+            card.Controls.Add(new Label
+            {
+                Text = UIStrings.SettingsLabels.TelephonyMode,
+                AutoSize = true,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(col2, row1 + 2)
+            });
+
+            _cboTelephonyMode = new ComboBox
+            {
+                Location = new Point(col2 + 100, row1 - 2),
+                Size = new Size(130, 22),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = UITheme.InputBackground,
+                ForeColor = UITheme.TextPrimary,
+                Font = UITheme.FontSmall
+            };
+            _cboTelephonyMode.Items.AddRange(new object[]
+            {
+                UIStrings.SettingsLabels.TelephonyModeAuto,
+                UIStrings.SettingsLabels.TelephonyModeTapi,
+                UIStrings.SettingsLabels.TelephonyModePipe,
+                UIStrings.SettingsLabels.TelephonyModeWebclient
+            });
+            card.Controls.Add(_cboTelephonyMode);
+
+            // Active mode indicator
+            string activeModeName = _bridgeService != null
+                ? TelephonyProviderSelector.GetModeDescription(_bridgeService.SelectedTelephonyMode)
+                : "-";
+            _lblActiveMode = new Label
+            {
+                Text = string.Format(UIStrings.SettingsLabels.ActiveMode, activeModeName),
+                AutoSize = true,
+                ForeColor = UITheme.TextMuted,
+                Font = UITheme.FontSmall,
+                Location = new Point(col1, row1 + 24)
+            };
+            card.Controls.Add(_lblActiveMode);
+
+            return card;
+        }
+
         // ========== HELPERS ==========
 
         private Label CreateBadge(string text, Color backColor)
@@ -644,6 +721,16 @@ namespace DatevBridge.UI
             // Tray double-click - default to Call History
             _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool("TrayDoubleClickCallHistory", true);
 
+            // Telephony Mode
+            var telephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            switch (telephonyMode)
+            {
+                case TelephonyMode.Tapi: _cboTelephonyMode.SelectedIndex = 1; break;
+                case TelephonyMode.Pipe: _cboTelephonyMode.SelectedIndex = 2; break;
+                case TelephonyMode.Webclient: _cboTelephonyMode.SelectedIndex = 3; break;
+                default: _cboTelephonyMode.SelectedIndex = 0; break;
+            }
+
             _isLoadingSettings = false;
         }
 
@@ -724,6 +811,14 @@ namespace DatevBridge.UI
 
             // Tray double-click behavior
             AppConfig.SetBool("TrayDoubleClickCallHistory", _chkTrayDoubleClickCallHistory.Checked);
+
+            // Telephony Mode (requires restart to take effect)
+            string[] modeValues = { "Auto", "Tapi", "Pipe", "Webclient" };
+            int modeIndex = _cboTelephonyMode.SelectedIndex;
+            if (modeIndex >= 0 && modeIndex < modeValues.Length)
+            {
+                AppConfig.Set(ConfigKeys.TelephonyMode, modeValues[modeIndex]);
+            }
 
             // Apply settings live to running service
             _bridgeService?.ApplySettings();

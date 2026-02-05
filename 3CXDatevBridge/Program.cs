@@ -1,11 +1,14 @@
 using System;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DatevBridge.Core;
 using DatevBridge.Core.Config;
 using DatevBridge.Datev.Managers;
 using DatevBridge.Tapi;
 using DatevBridge.UI;
+using DatevBridge.Webclient;
 
 namespace DatevBridge
 {
@@ -21,6 +24,14 @@ namespace DatevBridge
         [STAThread]
         static void Main(string[] args)
         {
+            // Console test mode: --test-webclient
+            // Starts WebclientTelephonyProvider without UI, reads JSON CALL_EVENT from stdin
+            if (args.Length > 0 && args[0] == "--test-webclient")
+            {
+                RunWebclientTestMode(args);
+                return;
+            }
+
             // Check for single instance
             bool createdNew;
             using (var mutex = new Mutex(true, "DatevBridge_SingleInstance", out createdNew))
@@ -88,6 +99,133 @@ namespace DatevBridge
 
                 LogManager.Log("3CX-DATEV Bridge stopped.");
             }
+        }
+
+        /// <summary>
+        /// Console test mode for the Webclient provider.
+        /// Reads JSON CALL_EVENT lines from stdin and logs DATEV notifications that would be emitted.
+        /// Usage: 3CXDatevBridge.exe --test-webclient [extension]
+        /// </summary>
+        private static void RunWebclientTestMode(string[] args)
+        {
+            string extension = args.Length > 1 ? args[1] : "101";
+
+            Console.WriteLine("=== 3CX-DATEV Bridge: Webclient Test Mode ===");
+            Console.WriteLine("Extension: {0}", extension);
+            Console.WriteLine("Reading JSON CALL_EVENT lines from stdin...");
+            Console.WriteLine("(Paste one JSON message per line, Ctrl+C to exit)");
+            Console.WriteLine();
+
+            // Create a minimal webclient provider for event mapping
+            var provider = new WebclientTelephonyProvider(extension);
+            provider.CallStateChanged += (callEvent) =>
+            {
+                string direction = callEvent.IsIncoming ? "INBOUND" : "OUTBOUND";
+                string caller = callEvent.CallerNumber ?? "-";
+                string called = callEvent.CalledNumber ?? "-";
+
+                Console.WriteLine("[TAPI EVENT] {0} | direction={1} | caller={2} | called={3} | callId={4}",
+                    callEvent.CallStateString, direction, caller, called, callEvent.CallId);
+
+                // Log what DATEV notifications would be emitted
+                switch (callEvent.CallState)
+                {
+                    case 0x00000002: // LINECALLSTATE_OFFERING
+                    case 0x00000020: // LINECALLSTATE_RINGBACK
+                        Console.WriteLine("  -> DATEV: NewCall(eCSOffered, {0}, {1})",
+                            callEvent.IsIncoming ? "eDirIncoming" : "eDirOutgoing", caller);
+                        break;
+                    case 0x00000100: // LINECALLSTATE_CONNECTED
+                        Console.WriteLine("  -> DATEV: CallStateChanged(eCSConnected)");
+                        break;
+                    case 0x00004000: // LINECALLSTATE_DISCONNECTED
+                        Console.WriteLine("  -> DATEV: CallStateChanged({0})",
+                            callEvent.CallState == 0x00004000 ? "eCSFinished or eCSAbsence" : "?");
+                        break;
+                }
+                Console.WriteLine();
+            };
+
+            provider.Connected += () => Console.WriteLine("[PROVIDER] Connected");
+            provider.Disconnected += () => Console.WriteLine("[PROVIDER] Disconnected");
+
+            // Read JSON lines from stdin and simulate extension messages
+            string line;
+            while ((line = Console.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+
+                var msg = ExtensionMessage.Parse(line);
+                if (msg == null)
+                {
+                    Console.WriteLine("[ERROR] Failed to parse JSON: {0}", line);
+                    continue;
+                }
+
+                Console.WriteLine("[INPUT] type={0} callId={1} state={2} direction={3} remote={4}",
+                    msg.Type, msg.CallId, msg.State, msg.Direction, msg.RemoteNumber);
+
+                // Simulate the event through the provider
+                if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Fire the internal event handler by simulating a call event
+                    // We use reflection-free approach: directly invoke the mapped handler
+                    SimulateCallEvent(provider, msg);
+                }
+            }
+
+            Console.WriteLine("=== Test mode ended ===");
+        }
+
+        /// <summary>
+        /// Simulate a call event in the provider for test mode.
+        /// This method manually maps the extension message and fires the event.
+        /// </summary>
+        private static void SimulateCallEvent(WebclientTelephonyProvider provider, ExtensionMessage msg)
+        {
+            // Build a TapiCallEvent from the extension message
+            bool isInbound = string.Equals(msg.Direction, Protocol.DirectionInbound, StringComparison.OrdinalIgnoreCase);
+            int tapiState;
+
+            if (string.Equals(msg.State, Protocol.StateOffered, StringComparison.OrdinalIgnoreCase))
+                tapiState = 0x00000002; // LINECALLSTATE_OFFERING
+            else if (string.Equals(msg.State, Protocol.StateDialing, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(msg.State, Protocol.StateRinging, StringComparison.OrdinalIgnoreCase))
+                tapiState = isInbound ? 0x00000002 : 0x00000020; // OFFERING or RINGBACK
+            else if (string.Equals(msg.State, Protocol.StateConnected, StringComparison.OrdinalIgnoreCase))
+                tapiState = 0x00000100; // LINECALLSTATE_CONNECTED
+            else if (string.Equals(msg.State, Protocol.StateEnded, StringComparison.OrdinalIgnoreCase))
+                tapiState = 0x00004000; // LINECALLSTATE_DISCONNECTED
+            else
+            {
+                Console.WriteLine("[WARN] Unknown state: {0}", msg.State);
+                return;
+            }
+
+            var callEvent = new TapiCallEvent
+            {
+                CallHandle = IntPtr.Zero,
+                LineHandle = IntPtr.Zero,
+                CallId = Math.Abs((msg.CallId ?? "test").GetHashCode()),
+                CallState = tapiState,
+                Extension = "101",
+                Origin = isInbound ? 0 : 0x00000004 // INBOUND vs OUTBOUND
+            };
+
+            if (isInbound)
+            {
+                callEvent.CallerNumber = msg.RemoteNumber;
+                callEvent.CallerName = msg.RemoteName;
+            }
+            else
+            {
+                callEvent.CalledNumber = msg.RemoteNumber;
+                callEvent.CalledName = msg.RemoteName;
+            }
+
+            // Use internal event
+            provider.CallStateChanged?.Invoke(callEvent);
         }
 
         /// <summary>
