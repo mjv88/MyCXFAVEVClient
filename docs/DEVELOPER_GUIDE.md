@@ -723,3 +723,242 @@ Outbound no-answer (absence):
 {"v":1,"type":"CALL_EVENT","ts":1700000001,"call":{"id":"c4","direction":"outbound","remoteNumber":"+49894444444","state":"dialing"}}
 {"v":1,"type":"CALL_EVENT","ts":1700000030,"call":{"id":"c4","direction":"outbound","remoteNumber":"+49894444444","state":"ended","reason":"unknown"}}
 ```
+
+---
+
+## 3CX Webclient Protocol Internals
+
+This section documents the internal signaling protocol of the 3CX Webclient, reverse-engineered from `WebClient/Internal.js` (86K lines, beautified). This knowledge is needed to build the browser extension that intercepts call events.
+
+### Transport
+
+The 3CX Webclient communicates with the PBX over a single **WebSocket** connection:
+
+```
+wss://<host>/ws/webclient?sessionId=<key>&pass=<pass>
+```
+
+- Binary mode (`binaryType = "arraybuffer"`)
+- Messages are **Protobuf-encoded** `GenericMessage` objects
+- Each `GenericMessage` has a `MessageId` (uint32) that determines its type
+- 150+ distinct message types (MessageId 1–564)
+
+### Two Parallel Signaling Layers
+
+The 3CX Webclient uses **two independent layers** for call handling:
+
+| Layer | MessageId | Key Structure | Purpose |
+|-------|-----------|---------------|---------|
+| **Call Control** | 201 (`MyExtensionInfo`) | `LocalConnection` | Logical call state, direction, party info |
+| **WebRTC SDP** | 227 (`MyWebRTCEndpoint`) | `WebRTCCall` | Media negotiation (SDP offer/answer/ICE) |
+
+**The browser extension should intercept the Call Control layer (MessageId 201).** It provides everything needed for DATEV integration directly — call direction, remote party number/name, and clean state transitions — without needing to infer from SDP negotiation.
+
+### Call Control Layer: MyExtensionInfo (MessageId 201)
+
+`MyExtensionInfo` is the primary message for the user's own extension state. It is sent by the PBX whenever the user's call state changes.
+
+**Key fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Connections` | `LocalConnection[]` | Active calls on the user's extension |
+| `OtherConnections` | `LocalConnection[]` | Calls visible but on other extensions |
+| `CurrentStatus` | enum | User's presence status |
+| `IsBusy` | bool | Whether the user is on a call |
+| `IsRinging` | bool | Whether the extension is ringing |
+| `MissedCallsCount` | int | Number of missed calls |
+| `MyCalls` | `CallLogEntry[]` | Recent call history |
+
+### LocalConnection — The Key Structure
+
+Each active call is represented as a `LocalConnection`:
+
+```
+LocalConnection {
+  Id:                    int       // Unique connection ID (per-call)
+  CallId:                int       // Correlates with WebRTC layer
+  State:                 enum      // LocalConnectionState (see below)
+  IsIncoming:            bool      // true = inbound, false = outbound
+  OtherPartyDn:          string    // Remote party phone number (DN)
+  OtherPartyDisplayName: string    // Remote party display name
+  OriginatorDn:          string    // Who initiated the call
+  StartedAt:             DateTime  // When the call started (ring)
+  AnsweredAt:            DateTime  // When the call was answered
+  Recording:             bool      // Whether the call is being recorded
+  CallCapabilitiesMask:  int       // Bitmask of allowed actions
+}
+```
+
+### LocalConnectionState Enum
+
+```
+UnknownState        = 0
+Ringing             = 1    // Inbound: extension is ringing
+Dialing             = 2    // Outbound: dialing the remote party
+Connected           = 3    // Call is active (both parties talking)
+WaitingForNewParty  = 4    // Transfer: waiting for transfer target
+TryingToTransfer    = 5    // Transfer: attempting to complete transfer
+```
+
+### ActionType Enum
+
+LocalConnection updates within `MyExtensionInfo` are tagged with an `ActionType`:
+
+```
+NoUpdates  = 0    // No change
+FullUpdate = 1    // Complete snapshot of all connections
+Inserted   = 2    // New call appeared (ring/dial start)
+Updated    = 3    // Existing call changed state
+Deleted    = 4    // Call ended (removed from active list)
+```
+
+### ConnectionCapabilities Bitmask
+
+```
+CC_Drop     = 1    // Can hang up
+CC_Divert   = 2    // Can divert/forward
+CC_Transfer = 4    // Can transfer
+CC_Pickup   = 8    // Can pick up
+CC_BargeIn  = 16   // Can barge in
+```
+
+### Call Lifecycle in LocalConnection
+
+**Inbound call (answered):**
+```
+1. MyExtensionInfo update: LocalConnection Inserted
+     State=Ringing, IsIncoming=true, OtherPartyDn="0891234567"
+2. MyExtensionInfo update: LocalConnection Updated
+     State=Connected, AnsweredAt set
+3. MyExtensionInfo update: LocalConnection Deleted
+     (call ended)
+```
+
+**Outbound call (answered):**
+```
+1. MyExtensionInfo update: LocalConnection Inserted
+     State=Dialing, IsIncoming=false, OtherPartyDn="0897654321"
+2. MyExtensionInfo update: LocalConnection Updated
+     State=Connected, AnsweredAt set
+3. MyExtensionInfo update: LocalConnection Deleted
+     (call ended)
+```
+
+**Inbound call (missed):**
+```
+1. MyExtensionInfo update: LocalConnection Inserted
+     State=Ringing, IsIncoming=true, OtherPartyDn="0891234567"
+2. MyExtensionInfo update: LocalConnection Deleted
+     (caller hung up before answer)
+```
+
+### State Mapping: 3CX Internal → Bridge Protocol → TAPI → DATEV
+
+| 3CX LocalConnectionState | ActionType | Bridge Protocol | TAPI Constant | DATEV |
+|--------------------------|------------|----------------|---------------|-------|
+| Ringing (1) + IsIncoming=true | Inserted | `offered` | LINECALLSTATE_OFFERING (0x02) | NewCall(eCSOffered, eDirIncoming) |
+| Dialing (2) + IsIncoming=false | Inserted | `dialing` | LINECALLSTATE_RINGBACK (0x20) | NewCall(eCSOffered, eDirOutgoing) |
+| Connected (3) | Updated | `connected` | LINECALLSTATE_CONNECTED (0x100) | CallStateChanged(eCSConnected) |
+| *(any)* | Deleted | `ended` | LINECALLSTATE_DISCONNECTED (0x4000) | CallStateChanged(eCSFinished/eCSAbsence) |
+
+### Call Control Commands
+
+The extension can also send commands to the PBX for outbound dialing and call control:
+
+| Command | MessageId | Key Fields |
+|---------|-----------|------------|
+| `RequestMakeCall` | 119 | `Destination` (string), `DeviceID` (string), `EnableCallControl` (bool) |
+| `RequestDropCall` | 115 | `LocalConnectionId` (int), `IsLocal` (bool), `ActionIfRinging` (RejectAction enum) |
+| `RequestPickupCall` | 117 | `LocalConnectionId` (int), `DeviceID` (string), `EnableCallControl` (bool) |
+| `RequestTransferCall` | 118 | `LocalConnectionId` (int), `Destination` (string) |
+
+### RejectAction Enum (for RequestDropCall)
+
+```
+RA_Terminate = 0    // Normal hangup
+RA_Busy      = 1    // Reject with busy signal
+RA_NoAnswer  = 2    // Reject as no-answer
+```
+
+### CallState Enum (from GenericMessage)
+
+A higher-level call state also exists on MyCalls entries:
+
+```
+Unknown      = 0
+Initiating   = 1
+Routing      = 2
+Talking      = 3
+Transferring = 4
+Rerouting    = 5
+```
+
+### WebRTC SDP Layer: MyWebRTCEndpoint (MessageId 227)
+
+This layer handles media negotiation and is NOT needed for call state tracking, but is documented here for completeness.
+
+**WebRTCCall structure:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Action` | enum | SDP action type |
+| `Id` | int | Call ID (correlates with LocalConnection.CallId) |
+| `sdpType` | enum | WebRTCEndpointSDPState |
+| `otherPartyNumber` | string | Remote party number |
+| `otherPartyDisplayname` | string | Remote party name |
+| `SIPDialogID` | string | SIP dialog identifier |
+| `holdState` | enum | WebRTCHoldState |
+
+**WebRTCEndpointSDPState enum:**
+
+```
+WRTCTerminate         = 0    // Call ended
+WRTCOffer             = 1    // SDP offer (inbound)
+WRTCAnswer            = 2    // SDP answer
+WRTCConfirmed         = 3    // Media confirmed
+WRTCRequestForOffer   = 4    // Request SDP offer (outbound)
+WRTCOfferToConfirm    = 5    // Offer awaiting confirmation
+WRTCReOffer           = 6    // Re-negotiate media
+WRTCReOfferAnswer     = 7    // Answer to re-offer
+WRTCReOfferConfirmed  = 8    // Re-offer confirmed
+WRTCReOfferRequested  = 9    // Re-offer requested
+WRTCInitial           = 10   // Initial state
+```
+
+**WebRTCHoldState enum:**
+
+```
+None       = 0    // Not on hold
+Local      = 1    // Locally held
+Remote     = 2    // Remotely held
+Both       = 3    // Both sides held
+```
+
+### Browser Extension Architecture
+
+Based on these findings, the browser extension should:
+
+1. **Intercept the WebSocket** — Hook the `wss://{host}/ws/webclient` connection using a content script or background service worker that wraps `WebSocket.prototype.send` and the `onmessage` handler
+2. **Decode Protobuf** — Parse `GenericMessage` binary frames to extract `MessageId` and payload
+3. **Filter for MessageId 201** — Only process `MyExtensionInfo` updates
+4. **Track LocalConnection changes** — Watch the `ActionType` on each connection:
+   - `Inserted (2)` → new call, emit `CALL_EVENT` with state `offered` (inbound) or `dialing` (outbound)
+   - `Updated (3)` + State=Connected → emit `CALL_EVENT` with state `connected`
+   - `Deleted (4)` → call ended, emit `CALL_EVENT` with state `ended`
+5. **Relay via Native Messaging** — Send our JSON protocol to the bridge EXE through the Chrome/Edge Native Messaging channel
+6. **Receive commands** — Listen for DIAL/DROP commands from the bridge and construct the corresponding `RequestMakeCall` (MessageId 119) / `RequestDropCall` (MessageId 115) protobuf messages to inject into the WebSocket
+
+### Key Insight: Why LocalConnection Over WebRTC SDP
+
+| Criterion | LocalConnection (MessageId 201) | WebRTC SDP (MessageId 227) |
+|-----------|--------------------------------|---------------------------|
+| Call direction | `IsIncoming` boolean | Must infer from WRTCOffer vs WRTCRequestForOffer |
+| Remote party number | `OtherPartyDn` field | `otherPartyNumber` field (available but less reliable) |
+| Remote party name | `OtherPartyDisplayName` field | `otherPartyDisplayname` field |
+| State clarity | Clean enum: Ringing, Dialing, Connected | 11-value SDP state enum requires complex mapping |
+| Call timing | `StartedAt`, `AnsweredAt` | Not available directly |
+| Call end detection | `Deleted` action type | WRTCTerminate (can fire for re-negotiations too) |
+| Transfer support | WaitingForNewParty, TryingToTransfer | Not visible |
+
+The LocalConnection layer is strictly superior for our use case.
