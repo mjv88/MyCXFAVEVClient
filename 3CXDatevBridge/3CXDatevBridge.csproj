@@ -87,6 +87,10 @@
     <Compile Include="Core\Exceptions\TapiException.cs" />
     <Compile Include="Core\Exceptions\DatevException.cs" />
 
+    <!-- Core - Telephony Mode -->
+    <Compile Include="Core\TelephonyMode.cs" />
+    <Compile Include="Core\TelephonyProviderSelector.cs" />
+
     <!-- TAPI -->
     <Compile Include="Tapi\ITelephonyProvider.cs" />
     <Compile Include="Tapi\TapiLineMonitor.cs" />
@@ -96,6 +100,11 @@
     <Compile Include="Tapi\TapiCommands.cs" />
     <Compile Include="Tapi\TapiCallState.cs" />
     <Compile Include="Tapi\TapiConfigReader.cs" />
+
+    <!-- Webclient (Browser Extension) -->
+    <Compile Include="Webclient\Protocol.cs" />
+    <Compile Include="Webclient\NativeMessagingHost.cs" />
+    <Compile Include="Webclient\WebclientTelephonyProvider.cs" />
     
     <!-- DATEV COMs -->
     <Compile Include="Datev\COMs\CallData.cs" />

@@ -300,9 +300,13 @@ namespace DatevBridge.UI
                 case BridgeStatus.Connected:
                     if (statusChanged)
                     {
-                        string connMsg = SessionManager.IsTerminalSession
-                            ? string.Format(UIStrings.Notifications.PipeConnected, _bridgeService.Extension)
-                            : string.Format(UIStrings.Notifications.TapiConnected, _bridgeService.Extension);
+                        string connMsg;
+                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.Webclient)
+                            connMsg = string.Format(UIStrings.Notifications.WebclientConnected, _bridgeService.Extension);
+                        else if (SessionManager.IsTerminalSession)
+                            connMsg = string.Format(UIStrings.Notifications.PipeConnected, _bridgeService.Extension);
+                        else
+                            connMsg = string.Format(UIStrings.Notifications.TapiConnected, _bridgeService.Extension);
                         ShowBalloon(UIStrings.Status.Connected, connMsg, ToolTipIcon.Info);
                     }
                     break;
@@ -317,9 +321,13 @@ namespace DatevBridge.UI
                 case BridgeStatus.Disconnected:
                     if (statusChanged)
                     {
-                        string discMsg = SessionManager.IsTerminalSession
-                            ? UIStrings.Notifications.PipeDisconnected
-                            : UIStrings.Notifications.TapiDisconnected;
+                        string discMsg;
+                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.Webclient)
+                            discMsg = UIStrings.Notifications.WebclientDisconnected;
+                        else if (SessionManager.IsTerminalSession)
+                            discMsg = UIStrings.Notifications.PipeDisconnected;
+                        else
+                            discMsg = UIStrings.Notifications.TapiDisconnected;
                         ShowBalloon(UIStrings.Status.Disconnected, discMsg, ToolTipIcon.Warning);
                     }
                     break;
