@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using DatevBridge.Core;
+using DatevBridge.Core.Config;
 using DatevBridge.Datev;
 using DatevBridge.Datev.Managers;
 using DatevBridge.UI.Strings;
@@ -16,7 +17,7 @@ namespace DatevBridge.UI
     /// </summary>
     public class SetupWizardForm : Form
     {
-        private const int TOTAL_STEPS = 4;
+        private const int TOTAL_STEPS = 5;
 
         private int _currentStep = 1;
         private readonly Panel _contentPanel;
@@ -25,15 +26,21 @@ namespace DatevBridge.UI
         private readonly Button _btnNext;
         private readonly BridgeService _bridgeService;
 
-        // Step 2: TAPI
+        // Step 2: Mode Selection
+        private RadioButton _rbModeAuto;
+        private RadioButton _rbModeTapi;
+        private RadioButton _rbModePipe;
+        private RadioButton _rbModeWebclient;
+
+        // Step 3: TAPI / Pipe / Webclient config
         private ComboBox _cboTapiLine;
         private Label _lblTapiStatus;
 
-        // Step 3: DATEV
+        // Step 4: DATEV
         private Label _lblDatevStatus;
         private bool _datevOk;
 
-        // Step 4: Finish
+        // Step 5: Finish
         private CheckBox _chkAutoStart;
 
         public SetupWizardForm(BridgeService bridgeService = null)
@@ -118,12 +125,15 @@ namespace DatevBridge.UI
                     ShowWelcomePage();
                     break;
                 case 2:
-                    ShowTapiPage();
+                    ShowModeSelectionPage();
                     break;
                 case 3:
-                    ShowDatevPage();
+                    ShowProviderConfigPage();
                     break;
                 case 4:
+                    ShowDatevPage();
+                    break;
+                case 5:
                     ShowFinishPage();
                     break;
             }
@@ -157,9 +167,10 @@ namespace DatevBridge.UI
             _contentPanel.Controls.Add(lblWelcome);
             y += 70;
 
-            // Feature list (adapts to Desktop vs Terminal Server)
+            // Feature list
             var features = new[]
             {
+                UIStrings.Wizard.ModeSelectionDesc,
                 SessionManager.IsTerminalSession ? UIStrings.Wizard.FeaturePipe : UIStrings.Wizard.FeatureTapi,
                 UIStrings.Wizard.FeatureDatev,
                 UIStrings.Wizard.FeatureAutostart
@@ -180,7 +191,149 @@ namespace DatevBridge.UI
             }
         }
 
-        // ========== STEP 2: TAPI / PIPE ==========
+        // ========== STEP 2: MODE SELECTION ==========
+
+        private void ShowModeSelectionPage()
+        {
+            int y = LayoutConstants.SpaceLG;
+
+            var lblTitle = new Label
+            {
+                Text = UIStrings.Wizard.ModeSelectionTitle,
+                Font = UITheme.FontLarge,
+                ForeColor = UITheme.AccentIncoming,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblTitle);
+            y += 35;
+
+            var lblDesc = new Label
+            {
+                Text = UIStrings.Wizard.ModeSelectionDesc,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblDesc);
+            y += 30;
+
+            // Radio buttons for each mode
+            _rbModeAuto = new RadioButton
+            {
+                Text = UIStrings.Wizard.ModeOptionAuto,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG + 8, y),
+                AutoSize = true,
+                Checked = true
+            };
+            _contentPanel.Controls.Add(_rbModeAuto);
+            y += 28;
+
+            _rbModeTapi = new RadioButton
+            {
+                Text = UIStrings.Wizard.ModeOptionTapi,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG + 8, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(_rbModeTapi);
+            y += 28;
+
+            _rbModePipe = new RadioButton
+            {
+                Text = UIStrings.Wizard.ModeOptionPipe,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG + 8, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(_rbModePipe);
+            y += 28;
+
+            _rbModeWebclient = new RadioButton
+            {
+                Text = UIStrings.Wizard.ModeOptionWebclient,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG + 8, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(_rbModeWebclient);
+            y += 35;
+
+            // Copy diagnostics button
+            string diagnostics = _bridgeService?.DetectionDiagnostics;
+            if (!string.IsNullOrEmpty(diagnostics))
+            {
+                var btnCopyDiag = UITheme.CreateSecondaryButton(UIStrings.Wizard.CopyDiagnostics, 160);
+                btnCopyDiag.Location = new Point(LayoutConstants.SpaceLG, y);
+                btnCopyDiag.Click += (s, e) =>
+                {
+                    try
+                    {
+                        Clipboard.SetText(diagnostics);
+                        ((Button)s).Text = UIStrings.Wizard.DiagnosticsCopied;
+                    }
+                    catch { }
+                };
+                _contentPanel.Controls.Add(btnCopyDiag);
+            }
+
+            // Pre-select based on current config
+            var currentMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            switch (currentMode)
+            {
+                case TelephonyMode.Tapi: _rbModeTapi.Checked = true; break;
+                case TelephonyMode.Pipe: _rbModePipe.Checked = true; break;
+                case TelephonyMode.Webclient: _rbModeWebclient.Checked = true; break;
+                default: _rbModeAuto.Checked = true; break;
+            }
+        }
+
+        private TelephonyMode GetSelectedMode()
+        {
+            if (_rbModeTapi != null && _rbModeTapi.Checked) return TelephonyMode.Tapi;
+            if (_rbModePipe != null && _rbModePipe.Checked) return TelephonyMode.Pipe;
+            if (_rbModeWebclient != null && _rbModeWebclient.Checked) return TelephonyMode.Webclient;
+            return TelephonyMode.Auto;
+        }
+
+        // ========== STEP 3: PROVIDER CONFIG (TAPI / PIPE / WEBCLIENT) ==========
+
+        private void ShowProviderConfigPage()
+        {
+            var selectedMode = GetSelectedMode();
+
+            // If Auto, show the appropriate page based on environment
+            if (selectedMode == TelephonyMode.Auto)
+            {
+                if (SessionManager.IsTerminalSession)
+                    ShowPipePage();
+                else
+                    ShowTapiPage();
+                return;
+            }
+
+            switch (selectedMode)
+            {
+                case TelephonyMode.Webclient:
+                    ShowWebclientPage();
+                    break;
+                case TelephonyMode.Pipe:
+                    ShowPipePage();
+                    break;
+                case TelephonyMode.Tapi:
+                default:
+                    ShowTapiPage();
+                    break;
+            }
+        }
+
+        // ========== TAPI / PIPE CONFIG ==========
 
         private void ShowTapiPage()
         {
@@ -334,6 +487,71 @@ namespace DatevBridge.UI
                 lblSoftphone.ForeColor = UITheme.StatusBad;
             }
             _contentPanel.Controls.Add(lblSoftphone);
+        }
+
+        // ========== WEBCLIENT CONFIG ==========
+
+        private void ShowWebclientPage()
+        {
+            int y = LayoutConstants.SpaceLG;
+
+            var lblTitle = new Label
+            {
+                Text = UIStrings.Wizard.WebclientConfig,
+                Font = UITheme.FontLarge,
+                ForeColor = UITheme.AccentIncoming,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblTitle);
+            y += 35;
+
+            // Description
+            var lblDesc = new Label
+            {
+                Text = UIStrings.Wizard.WebclientDesc,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 40)
+            };
+            _contentPanel.Controls.Add(lblDesc);
+            y += 48;
+
+            // Install steps
+            var lblSteps = new Label
+            {
+                Text = UIStrings.Wizard.WebclientInstallSteps,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 90)
+            };
+            _contentPanel.Controls.Add(lblSteps);
+            y += 95;
+
+            // Connection status
+            bool webclientConnected = _bridgeService?.TapiConnected ?? false;
+            var selectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+
+            _lblTapiStatus = new Label
+            {
+                Font = UITheme.FontBody,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
+            };
+
+            if (selectedMode == TelephonyMode.Webclient && webclientConnected)
+            {
+                _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
+                _lblTapiStatus.ForeColor = UITheme.StatusOk;
+            }
+            else
+            {
+                _lblTapiStatus.Text = UIStrings.Wizard.WebclientWaiting;
+                _lblTapiStatus.ForeColor = UITheme.StatusWarn;
+            }
+            _contentPanel.Controls.Add(_lblTapiStatus);
         }
 
         private void LoadTapiLines()
@@ -493,23 +711,29 @@ namespace DatevBridge.UI
         {
             var lines = new System.Text.StringBuilder();
 
-            // 3CX connection status (TAPI or Pipe depending on mode)
-            if (SessionManager.IsTerminalSession)
+            // Telephony mode
+            var selectedMode = GetSelectedMode();
+            lines.AppendLine(string.Format("Modus: {0}", TelephonyProviderSelector.GetModeDescription(selectedMode)));
+
+            // 3CX connection status
+            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            bool connected = _bridgeService?.TapiConnected ?? false;
+
+            switch (activeMode)
             {
-                bool pipeOk = _bridgeService?.TapiConnected ?? false;
-                lines.AppendLine($"3CX Pipe: {(pipeOk ? UIStrings.Status.Connected : UIStrings.Status.NotConnected)}");
-            }
-            else
-            {
-                var tapiLines = _bridgeService?.TapiLines;
-                if (tapiLines != null && tapiLines.Count > 0)
-                {
-                    lines.AppendLine(string.Format(UIStrings.Wizard.SummaryTapiConnected, tapiLines.Count));
-                }
-                else
-                {
-                    lines.AppendLine($"3CX TAPI: {UIStrings.Status.NotConnected}");
-                }
+                case TelephonyMode.Webclient:
+                    lines.AppendLine(string.Format("Webclient: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
+                    break;
+                case TelephonyMode.Pipe:
+                    lines.AppendLine(string.Format("3CX Pipe: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
+                    break;
+                default:
+                    var tapiLines = _bridgeService?.TapiLines;
+                    if (tapiLines != null && tapiLines.Count > 0)
+                        lines.AppendLine(string.Format(UIStrings.Wizard.SummaryTapiConnected, tapiLines.Count));
+                    else
+                        lines.AppendLine(string.Format("3CX TAPI: {0}", UIStrings.Status.NotConnected));
+                    break;
             }
 
             // DATEV status
@@ -520,7 +744,7 @@ namespace DatevBridge.UI
             }
             else
             {
-                lines.AppendLine($"DATEV: {UIStrings.Status.NotConnected}");
+                lines.AppendLine(string.Format("DATEV: {0}", UIStrings.Status.NotConnected));
             }
 
             return lines.ToString();
@@ -558,6 +782,11 @@ namespace DatevBridge.UI
                 {
                     SetAutoStart(_chkAutoStart.Checked);
                 }
+
+                // Save selected telephony mode
+                var mode = GetSelectedMode();
+                AppConfig.Set(ConfigKeys.TelephonyMode, mode.ToString());
+                LogManager.Log("SetupWizard: TelephonyMode set to {0}", mode);
 
                 LogManager.Log("SetupWizard: Configuration completed");
             }
