@@ -63,7 +63,6 @@ namespace DatevBridge.UI
 
         // Telephony Mode
         private ComboBox _cboTelephonyMode;
-        private NumericUpDown _numWebclientTimeout;
         private Label _lblActiveMode;
 
         // Popup - Journaling
@@ -430,7 +429,6 @@ namespace DatevBridge.UI
 
             int col1 = UITheme.SpacingL;
             int col2 = 180;
-            int col3 = 340;
             int row1 = UITheme.SpacingS;
 
             // Title
