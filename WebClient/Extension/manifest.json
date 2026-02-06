@@ -31,7 +31,7 @@
   "web_accessible_resources": [
     {
       "resources": ["scripts/page-hook.js"],
-      "matches": ["https://*/"]
+      "matches": ["https://*/*"]
     }
   ],
   "action": {
