@@ -30,17 +30,19 @@
     console.log("[3CX-DATEV][content]", ...args);
   };
 
-  chrome.storage.local.get(["debugLogging"]).then((cfg) => {
-    debugLogging = !!cfg.debugLogging;
-  }).catch(() => {
-    // ignore
-  });
+  try {
+    chrome.storage.local.get(["debugLogging"]).then((cfg) => {
+      debugLogging = !!cfg.debugLogging;
+    }).catch(() => {});
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes.debugLogging) {
-      debugLogging = !!changes.debugLogging.newValue;
-    }
-  });
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && changes.debugLogging) {
+        debugLogging = !!changes.debugLogging.newValue;
+      }
+    });
+  } catch {
+    // Extension context already invalidated at load time
+  }
 
   function injectPageHook(reason) {
     const script = document.createElement("script");
@@ -68,6 +70,24 @@
     injectPageHook(reason);
   }
 
+  // Guard against stale content scripts after extension reload/update.
+  // Once the context is invalidated, all chrome.runtime calls will throw.
+  let contextInvalidated = false;
+
+  function safeSendMessage(msg) {
+    if (contextInvalidated) return;
+    try {
+      chrome.runtime.sendMessage(msg);
+    } catch (err) {
+      if (String(err).includes("Extension context invalidated")) {
+        contextInvalidated = true;
+        logDebug("Extension context invalidated — content script is stale, stopping");
+      } else {
+        console.warn("[3CX-DATEV][content] sendMessage failed", err);
+      }
+    }
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) {
       return;
@@ -80,7 +100,7 @@
 
     logDebug("Page hook signal", msg.payload?.kind || "(unknown)");
 
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: "3CX_RAW_SIGNAL",
       payload: msg.payload
     });
