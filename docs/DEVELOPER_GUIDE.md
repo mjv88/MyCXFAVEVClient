@@ -626,6 +626,30 @@ Sent for each call state change.
 | `Webclient/NativeMessagingHost.cs` | Read/write loop for Native Messaging streams |
 | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider implementation |
 
+### Browser Extension Starter
+
+A practical MV3 starter skeleton for interception/forwarding is included in:
+
+- `WebClient/Extension/manifest.json`
+- `WebClient/Extension/scripts/content.js`
+- `WebClient/Extension/scripts/page-hook.js`
+- `WebClient/Extension/scripts/background.js`
+- `WebClient/Extension/native-host/com.mjv88.datevbridge.json`
+
+The skeleton already performs:
+
+- WebSocket interception (`/ws/webclient`) from the page context
+- Native Messaging connection (`com.mjv88.datevbridge`)
+- Protocol-compliant `HELLO` / `CALL_EVENT` emission (v1)
+- Automatic extension-number detection from `MyExtensionInfo.Number` (MessageId 201), with optional manual override via `chrome.storage.local.extensionNumber`
+
+`background.js` includes a protobuf decoder for `GenericMessage` and `MyExtensionInfo`
+(MessageId 201) that extracts normalized `LocalConnection` updates for DATEV forwarding.
+
+If 3CX changes protobuf field numbers in future builds, adjust parser mappings in
+`WebClient/Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
+`parseLocalConnection`).
+
 ### RDS / Terminal Server
 
 - The Named Pipe name includes the Windows session ID: `3CX_DATEV_Webclient_{extension}_{sessionId}`
