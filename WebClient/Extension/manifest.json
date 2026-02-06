@@ -28,6 +28,12 @@
       "run_at": "document_start"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["scripts/page-hook.js"],
+      "matches": ["https://*/"]
+    }
+  ],
   "action": {
     "default_title": "3CX DATEV Bridge Connector"
   }
