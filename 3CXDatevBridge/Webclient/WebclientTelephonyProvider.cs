@@ -518,7 +518,7 @@ namespace DatevBridge.Webclient
         private string GetPipeName()
         {
             int sessionId = SessionManager.SessionId;
-            return string.Format("3CX_DATEV_Webclient_{0}_{1}", _extension, sessionId);
+            return string.Format("3CX_DATEV_Webclient_{0}", sessionId);
         }
 
         private static NamedPipeServerStream CreatePipeServer(string pipeName)
