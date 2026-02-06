@@ -1,11 +1,16 @@
 const NATIVE_HOST_NAME = "com.mjv88.datevbridge";
 const PROTOCOL_VERSION = 1;
+const NATIVE_HOST_RETRY_DELAY_MS = 30_000;
+const NATIVE_HOST_MISSING_REGEX = /native( messaging)? host not found/i;
 
 let nativePort = null;
 let helloSent = false;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
+let nativeHostUnavailableUntil = 0;
+let nativeHostUnavailableReason = "";
+let nativeHostMissingLogged = false;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
@@ -26,13 +31,32 @@ function resolveExtensionNumber() {
   return configuredExtension || detectedExtension || "";
 }
 
+function isNativeHostMissing(message = "") {
+  return NATIVE_HOST_MISSING_REGEX.test(String(message));
+}
+
 function connectNativeHost() {
   if (nativePort) {
     return nativePort;
   }
 
+  if (nativeHostUnavailableUntil && Date.now() < nativeHostUnavailableUntil) {
+    logDebug("Native host connection skipped (backoff)", {
+      until: nativeHostUnavailableUntil,
+      reason: nativeHostUnavailableReason
+    });
+    return null;
+  }
+
   logDebug("Connecting native host", NATIVE_HOST_NAME);
-  nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+  try {
+    nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+  } catch (err) {
+    nativeHostUnavailableReason = err?.message || String(err);
+    nativeHostUnavailableUntil = Date.now() + NATIVE_HOST_RETRY_DELAY_MS;
+    console.warn("[3CX-DATEV][bg] Native host connect failed", nativeHostUnavailableReason);
+    return null;
+  }
 
   nativePort.onMessage.addListener((msg) => {
     logDebug("Native -> extension", msg);
@@ -40,7 +64,25 @@ function connectNativeHost() {
 
   nativePort.onDisconnect.addListener(() => {
     const err = chrome.runtime.lastError?.message || "";
-    console.warn("[3CX-DATEV][bg] Native host disconnected", err);
+    if (isNativeHostMissing(err)) {
+      if (!nativeHostMissingLogged) {
+        if (debugLogging) {
+          console.warn(
+            "[3CX-DATEV][bg] Native host missing. Install/register native host:",
+            NATIVE_HOST_NAME
+          );
+        } else {
+          logDebug("Native host missing. Install/register native host:", NATIVE_HOST_NAME);
+        }
+        nativeHostMissingLogged = true;
+      }
+    } else {
+      console.warn("[3CX-DATEV][bg] Native host disconnected", err);
+    }
+    if (err) {
+      nativeHostUnavailableReason = err;
+      nativeHostUnavailableUntil = Date.now() + NATIVE_HOST_RETRY_DELAY_MS;
+    }
     nativePort = null;
     helloSent = false;
   });
@@ -51,6 +93,9 @@ function connectNativeHost() {
 function sendNative(message) {
   try {
     const port = connectNativeHost();
+    if (!port) {
+      return false;
+    }
     port.postMessage(message);
     logDebug("Extension -> native", message);
     return true;
