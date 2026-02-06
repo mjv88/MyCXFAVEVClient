@@ -6,6 +6,7 @@ let helloSent = false;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
+let helloBootstrapTimer = null;
 
 const calls = new Map();
 
@@ -76,14 +77,26 @@ function ensureHello(sourceTabId = "") {
 function scheduleHelloBootstrap(delayMs = 250) {
   if (helloSent) return;
 
-  if (typeof globalThis.setTimeout === "function") {
-    globalThis.setTimeout(() => {
+  if (helloBootstrapTimer) {
+    clearTimeout(helloBootstrapTimer);
+    helloBootstrapTimer = null;
+  }
+
+  const triggerHelloBootstrap = () => {
+    helloBootstrapTimer = null;
+    try {
       ensureHello("bootstrap");
-    }, Math.max(0, delayMs));
+    } catch (err) {
+      console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
+    }
+  };
+
+  if (typeof globalThis.setTimeout === "function") {
+    helloBootstrapTimer = globalThis.setTimeout(triggerHelloBootstrap, Math.max(0, delayMs));
     return;
   }
 
-  ensureHello("bootstrap");
+  triggerHelloBootstrap();
 }
 
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {

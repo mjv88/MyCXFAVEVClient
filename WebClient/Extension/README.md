@@ -49,7 +49,7 @@ Normalized shape handled by the mapper:
 
 ## Tab vs PWA behavior
 
-- The extension is injected by URL match (`https://*/webclient/*`), so it works for both normal browser tabs and installed 3CX PWA windows.
+- The extension is injected by URL match for both `https://*/webclient/*` and root `https://*/` pages, then gated by runtime checks (`/webclient` path/hash or `/#/people` hash route). This keeps PWA/hash-routed WebClient variants working.
 - In both cases, the service worker receives a `sender.tab.id`; this value is forwarded into `CALL_EVENT.context.tabId` for traceability.
 - No manual allocation is required: whichever WebClient page is active and producing websocket frames is processed automatically.
 

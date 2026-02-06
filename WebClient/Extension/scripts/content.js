@@ -5,7 +5,13 @@
   const isLikelyWebClientPage = () => {
     const path = window.location.pathname || "";
     const hash = window.location.hash || "";
-    return path.startsWith("/webclient") || hash.includes("/webclient");
+
+    // Support both path-based (/webclient/*) and hash-routed PWA variants (/#/people, /#/webclient).
+    if (path.startsWith("/webclient")) return true;
+    if (hash.includes("/webclient")) return true;
+    if (path === "/" && hash.startsWith("#/people")) return true;
+
+    return false;
   };
 
   if (!isLikelyWebClientPage()) {

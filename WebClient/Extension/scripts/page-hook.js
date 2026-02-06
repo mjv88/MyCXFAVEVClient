@@ -119,6 +119,6 @@
 
   post({
     kind: "HOOK_READY",
-    note: "WebSocket hook active. Implement protobuf decode for MessageId=201 in background worker."
+    note: "WebSocket hook active. Protobuf MessageId=201 decoding is handled in background worker."
   });
 })();
