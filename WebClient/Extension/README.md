@@ -104,6 +104,8 @@ chrome.storage.local.set({ extensionNumber: "101" })
    - `NativeMessagingHost: CALL_EVENT ...`
    - `WebclientTelephonyProvider: ... (mapped from ...)`
 
+> Note: The extension now sends `HELLO` proactively (startup/raw-signal bootstrap), so Webclient auto-detection can succeed even when no active call is running yet.
+
 If no events arrive, most often `allowed_origins` or native host registry path is wrong.
 
 
