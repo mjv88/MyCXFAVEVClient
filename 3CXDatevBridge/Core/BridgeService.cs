@@ -51,6 +51,7 @@ namespace DatevBridge.Core
 
         // Telephony mode selection
         private volatile TelephonyMode _selectedMode = TelephonyMode.Auto;
+        private TelephonyMode _configuredTelephonyMode = TelephonyMode.Auto;
         private string _detectionDiagnostics;
 
         /// <summary>
@@ -195,8 +196,8 @@ namespace DatevBridge.Core
             LogManager.Log("========================================");
             SessionManager.LogSessionInfo();
 
-            var configuredMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-            LogManager.Log("TelephonyMode: {0} (configured)", configuredMode);
+            _configuredTelephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            LogManager.Log("TelephonyMode: {0} (configured)", _configuredTelephonyMode);
             LogManager.Log("Extension: {0}", _extension);
 
             // ── Step 2: Provider selection / auto-detection ──────────────
@@ -415,6 +416,40 @@ namespace DatevBridge.Core
             {
                 try
                 {
+                    var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+                    if (configuredModeNow != _configuredTelephonyMode)
+                    {
+                        LogManager.Log("TelephonyMode config changed during runtime: {0} -> {1}",
+                            _configuredTelephonyMode, configuredModeNow);
+                        _configuredTelephonyMode = configuredModeNow;
+                    }
+
+                    if (_configuredTelephonyMode == TelephonyMode.Auto)
+                    {
+                        var autoSelection = await TelephonyProviderSelector.SelectProviderAsync(_extension, cancellationToken);
+                        if (autoSelection.Success)
+                        {
+                            if (_selectedMode != autoSelection.SelectedMode)
+                            {
+                                LogManager.Log("Auto mode selected telephony provider for reconnect cycle: {0} -> {1} (reason: {2})",
+                                    _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
+                            }
+                            _selectedMode = autoSelection.SelectedMode;
+                            _detectionDiagnostics = autoSelection.DiagnosticSummary;
+                        }
+                        else
+                        {
+                            LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
+                            Status = BridgeStatus.Disconnected;
+                            await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        _selectedMode = _configuredTelephonyMode;
+                    }
+
                     Status = BridgeStatus.Connecting;
 
                     _tapiMonitor?.Dispose();
@@ -454,7 +489,7 @@ namespace DatevBridge.Core
                     _tapiMonitor.Disconnected += () =>
                     {
                         Status = BridgeStatus.Disconnected;
-                        LogManager.Log("TAPI line monitor disconnected (all lines)");
+                        LogManager.Log("Telephony provider disconnected (all lines)");
                     };
 
                     // StartAsync blocks until cancelled or line closed
@@ -466,12 +501,12 @@ namespace DatevBridge.Core
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("TAPI connection failed: {0}", ex.Message);
+                    LogManager.Log("Telephony provider connection failed: {0}", ex.Message);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    LogManager.Log("Reconnecting TAPI in {0} seconds...", reconnectInterval);
+                    LogManager.Log("Reconnecting telephony provider in {0} seconds...", reconnectInterval);
                     await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                 }
             }
