@@ -8,7 +8,6 @@ This folder contains a **practical starter implementation** for capturing 3CX We
 - Forwards raw signals to the extension service worker.
 - Opens a Native Messaging channel to `com.mjv88.datevbridge`.
 - Sends protocol-compatible `HELLO` and `CALL_EVENT` JSON messages.
-- Sends an eager `HELLO` bootstrap so the bridge can detect the extension even before the first call starts.
 - Implements state mapping from normalized `LocalConnection` snapshots to bridge states:
   - `Ringing + inbound` -> `offered`
   - `Dialing` -> `dialing`
