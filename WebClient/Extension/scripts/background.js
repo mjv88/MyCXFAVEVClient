@@ -112,7 +112,16 @@ function ensureHello(sourceTabId = "") {
   });
 
   helloSent = sent;
-  logDebug("HELLO sent", { sent, sourceTabId, extension: resolveExtensionNumber() });
+  if (sent) {
+    logDebug("HELLO sent", { sourceTabId, extension: resolveExtensionNumber() });
+  } else {
+    logDebug("HELLO skipped (native host unavailable)", {
+      sourceTabId,
+      extension: resolveExtensionNumber(),
+      retryAfter: nativeHostUnavailableUntil || null,
+      reason: nativeHostUnavailableReason || ""
+    });
+  }
 }
 
 function scheduleHelloBootstrap(delayMs = 250) {
