@@ -37,7 +37,7 @@ namespace DatevBridge.Webclient
         // Sentinel handle for the virtual line
         private static readonly IntPtr WebclientConnectedHandle = new IntPtr(-3);
 
-        private readonly string _extension;
+        private string _extension;
         private readonly int _connectTimeoutSec;
         private volatile bool _disposed;
         private volatile bool _connected;
@@ -137,6 +137,15 @@ namespace DatevBridge.Webclient
                     {
                         _connected = true;
                         _virtualLine.Handle = WebclientConnectedHandle;
+
+                        // Adopt extension from browser if bridge was started without one
+                        if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
+                        {
+                            _extension = ext;
+                            _virtualLine.Extension = ext;
+                            _virtualLine.LineName = "3CX Webclient: " + ext;
+                            LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
+                        }
 
                         // Send HELLO_ACK
                         _host.SendHelloAck("1.0", _extension);
@@ -248,6 +257,16 @@ namespace DatevBridge.Webclient
                     {
                         _connected = true;
                         _virtualLine.Handle = WebclientConnectedHandle;
+
+                        // Adopt extension from browser if bridge was started without one
+                        if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
+                        {
+                            _extension = ext;
+                            _virtualLine.Extension = ext;
+                            _virtualLine.LineName = "3CX Webclient: " + ext;
+                            LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
+                        }
+
                         _host.SendHelloAck("1.0", _extension);
                         helloTcs.TrySetResult(true);
                     };
