@@ -124,20 +124,20 @@ namespace DatevBridge.Core
 
         // ===== Explicit Mode: Webclient =====
 
-        private static async Task<ProviderSelectionResult> SelectExplicit_WebclientAsync(
+        private static Task<ProviderSelectionResult> SelectExplicit_WebclientAsync(
             string extension, CancellationToken cancellationToken, Action<string> progressText)
         {
             progressText?.Invoke("Modus: Webclient (explizit konfiguriert)");
             LogManager.Log("TelephonyProviderSelector: Explicit Webclient mode");
 
             var provider = new WebclientTelephonyProvider(extension);
-            return new ProviderSelectionResult
+            return Task.FromResult(new ProviderSelectionResult
             {
                 Provider = provider,
                 SelectedMode = TelephonyMode.Webclient,
                 Reason = "TelephonyMode explicitly set to Webclient",
                 DiagnosticSummary = "Mode: Webclient (configured)"
-            };
+            });
         }
 
         // ===== Auto Detection =====
