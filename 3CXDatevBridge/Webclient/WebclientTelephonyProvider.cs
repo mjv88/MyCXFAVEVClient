@@ -41,7 +41,6 @@ namespace DatevBridge.Webclient
         private readonly int _connectTimeoutSec;
         private volatile bool _disposed;
         private volatile bool _connected;
-        private int _nextCallId = 1000;
 
         // Virtual line representing the webclient connection
         private TapiLineInfo _virtualLine;
