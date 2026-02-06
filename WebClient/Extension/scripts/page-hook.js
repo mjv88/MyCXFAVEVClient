@@ -21,7 +21,7 @@
   };
 
   const NativeWebSocket = window.WebSocket;
-  const patchedWebSocket = function patchedWebSocket(url, protocols) {
+  window.WebSocket = function patchedWebSocket(url, protocols) {
     const socket = protocols ? new NativeWebSocket(url, protocols) : new NativeWebSocket(url);
 
     const is3cxWebclientSocket = typeof url === "string" && url.includes("/ws/webclient");
@@ -89,36 +89,10 @@
 
     return socket;
   };
-
-  patchedWebSocket.prototype = NativeWebSocket.prototype;
-
-  // Preserve constructor + static members so page checks like
-  // `readyState === WebSocket.OPEN` keep working.
-  try {
-    Object.setPrototypeOf(patchedWebSocket, NativeWebSocket);
-  } catch {
-    // best effort only
-  }
-
-  ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach((name) => {
-    try {
-      if (Object.prototype.hasOwnProperty.call(NativeWebSocket, name)) {
-        Object.defineProperty(patchedWebSocket, name, {
-          value: NativeWebSocket[name],
-          enumerable: true,
-          configurable: true,
-          writable: false
-        });
-      }
-    } catch {
-      // best effort only
-    }
-  });
-
-  window.WebSocket = patchedWebSocket;
+  window.WebSocket.prototype = NativeWebSocket.prototype;
 
   post({
     kind: "HOOK_READY",
-    note: "WebSocket hook active. Protobuf MessageId=201 decoding is handled in background worker."
+    note: "WebSocket hook active. Implement protobuf decode for MessageId=201 in background worker."
   });
 })();

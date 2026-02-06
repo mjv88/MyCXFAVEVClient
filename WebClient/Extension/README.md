@@ -8,7 +8,6 @@ This folder contains a **practical starter implementation** for capturing 3CX We
 - Forwards raw signals to the extension service worker.
 - Opens a Native Messaging channel to `com.mjv88.datevbridge`.
 - Sends protocol-compatible `HELLO` and `CALL_EVENT` JSON messages.
-- Sends an eager `HELLO` bootstrap so the bridge can detect the extension even before the first call starts.
 - Implements state mapping from normalized `LocalConnection` snapshots to bridge states:
   - `Ringing + inbound` -> `offered`
   - `Dialing` -> `dialing`
@@ -16,16 +15,14 @@ This folder contains a **practical starter implementation** for capturing 3CX We
   - `Connected` -> `connected`
   - `Deleted` -> `ended`
 
-## Decoder status (implemented)
+## What you still need to add
 
-`scripts/background.js` already includes protobuf decoding in `parse3cxFrame`:
+The critical missing piece is protobuf decoding in `scripts/background.js` (`parse3cxFrame`):
 
-1. Decodes `payload.base64` from WebSocket binary frames.
-2. Parses `GenericMessage` wrapper.
-3. Handles `MessageId == 201` as `MyExtensionInfo`.
-4. Normalizes `LocalConnection` deltas and emits bridge-compatible `CALL_EVENT` messages.
-
-Normalized shape handled by the mapper:
+1. Decode `payload.base64` from WebSocket binary frames.
+2. Parse `GenericMessage` wrapper.
+3. If `MessageId == 201`, decode to `MyExtensionInfo`.
+4. Normalize `LocalConnection` deltas to:
 
 ```js
 {
@@ -44,12 +41,15 @@ Normalized shape handled by the mapper:
 }
 ```
 
+Then the skeleton immediately emits repo-compatible `CALL_EVENT` messages to the bridge.
+
+
 ## Installation (Chrome / Edge)
 
 
 ## Tab vs PWA behavior
 
-- The extension is injected by URL match for both `https://*/webclient/*` and root `https://*/` pages, then gated by runtime checks (`/webclient` path/hash or `/#/people` hash route). This keeps PWA/hash-routed WebClient variants working.
+- The extension is injected by URL match (`https://*/webclient/*`), so it works for both normal browser tabs and installed 3CX PWA windows.
 - In both cases, the service worker receives a `sender.tab.id`; this value is forwarded into `CALL_EVENT.context.tabId` for traceability.
 - No manual allocation is required: whichever WebClient page is active and producing websocket frames is processed automatically.
 

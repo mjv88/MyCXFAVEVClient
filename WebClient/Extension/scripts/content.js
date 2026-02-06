@@ -2,22 +2,6 @@
   const BRIDGE_CHANNEL = "__3cx_datev_bridge__";
   let debugLogging = false;
 
-  const isLikelyWebClientPage = () => {
-    const path = window.location.pathname || "";
-    const hash = window.location.hash || "";
-
-    // Support both path-based (/webclient/*) and hash-routed PWA variants (/#/people, /#/webclient).
-    if (path.startsWith("/webclient")) return true;
-    if (hash.includes("/webclient")) return true;
-    if (path === "/" && hash.startsWith("#/people")) return true;
-
-    return false;
-  };
-
-  if (!isLikelyWebClientPage()) {
-    return;
-  }
-
   const logDebug = (...args) => {
     if (!debugLogging) return;
     console.log("[3CX-DATEV][content]", ...args);
