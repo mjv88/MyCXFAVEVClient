@@ -66,14 +66,10 @@ function connectNativeHost() {
     const err = chrome.runtime.lastError?.message || "";
     if (isNativeHostMissing(err)) {
       if (!nativeHostMissingLogged) {
-        if (debugLogging) {
-          console.warn(
-            "[3CX-DATEV][bg] Native host missing. Install/register native host:",
-            NATIVE_HOST_NAME
-          );
-        } else {
-          logDebug("Native host missing. Install/register native host:", NATIVE_HOST_NAME);
-        }
+        console.warn(
+          "[3CX-DATEV][bg] Native host missing. Install/register native host:",
+          NATIVE_HOST_NAME
+        );
         nativeHostMissingLogged = true;
       }
     } else {
