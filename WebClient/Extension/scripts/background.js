@@ -6,6 +6,7 @@ let helloSent = false;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
+const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
 
@@ -75,14 +76,29 @@ function ensureHello(sourceTabId = "") {
 
 function scheduleHelloBootstrap(delayMs = 250) {
   if (helloSent) return;
-  if (helloBootstrapTimer) {
-    clearTimeout(helloBootstrapTimer);
+  logDebug("Scheduling HELLO bootstrap", { delayMs });
+
+  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY] || null;
+  if (currentTimer) {
+    clearTimeout(currentTimer);
+    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
   }
 
-  helloBootstrapTimer = setTimeout(() => {
-    helloBootstrapTimer = null;
-    ensureHello("bootstrap");
-  }, delayMs);
+  const triggerHelloBootstrap = () => {
+    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
+    try {
+      ensureHello("bootstrap");
+    } catch (err) {
+      console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
+    }
+  };
+
+  if (typeof globalThis.setTimeout === "function") {
+    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = globalThis.setTimeout(triggerHelloBootstrap, Math.max(0, delayMs));
+    return;
+  }
+
+  triggerHelloBootstrap();
 }
 
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
@@ -452,6 +468,10 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const sourceTabId = sender?.tab?.id ?? "";
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
 
+  // Proactively establish native-host handshake even when no call event exists yet.
+  // This allows bridge auto-detection to see the extension/PWA while idle.
+  ensureHello(sourceTabId);
+
   const decoded = parse3cxFrame(msg.payload);
   if (!decoded) {
     return;
@@ -465,10 +485,12 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
+  scheduleHelloBootstrap();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
+  scheduleHelloBootstrap();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -477,6 +499,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     loadConfig().catch((err) => {
       console.warn("[3CX-DATEV][bg] Failed to reload config", err);
     });
+    if (changes.extensionNumber) {
+      helloSent = false;
+      scheduleHelloBootstrap(50);
+    }
   }
 });
 

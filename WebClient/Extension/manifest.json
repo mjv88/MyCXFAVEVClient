@@ -9,9 +9,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://*/webclient/*",
-    "https://*/#/people/*",
-    "https://*/"
+    "https://*/",
+    "https://*/webclient/*"
   ],
   "background": {
     "service_worker": "scripts/background.js",
@@ -20,8 +19,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*/webclient/*",
-        "https://*/"
+        "https://*/",
+        "https://*/webclient/*"
       ],
       "js": [
         "scripts/content.js"

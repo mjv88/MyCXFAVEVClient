@@ -416,6 +416,14 @@ namespace DatevBridge.Core
             {
                 try
                 {
+                    var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+                    if (configuredModeNow != _configuredTelephonyMode)
+                    {
+                        LogManager.Log("TelephonyMode config changed during runtime: {0} -> {1}",
+                            _configuredTelephonyMode, configuredModeNow);
+                        _configuredTelephonyMode = configuredModeNow;
+                    }
+
                     if (_configuredTelephonyMode == TelephonyMode.Auto)
                     {
                         var autoSelection = await TelephonyProviderSelector.SelectProviderAsync(_extension, cancellationToken);
@@ -436,6 +444,12 @@ namespace DatevBridge.Core
                             await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                             continue;
                         }
+                    }
+                    else
+                    {
+                        _selectedMode = _configuredTelephonyMode;
+                        _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
+                        LogManager.Log("Reconnect cycle using explicit TelephonyMode: {0}", _configuredTelephonyMode);
                     }
 
                     Status = BridgeStatus.Connecting;
