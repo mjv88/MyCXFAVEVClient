@@ -1,6 +1,7 @@
 (() => {
   const BRIDGE_CHANNEL = "__3cx_datev_bridge__";
   let debugLogging = false;
+  let pageHookInjected = false;
 
   const isLikelyWebClientPage = () => {
     const path = window.location.pathname || "";
@@ -13,12 +14,6 @@
 
     return false;
   };
-
-  // Manifest includes broad HTTPS match to support hash-routed PWA entry points;
-  // runtime guard ensures we only activate on likely 3CX WebClient pages.
-  if (!isLikelyWebClientPage()) {
-    return;
-  }
 
   const logDebug = (...args) => {
     if (!debugLogging) return;
@@ -37,14 +32,30 @@
     }
   });
 
-  function injectPageHook() {
+  function injectPageHook(reason) {
     const script = document.createElement("script");
     script.src = chrome.runtime.getURL("scripts/page-hook.js");
     script.dataset.bridgeChannel = BRIDGE_CHANNEL;
     script.async = false;
     (document.head || document.documentElement).appendChild(script);
     script.remove();
-    logDebug("Injected page hook", location.href);
+    logDebug("Injected page hook", { reason, href: location.href });
+  }
+
+  function refreshWebClientDetection(reason) {
+    if (pageHookInjected) {
+      logDebug("WebClient detection skipped; page hook already injected", { reason });
+      return;
+    }
+
+    if (!isLikelyWebClientPage()) {
+      logDebug("WebClient detection negative", { reason, href: location.href });
+      return;
+    }
+
+    pageHookInjected = true;
+    logDebug("WebClient detection positive", { reason, href: location.href });
+    injectPageHook(reason);
   }
 
   window.addEventListener("message", (event) => {
@@ -65,5 +76,19 @@
     });
   });
 
-  injectPageHook();
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === "REFRESH_WEBCLIENT_DETECTION") {
+      refreshWebClientDetection("runtime-message");
+    }
+  });
+
+  window.addEventListener("hashchange", () => {
+    refreshWebClientDetection("hashchange");
+  });
+
+  window.addEventListener("popstate", () => {
+    refreshWebClientDetection("popstate");
+  });
+
+  refreshWebClientDetection("initial");
 })();
