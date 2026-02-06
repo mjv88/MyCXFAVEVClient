@@ -170,7 +170,7 @@ namespace DatevBridge
                 if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))
                 {
                     // Fire the internal event handler by simulating a call event
-                    // We use reflection-free approach: directly invoke the mapped handler
+                    // Invoke the provider's internal mapped handler via reflection
                     SimulateCallEvent(provider, msg);
                 }
             }
