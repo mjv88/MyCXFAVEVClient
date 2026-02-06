@@ -6,7 +6,6 @@ let helloSent = false;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
-let helloBootstrapTimer = null;
 
 const calls = new Map();
 
@@ -76,27 +75,14 @@ function ensureHello(sourceTabId = "") {
 
 function scheduleHelloBootstrap(delayMs = 250) {
   if (helloSent) return;
-
   if (helloBootstrapTimer) {
     clearTimeout(helloBootstrapTimer);
-    helloBootstrapTimer = null;
   }
 
-  const triggerHelloBootstrap = () => {
+  helloBootstrapTimer = setTimeout(() => {
     helloBootstrapTimer = null;
-    try {
-      ensureHello("bootstrap");
-    } catch (err) {
-      console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
-    }
-  };
-
-  if (typeof globalThis.setTimeout === "function") {
-    helloBootstrapTimer = globalThis.setTimeout(triggerHelloBootstrap, Math.max(0, delayMs));
-    return;
-  }
-
-  triggerHelloBootstrap();
+    ensureHello("bootstrap");
+  }, delayMs);
 }
 
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
@@ -466,10 +452,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const sourceTabId = sender?.tab?.id ?? "";
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
 
-  // Proactively establish native-host handshake even when no call event exists yet.
-  // This allows bridge auto-detection to see the extension/PWA while idle.
-  ensureHello(sourceTabId);
-
   const decoded = parse3cxFrame(msg.payload);
   if (!decoded) {
     return;
@@ -483,12 +465,10 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
-  scheduleHelloBootstrap();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
-  scheduleHelloBootstrap();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -497,10 +477,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     loadConfig().catch((err) => {
       console.warn("[3CX-DATEV][bg] Failed to reload config", err);
     });
-    if (changes.extensionNumber) {
-      helloSent = false;
-      scheduleHelloBootstrap(50);
-    }
   }
 });
 
