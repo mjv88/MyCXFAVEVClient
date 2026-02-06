@@ -25,7 +25,7 @@ namespace DatevBridge.Webclient
     /// subprocess connects to. This avoids requiring the bridge process itself
     /// to be the native messaging host (which would conflict with WinForms).
     ///
-    /// The bridge creates a pipe server "3CX_DATEV_Webclient_{extension}_{sessionId}".
+    /// The bridge creates a pipe server "3CX_DATEV_Webclient_{sessionId}".
     /// The native messaging host (launched by the browser) connects as client and
     /// relays messages bidirectionally.
     ///
