@@ -180,52 +180,21 @@ namespace DatevBridge
 
         /// <summary>
         /// Simulate a call event in the provider for test mode.
-        /// This method manually maps the extension message and fires the event.
+        /// This invokes the provider's internal mapping handler so test behavior
+        /// stays aligned with production behavior.
         /// </summary>
         private static void SimulateCallEvent(WebclientTelephonyProvider provider, ExtensionMessage msg)
         {
-            // Build a TapiCallEvent from the extension message
-            bool isInbound = string.Equals(msg.Direction, Protocol.DirectionInbound, StringComparison.OrdinalIgnoreCase);
-            int tapiState;
+            var onExtensionCallEvent = typeof(WebclientTelephonyProvider)
+                .GetMethod("OnExtensionCallEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
-            if (string.Equals(msg.State, Protocol.StateOffered, StringComparison.OrdinalIgnoreCase))
-                tapiState = 0x00000002; // LINECALLSTATE_OFFERING
-            else if (string.Equals(msg.State, Protocol.StateDialing, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(msg.State, Protocol.StateRinging, StringComparison.OrdinalIgnoreCase))
-                tapiState = isInbound ? 0x00000002 : 0x00000020; // OFFERING or RINGBACK
-            else if (string.Equals(msg.State, Protocol.StateConnected, StringComparison.OrdinalIgnoreCase))
-                tapiState = 0x00000100; // LINECALLSTATE_CONNECTED
-            else if (string.Equals(msg.State, Protocol.StateEnded, StringComparison.OrdinalIgnoreCase))
-                tapiState = 0x00004000; // LINECALLSTATE_DISCONNECTED
-            else
+            if (onExtensionCallEvent == null)
             {
-                Console.WriteLine("[WARN] Unknown state: {0}", msg.State);
+                Console.WriteLine("[ERROR] Could not find WebclientTelephonyProvider.OnExtensionCallEvent");
                 return;
             }
 
-            var callEvent = new TapiCallEvent
-            {
-                CallHandle = IntPtr.Zero,
-                LineHandle = IntPtr.Zero,
-                CallId = Math.Abs((msg.CallId ?? "test").GetHashCode()),
-                CallState = tapiState,
-                Extension = "101",
-                Origin = isInbound ? 0 : 0x00000004 // INBOUND vs OUTBOUND
-            };
-
-            if (isInbound)
-            {
-                callEvent.CallerNumber = msg.RemoteNumber;
-                callEvent.CallerName = msg.RemoteName;
-            }
-            else
-            {
-                callEvent.CalledNumber = msg.RemoteNumber;
-                callEvent.CalledName = msg.RemoteName;
-            }
-
-            // Use internal event
-            provider.CallStateChanged?.Invoke(callEvent);
+            onExtensionCallEvent.Invoke(provider, new object[] { msg });
         }
 
         /// <summary>
@@ -246,4 +215,3 @@ namespace DatevBridge
         }
     }
 }
-
