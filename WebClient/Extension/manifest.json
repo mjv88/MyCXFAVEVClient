@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "3CX DATEV Bridge Connector",
+  "description": "Captures 3CX WebClient call states and forwards them to 3CX-DATEV Bridge via Native Messaging.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*/webclient/*",
+    "https://*/"
+  ],
+  "background": {
+    "service_worker": "scripts/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/webclient/*",
+        "https://*/"
+      ],
+      "js": [
+        "scripts/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "3CX DATEV Bridge Connector"
+  }
+}
