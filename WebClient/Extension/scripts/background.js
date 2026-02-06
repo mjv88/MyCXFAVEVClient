@@ -73,6 +73,18 @@ function ensureHello(sourceTabId = "") {
   logDebug("HELLO sent", { sent, sourceTabId, extension: resolveExtensionNumber() });
 }
 
+function scheduleHelloBootstrap(delayMs = 250) {
+  if (helloSent) return;
+  if (helloBootstrapTimer) {
+    clearTimeout(helloBootstrapTimer);
+  }
+
+  helloBootstrapTimer = setTimeout(() => {
+    helloBootstrapTimer = null;
+    ensureHello("bootstrap");
+  }, delayMs);
+}
+
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
   return {
     v: PROTOCOL_VERSION,
@@ -471,3 +483,4 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 loadConfig().catch((err) => {
   console.warn("[3CX-DATEV][bg] Initial config load failed", err);
 });
+scheduleHelloBootstrap(500);
