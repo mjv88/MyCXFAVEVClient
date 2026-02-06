@@ -14,6 +14,8 @@
     return false;
   };
 
+  // Manifest includes broad HTTPS match to support hash-routed PWA entry points;
+  // runtime guard ensures we only activate on likely 3CX WebClient pages.
   if (!isLikelyWebClientPage()) {
     return;
   }

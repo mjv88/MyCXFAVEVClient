@@ -76,6 +76,7 @@ function ensureHello(sourceTabId = "") {
 
 function scheduleHelloBootstrap(delayMs = 250) {
   if (helloSent) return;
+  logDebug("Scheduling HELLO bootstrap", { delayMs });
 
   const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY] || null;
   if (currentTimer) {

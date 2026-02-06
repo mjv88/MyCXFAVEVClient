@@ -448,6 +448,8 @@ namespace DatevBridge.Core
                     else
                     {
                         _selectedMode = _configuredTelephonyMode;
+                        _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
+                        LogManager.Log("Reconnect cycle using explicit TelephonyMode: {0}", _configuredTelephonyMode);
                     }
 
                     Status = BridgeStatus.Connecting;

@@ -108,6 +108,7 @@ chrome.storage.local.set({ extensionNumber: "101" })
 
 If no events arrive, most often `allowed_origins` or native host registry path is wrong.
 
+If your PR UI still reports merge conflicts, resolve them in the six extension/bridge files listed by GitHub and ensure no `<<<<<<<`, `=======`, `>>>>>>>` markers remain before pushing.
 
 ### 5) Enable diagnostic logging (recommended while validating)
 
