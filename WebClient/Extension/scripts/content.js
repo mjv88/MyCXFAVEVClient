@@ -3,14 +3,24 @@
   let debugLogging = false;
   let pageHookInjected = false;
 
+  // Known 3CX PWA hash routes that indicate a WebClient session.
+  const WEBCLIENT_HASH_ROUTES = [
+    "/people", "/calls", "/webclient", "/chat",
+    "/voicemail", "/settings", "/meetingscheduler"
+  ];
+
   const isLikelyWebClientPage = () => {
     const path = window.location.pathname || "";
     const hash = window.location.hash || "";
 
-    // Support both path-based (/webclient/*) and hash-routed PWA variants (/#/people, /#/webclient).
+    // Path-based: /webclient or /webclient/...
     if (path.startsWith("/webclient")) return true;
-    if (hash.includes("/webclient")) return true;
-    if (path === "/" && hash.startsWith("#/people")) return true;
+
+    // Hash-routed PWA variants: /#/people, /#/calls, /#/webclient, etc.
+    if (hash) {
+      const normalizedHash = hash.replace(/^#\/?/, "/");
+      if (WEBCLIENT_HASH_ROUTES.some((route) => normalizedHash.startsWith(route))) return true;
+    }
 
     return false;
   };
