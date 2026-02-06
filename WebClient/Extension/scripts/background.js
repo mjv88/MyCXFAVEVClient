@@ -1,6 +1,7 @@
 const NATIVE_HOST_NAME = "com.mjv88.datevbridge";
 const PROTOCOL_VERSION = 1;
-const NATIVE_HOST_RETRY_DELAY_MS = 30_000;
+const NATIVE_HOST_RETRY_DELAY_MISSING_MS = 10_000; // host not registered
+const NATIVE_HOST_RETRY_DELAY_ERROR_MS = 3_000;    // other errors (crash, pipe break)
 const NATIVE_HOST_MISSING_REGEX = /native( messaging)? host not found/i;
 
 let nativePort = null;
@@ -11,6 +12,7 @@ let debugLogging = false;
 let nativeHostUnavailableUntil = 0;
 let nativeHostUnavailableReason = "";
 let nativeHostMissingLogged = false;
+let nativeHostBackoffLogged = false; // log backoff skip only once per backoff window
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
@@ -41,19 +43,26 @@ function connectNativeHost() {
   }
 
   if (nativeHostUnavailableUntil && Date.now() < nativeHostUnavailableUntil) {
-    logDebug("Native host connection skipped (backoff)", {
-      until: nativeHostUnavailableUntil,
-      reason: nativeHostUnavailableReason
-    });
+    if (!nativeHostBackoffLogged) {
+      logDebug("Native host connection skipped (backoff)", {
+        until: nativeHostUnavailableUntil,
+        reason: nativeHostUnavailableReason
+      });
+      nativeHostBackoffLogged = true;
+    }
     return null;
   }
+  nativeHostBackoffLogged = false;
 
   logDebug("Connecting native host", NATIVE_HOST_NAME);
   try {
     nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
   } catch (err) {
     nativeHostUnavailableReason = err?.message || String(err);
-    nativeHostUnavailableUntil = Date.now() + NATIVE_HOST_RETRY_DELAY_MS;
+    const delay = isNativeHostMissing(nativeHostUnavailableReason)
+      ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
+      : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
+    nativeHostUnavailableUntil = Date.now() + delay;
     console.warn("[3CX-DATEV][bg] Native host connect failed", nativeHostUnavailableReason);
     return null;
   }
@@ -77,7 +86,10 @@ function connectNativeHost() {
     }
     if (err) {
       nativeHostUnavailableReason = err;
-      nativeHostUnavailableUntil = Date.now() + NATIVE_HOST_RETRY_DELAY_MS;
+      const delay = isNativeHostMissing(err)
+        ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
+        : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
+      nativeHostUnavailableUntil = Date.now() + delay;
     }
     nativePort = null;
     helloSent = false;
@@ -101,6 +113,12 @@ function sendNative(message) {
   }
 }
 
+function resetBackoff() {
+  nativeHostUnavailableUntil = 0;
+  nativeHostUnavailableReason = "";
+  nativeHostBackoffLogged = false;
+}
+
 function ensureHello(sourceTabId = "") {
   if (helloSent) return;
 
@@ -114,13 +132,6 @@ function ensureHello(sourceTabId = "") {
   helloSent = sent;
   if (sent) {
     logDebug("HELLO sent", { sourceTabId, extension: resolveExtensionNumber() });
-  } else {
-    logDebug("HELLO skipped (native host unavailable)", {
-      sourceTabId,
-      extension: resolveExtensionNumber(),
-      retryAfter: nativeHostUnavailableUntil || null,
-      reason: nativeHostUnavailableReason || ""
-    });
   }
 }
 
@@ -172,6 +183,11 @@ function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reaso
 }
 
 function emitCallEvent(event, sourceTabId = "") {
+  // For real call events, bypass backoff — losing call data is worse than a retry
+  if (!nativePort && nativeHostUnavailableUntil && Date.now() < nativeHostUnavailableUntil) {
+    resetBackoff();
+    logDebug("Backoff reset for call event", { state: event?.call?.state });
+  }
   ensureHello(sourceTabId);
   sendNative(event);
 }
@@ -201,7 +217,8 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
     return;
   }
 
-  // LocalConnectionState: 1=Ringing, 2=Dialing, 3=Connected
+  // LocalConnectionState: 0=Unknown/Idle, 1=Ringing, 2=Dialing, 3=Connected
+  // state may be undefined for partial updates (e.g., party info changes without state change)
   let state = "";
   if (conn.state === 1 && conn.isIncoming) {
     state = "offered";
@@ -214,7 +231,7 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   }
 
   if (!state) {
-    logDebug("Ignoring unmapped state", { actionType, state: conn.state, callId, conn });
+    // state 0 (idle/unknown) and undefined (partial update) are normal — skip silently
     return;
   }
 
