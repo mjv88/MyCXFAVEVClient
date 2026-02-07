@@ -3,6 +3,7 @@ const PROTOCOL_VERSION = 1;
 const NATIVE_HOST_RETRY_DELAY_MISSING_MS = 10_000; // host not registered
 const NATIVE_HOST_RETRY_DELAY_ERROR_MS = 3_000;    // other errors (crash, pipe break)
 const NATIVE_HOST_MISSING_REGEX = /native( messaging)? host not found/i;
+const NATIVE_HOST_FORBIDDEN_REGEX = /forbidden|not allowed|access.*(denied|blocked)/i;
 const HELLO_RETRY_INTERVAL_MS = 2_000;  // re-send HELLO if no ACK
 const HELLO_MAX_RETRIES = 3;
 const RECONNECT_DELAY_MS = 1_500;       // auto-reconnect after disconnect
@@ -43,6 +44,14 @@ function isNativeHostMissing(message = "") {
   return NATIVE_HOST_MISSING_REGEX.test(String(message));
 }
 
+function isNativeHostForbidden(message = "") {
+  return NATIVE_HOST_FORBIDDEN_REGEX.test(String(message));
+}
+
+function isNativeHostPermanentError(message = "") {
+  return isNativeHostMissing(message) || isNativeHostForbidden(message);
+}
+
 function connectNativeHost() {
   if (nativePort) {
     return nativePort;
@@ -65,7 +74,7 @@ function connectNativeHost() {
     nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
   } catch (err) {
     nativeHostUnavailableReason = err?.message || String(err);
-    const delay = isNativeHostMissing(nativeHostUnavailableReason)
+    const delay = isNativeHostPermanentError(nativeHostUnavailableReason)
       ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
       : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
     nativeHostUnavailableUntil = Date.now() + delay;
@@ -92,12 +101,19 @@ function connectNativeHost() {
         );
         nativeHostMissingLogged = true;
       }
+    } else if (isNativeHostForbidden(err)) {
+      console.warn(
+        "[3CX-DATEV][bg] Native host access forbidden. The extension ID in the native host manifest " +
+        "does not match this extension. Re-run register-native-host.ps1 with the correct extension ID " +
+        "(find it at chrome://extensions).",
+        { hostName: NATIVE_HOST_NAME, extensionId: chrome.runtime.id }
+      );
     } else {
       console.warn("[3CX-DATEV][bg] Native host disconnected", err);
     }
     if (err) {
       nativeHostUnavailableReason = err;
-      const delay = isNativeHostMissing(err)
+      const delay = isNativeHostPermanentError(err)
         ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
         : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
       nativeHostUnavailableUntil = Date.now() + delay;
@@ -106,8 +122,8 @@ function connectNativeHost() {
     helloSent = false;
     helloAcked = false;
     clearHelloRetry();
-    // Auto-reconnect unless the native host is missing entirely
-    if (!isNativeHostMissing(err)) {
+    // Auto-reconnect only for transient errors (crash, pipe break)
+    if (!isNativeHostPermanentError(err)) {
       scheduleReconnect();
     }
   });
