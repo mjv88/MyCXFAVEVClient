@@ -3,9 +3,15 @@ const PROTOCOL_VERSION = 1;
 const NATIVE_HOST_RETRY_DELAY_MISSING_MS = 10_000; // host not registered
 const NATIVE_HOST_RETRY_DELAY_ERROR_MS = 3_000;    // other errors (crash, pipe break)
 const NATIVE_HOST_MISSING_REGEX = /native( messaging)? host not found/i;
+const HELLO_RETRY_INTERVAL_MS = 2_000;  // re-send HELLO if no ACK
+const HELLO_MAX_RETRIES = 3;
+const RECONNECT_DELAY_MS = 1_500;       // auto-reconnect after disconnect
 
 let nativePort = null;
 let helloSent = false;
+let helloAcked = false;
+let helloRetryTimer = null;
+let helloRetryCount = 0;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
@@ -69,6 +75,11 @@ function connectNativeHost() {
 
   nativePort.onMessage.addListener((msg) => {
     logDebug("Native -> extension", msg);
+    if (msg && msg.type === "HELLO_ACK") {
+      helloAcked = true;
+      clearHelloRetry();
+      logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
+    }
   });
 
   nativePort.onDisconnect.addListener(() => {
@@ -93,6 +104,12 @@ function connectNativeHost() {
     }
     nativePort = null;
     helloSent = false;
+    helloAcked = false;
+    clearHelloRetry();
+    // Auto-reconnect unless the native host is missing entirely
+    if (!isNativeHostMissing(err)) {
+      scheduleReconnect();
+    }
   });
 
   return nativePort;
@@ -120,7 +137,8 @@ function resetBackoff() {
 }
 
 function ensureHello(sourceTabId = "") {
-  if (helloSent) return;
+  if (helloAcked) return;
+  if (helloSent && nativePort) return; // sent, port alive — wait for ACK / retry timer
 
   const sent = sendNative({
     v: PROTOCOL_VERSION,
@@ -132,11 +150,43 @@ function ensureHello(sourceTabId = "") {
   helloSent = sent;
   if (sent) {
     logDebug("HELLO sent", { sourceTabId, extension: resolveExtensionNumber() });
+    scheduleHelloRetry();
   }
 }
 
+function clearHelloRetry() {
+  if (helloRetryTimer) {
+    clearTimeout(helloRetryTimer);
+    helloRetryTimer = null;
+  }
+  helloRetryCount = 0;
+}
+
+function scheduleHelloRetry() {
+  if (helloRetryTimer || helloAcked) return;
+  if (helloRetryCount >= HELLO_MAX_RETRIES) return;
+
+  helloRetryTimer = setTimeout(() => {
+    helloRetryTimer = null;
+    if (helloAcked || !nativePort) return;
+
+    helloRetryCount++;
+    logDebug("HELLO retry (no ACK)", { attempt: helloRetryCount, max: HELLO_MAX_RETRIES });
+    helloSent = false;
+    ensureHello("retry");
+  }, HELLO_RETRY_INTERVAL_MS);
+}
+
+function scheduleReconnect() {
+  setTimeout(() => {
+    if (nativePort || helloAcked) return;
+    logDebug("Auto-reconnect after disconnect");
+    ensureHello("reconnect");
+  }, RECONNECT_DELAY_MS);
+}
+
 function scheduleHelloBootstrap(delayMs = 250) {
-  if (helloSent) return;
+  if (helloAcked) return;
   logDebug("Scheduling HELLO bootstrap", { delayMs });
 
   const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY] || null;
@@ -568,6 +618,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     });
     if (changes.extensionNumber) {
       helloSent = false;
+      helloAcked = false;
+      clearHelloRetry();
       scheduleHelloBootstrap(50);
     }
   }
