@@ -398,6 +398,27 @@ namespace DatevBridge.Core
         }
 
         /// <summary>
+        /// Auto-detect and adopt extension number from the first connected line.
+        /// </summary>
+        private void AdoptExtensionFromProvider(string source)
+        {
+            var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
+            if (firstLine != null && firstLine.Extension != _extension)
+            {
+                LogManager.Log("Extension auto-detected from {0}: {1}", source, firstLine.Extension);
+                _extension = firstLine.Extension;
+                CallIdGenerator.Initialize(_extension);
+
+                if (_extension.Length > _minCallerIdLength)
+                {
+                    LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (based on extension length)",
+                        _minCallerIdLength, _extension.Length);
+                    _minCallerIdLength = _extension.Length;
+                }
+            }
+        }
+
+        /// <summary>
         /// Connect to 3CX via Windows TAPI with automatic retry
         /// </summary>
         private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, ITelephonyProvider initialProvider = null)
@@ -481,24 +502,7 @@ namespace DatevBridge.Core
 
                     _tapiMonitor.Connected += () =>
                     {
-                        // Auto-detect extension from first TAPI line (backward compatibility)
-                        var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
-                        if (firstLine != null && firstLine.Extension != _extension)
-                        {
-                            LogManager.Log("Extension auto-detected from TAPI line: {0}", firstLine.Extension);
-                            _extension = firstLine.Extension;
-                            CallIdGenerator.Initialize(_extension);
-
-                            // Auto-set MinCallerIdLength from extension length
-                            if (_extension.Length > _minCallerIdLength)
-                            {
-                                LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (based on extension length)",
-                                    _minCallerIdLength, _extension.Length);
-                                _minCallerIdLength = _extension.Length;
-                            }
-                        }
-
-                        // Now set status - this will trigger StatusChanged with correct extension
+                        AdoptExtensionFromProvider("connected line");
                         Status = BridgeStatus.Connected;
                     };
                     _tapiMonitor.Disconnected += () =>
@@ -510,20 +514,7 @@ namespace DatevBridge.Core
                     // Provider from auto-detection may already be connected (TryConnect succeeded)
                     if (_tapiMonitor.IsMonitoring)
                     {
-                        var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
-                        if (firstLine != null && firstLine.Extension != _extension)
-                        {
-                            LogManager.Log("Extension auto-detected from provider: {0}", firstLine.Extension);
-                            _extension = firstLine.Extension;
-                            CallIdGenerator.Initialize(_extension);
-
-                            if (_extension.Length > _minCallerIdLength)
-                            {
-                                LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (based on extension length)",
-                                    _minCallerIdLength, _extension.Length);
-                                _minCallerIdLength = _extension.Length;
-                            }
-                        }
+                        AdoptExtensionFromProvider("initial provider");
                         Status = BridgeStatus.Connected;
                     }
 

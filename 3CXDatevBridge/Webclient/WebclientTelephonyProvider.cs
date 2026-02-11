@@ -83,16 +83,7 @@ namespace DatevBridge.Webclient
                 _extension, _wsPort);
             progressText?.Invoke("Webclient-Modus: Warte auf Browser-Erweiterung...");
 
-            // Set up virtual line
-            _virtualLine = new TapiLineInfo
-            {
-                DeviceId = 0,
-                LineName = "3CX Webclient: " + _extension,
-                Extension = _extension,
-                Handle = IntPtr.Zero
-            };
-            _lines.Clear();
-            _lines.Add(_virtualLine);
+            InitVirtualLine();
 
             await StartWebSocketAsync(cancellationToken, progressText);
 
@@ -218,51 +209,17 @@ namespace DatevBridge.Webclient
         /// </summary>
         public async Task<bool> TryConnectAsync(CancellationToken cancellationToken, int timeoutSec)
         {
-            // Set up virtual line
-            _virtualLine = new TapiLineInfo
-            {
-                DeviceId = 0,
-                LineName = "3CX Webclient: " + _extension,
-                Extension = _extension,
-                Handle = IntPtr.Zero
-            };
-            _lines.Clear();
-            _lines.Add(_virtualLine);
+            InitVirtualLine();
 
             try
             {
                 _wsServer = new WebSocketBridgeServer(_wsPort);
-                _wsServer.CallEventReceived += OnExtensionCallEvent;
-                _wsServer.HelloReceived += (ext) =>
-                {
-                    _connected = true;
-                    _virtualLine.Handle = WebclientConnectedHandle;
-
-                    if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
-                    {
-                        _extension = ext;
-                        _virtualLine.Extension = ext;
-                        _virtualLine.LineName = "3CX Webclient: " + ext;
-                        LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
-                    }
-
-                    _wsServer.SendHelloAck("1.0", _extension);
-                };
-                _wsServer.Disconnected += () =>
-                {
-                    _connected = false;
-                    _virtualLine.Handle = IntPtr.Zero;
-                    _activeCalls.Clear();
-                    _lastCallState.Clear();
-                    LineDisconnected?.Invoke(_virtualLine);
-                };
+                WireWebSocketEvents(null);
 
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);
                 if (ok)
                 {
                     LogManager.Log("WebclientTelephonyProvider: TryConnect succeeded via WebSocket");
-                    LineConnected?.Invoke(_virtualLine);
-                    Connected?.Invoke();
                     return true;
                 }
 
@@ -493,6 +450,19 @@ namespace DatevBridge.Webclient
         }
 
         // ===== Helpers =====
+
+        private void InitVirtualLine()
+        {
+            _virtualLine = new TapiLineInfo
+            {
+                DeviceId = 0,
+                LineName = "3CX Webclient: " + _extension,
+                Extension = _extension,
+                Handle = IntPtr.Zero
+            };
+            _lines.Clear();
+            _lines.Add(_virtualLine);
+        }
 
         private void CleanupConnection()
         {

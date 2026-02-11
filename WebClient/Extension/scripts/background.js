@@ -191,27 +191,19 @@ function scheduleHelloBootstrap(delayMs = 250) {
   if (helloAcked) return;
   logDebug("Scheduling HELLO bootstrap", { delayMs });
 
-  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY] || null;
+  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY];
   if (currentTimer) {
     clearTimeout(currentTimer);
-    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
   }
 
-  const triggerHelloBootstrap = () => {
+  globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = setTimeout(() => {
     globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
     try {
       ensureHello("bootstrap");
     } catch (err) {
       console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
     }
-  };
-
-  if (typeof globalThis.setTimeout === "function") {
-    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = globalThis.setTimeout(triggerHelloBootstrap, Math.max(0, delayMs));
-    return;
-  }
-
-  triggerHelloBootstrap();
+  }, Math.max(0, delayMs));
 }
 
 // ===== Call event mapping =====
