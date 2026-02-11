@@ -222,7 +222,7 @@ namespace DatevBridge.Core
                 LogManager.Log("========================================");
                 LogManager.Log("3CX Pipe Server (early start)");
                 LogManager.Log("========================================");
-                _pipeServerTask = ConnectWithRetryAsync(_cts.Token);
+                _pipeServerTask = ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
                 await Task.Delay(100, cancellationToken);
             }
 
@@ -273,7 +273,7 @@ namespace DatevBridge.Core
                 LogManager.Log("========================================");
                 LogManager.Log("3CX Telephony Connection ({0})", _selectedMode);
                 LogManager.Log("========================================");
-                await ConnectWithRetryAsync(_cts.Token);
+                await ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
             }
         }
 
@@ -400,7 +400,7 @@ namespace DatevBridge.Core
         /// <summary>
         /// Connect to 3CX via Windows TAPI with automatic retry
         /// </summary>
-        private async Task ConnectWithRetryAsync(CancellationToken cancellationToken)
+        private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, ITelephonyProvider initialProvider = null)
         {
             var ini = DebugConfigWatcher.Instance;
             int reconnectInterval = DebugConfigWatcher.GetInt(
@@ -416,46 +416,59 @@ namespace DatevBridge.Core
             {
                 try
                 {
-                    var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-                    if (configuredModeNow != _configuredTelephonyMode)
-                    {
-                        LogManager.Log("TelephonyMode config changed during runtime: {0} -> {1}",
-                            _configuredTelephonyMode, configuredModeNow);
-                        _configuredTelephonyMode = configuredModeNow;
-                    }
+                    ITelephonyProvider providerToUse = null;
 
-                    if (_configuredTelephonyMode == TelephonyMode.Auto)
+                    if (initialProvider != null)
                     {
-                        var autoSelection = await TelephonyProviderSelector.SelectProviderAsync(_extension, cancellationToken);
-                        if (autoSelection.Success)
-                        {
-                            if (_selectedMode != autoSelection.SelectedMode)
-                            {
-                                LogManager.Log("Auto mode selected telephony provider for reconnect cycle: {0} -> {1} (reason: {2})",
-                                    _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
-                            }
-                            _selectedMode = autoSelection.SelectedMode;
-                            _detectionDiagnostics = autoSelection.DiagnosticSummary;
-                        }
-                        else
-                        {
-                            LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
-                            Status = BridgeStatus.Disconnected;
-                            await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
-                            continue;
-                        }
+                        // First iteration: reuse provider from initial auto-detection
+                        providerToUse = initialProvider;
+                        initialProvider = null; // consumed
                     }
                     else
                     {
-                        _selectedMode = _configuredTelephonyMode;
-                        _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
-                        LogManager.Log("Reconnect cycle using explicit TelephonyMode: {0}", _configuredTelephonyMode);
+                        var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+                        if (configuredModeNow != _configuredTelephonyMode)
+                        {
+                            LogManager.Log("TelephonyMode config changed during runtime: {0} -> {1}",
+                                _configuredTelephonyMode, configuredModeNow);
+                            _configuredTelephonyMode = configuredModeNow;
+                        }
+
+                        if (_configuredTelephonyMode == TelephonyMode.Auto)
+                        {
+                            var autoSelection = await TelephonyProviderSelector.SelectProviderAsync(_extension, cancellationToken);
+                            if (autoSelection.Success)
+                            {
+                                if (_selectedMode != autoSelection.SelectedMode)
+                                {
+                                    LogManager.Log("Auto mode selected telephony provider for reconnect cycle: {0} -> {1} (reason: {2})",
+                                        _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
+                                }
+                                _selectedMode = autoSelection.SelectedMode;
+                                _detectionDiagnostics = autoSelection.DiagnosticSummary;
+                                providerToUse = autoSelection.Provider;
+                            }
+                            else
+                            {
+                                LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
+                                Status = BridgeStatus.Disconnected;
+                                await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            _selectedMode = _configuredTelephonyMode;
+                            _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
+                            LogManager.Log("Reconnect cycle using explicit TelephonyMode: {0}", _configuredTelephonyMode);
+                            providerToUse = CreateTelephonyProvider(lineFilter);
+                        }
                     }
 
                     Status = BridgeStatus.Connecting;
 
                     _tapiMonitor?.Dispose();
-                    _tapiMonitor = CreateTelephonyProvider(lineFilter);
+                    _tapiMonitor = providerToUse;
                     _tapiMonitor.CallStateChanged += OnTapiCallStateChanged;
 
                     // Per-line events for multi-line support
@@ -493,6 +506,26 @@ namespace DatevBridge.Core
                         Status = BridgeStatus.Disconnected;
                         LogManager.Log("Telephony provider disconnected (all lines)");
                     };
+
+                    // Provider from auto-detection may already be connected (TryConnect succeeded)
+                    if (_tapiMonitor.IsMonitoring)
+                    {
+                        var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
+                        if (firstLine != null && firstLine.Extension != _extension)
+                        {
+                            LogManager.Log("Extension auto-detected from provider: {0}", firstLine.Extension);
+                            _extension = firstLine.Extension;
+                            CallIdGenerator.Initialize(_extension);
+
+                            if (_extension.Length > _minCallerIdLength)
+                            {
+                                LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (based on extension length)",
+                                    _minCallerIdLength, _extension.Length);
+                                _minCallerIdLength = _extension.Length;
+                            }
+                        }
+                        Status = BridgeStatus.Connected;
+                    }
 
                     // StartAsync blocks until cancelled or line closed
                     await _tapiMonitor.StartAsync(cancellationToken);

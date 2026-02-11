@@ -133,8 +133,8 @@ namespace DatevBridge.Webclient
                     Action<string> onHello = _ => helloTcs.TrySetResult(true);
                     HelloReceived += onHello;
 
-                    // Start reading in background (uses timeoutCts so it cancels on timeout)
-                    var readTask = ReadLoopAsync(stream, timeoutCts.Token);
+                    // Start reading in background (uses outer ct so it survives beyond TryAccept return)
+                    var readTask = ReadLoopAsync(stream, ct);
 
                     var helloWait = await Task.WhenAny(
                         helloTcs.Task,
@@ -145,6 +145,7 @@ namespace DatevBridge.Webclient
                     if (helloWait == helloTcs.Task && helloTcs.Task.Result)
                     {
                         LogManager.Log("WebSocketBridgeServer: TryAccept succeeded");
+                        StopListener(); // Release port — client connection stays alive
                         return true;
                     }
 
