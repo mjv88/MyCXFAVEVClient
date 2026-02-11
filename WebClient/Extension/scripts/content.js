@@ -46,6 +46,13 @@
       if (WEBCLIENT_HASH_ROUTES.some((route) => normalizedHash.startsWith(route))) return true;
     }
 
+    // localStorage-based: wc.provision exists at this origin.
+    // This catches root-URL PWAs (path="/", hash="") at document_start,
+    // before Angular creates the WebSocket — critical for page-hook timing.
+    try {
+      if (localStorage.getItem("wc.provision")) return true;
+    } catch {}
+
     return false;
   };
 
