@@ -119,16 +119,7 @@ namespace DatevBridge.Webclient
                     client = await AcceptAsync(timeoutCts.Token);
                     if (client == null) return false;
 
-                    var stream = client.GetStream();
-                    if (!await PerformHandshakeAsync(stream))
-                    {
-                        client.Close();
-                        return false;
-                    }
-
-                    _currentClient = client;
-                    _currentStream = stream;
-                    _clientConnected = true;
+                    if (!await SetupClientAsync(client)) return false;
 
                     // Wait for HELLO
                     var helloTcs = new TaskCompletionSource<bool>();
@@ -136,7 +127,7 @@ namespace DatevBridge.Webclient
                     HelloReceived += onHello;
 
                     // Start reading in background (uses outer ct so it survives beyond TryAccept return)
-                    var readTask = ReadLoopAsync(stream, ct);
+                    var readTask = ReadLoopAsync(_currentStream, ct);
 
                     var helloWait = await Task.WhenAny(
                         helloTcs.Task,
@@ -464,7 +455,7 @@ namespace DatevBridge.Webclient
             return done == acceptTask ? await acceptTask : null;
         }
 
-        private async Task<bool> HandshakeAndRunClient(TcpClient client, CancellationToken ct)
+        private async Task<bool> SetupClientAsync(TcpClient client)
         {
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
@@ -477,12 +468,18 @@ namespace DatevBridge.Webclient
             _currentClient = client;
             _currentStream = stream;
             _clientConnected = true;
+            return true;
+        }
+
+        private async Task<bool> HandshakeAndRunClient(TcpClient client, CancellationToken ct)
+        {
+            if (!await SetupClientAsync(client)) return false;
 
             string remote = "(unknown)";
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
             LogManager.Log("WebSocketBridgeServer: Client connected from {0}", remote);
 
-            await ReadLoopAsync(stream, ct);
+            await ReadLoopAsync(_currentStream, ct);
             return true;
         }
 
