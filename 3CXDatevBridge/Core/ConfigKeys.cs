@@ -70,5 +70,6 @@ namespace DatevBridge.Core
         public const string AutoDetectionTimeoutSec = "Auto.DetectionTimeoutSec";
         public const string WebclientConnectTimeoutSec = "Webclient.ConnectTimeoutSec";
         public const string WebclientNativeMessagingEnabled = "Webclient.NativeMessagingEnabled";
+        public const string WebclientWebSocketPort = "Webclient.WebSocketPort";
     }
 }
