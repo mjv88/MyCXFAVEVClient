@@ -220,7 +220,7 @@ namespace DatevBridge.Webclient
             }
 
             LogManager.Log("NativeMessagingHost: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
-                msg.CallId, msg.State, msg.Direction, msg.RemoteNumber);
+                msg.CallId, msg.State, msg.Direction, LogManager.Mask(msg.RemoteNumber));
 
             try
             {

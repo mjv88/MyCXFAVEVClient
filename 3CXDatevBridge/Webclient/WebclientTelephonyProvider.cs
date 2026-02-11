@@ -567,7 +567,7 @@ namespace DatevBridge.Webclient
 
             LogManager.Log("WebclientTelephonyProvider: {0} callId={1} caller={2} called={3} (mapped from '{4}')",
                 callEvent.CallStateString, callId,
-                callEvent.CallerNumber ?? "-", callEvent.CalledNumber ?? "-", state);
+                LogManager.Mask(callEvent.CallerNumber) ?? "-", LogManager.Mask(callEvent.CalledNumber) ?? "-", state);
 
             try
             {
@@ -608,7 +608,7 @@ namespace DatevBridge.Webclient
 
             if (sent)
             {
-                LogManager.Log("WebclientTelephonyProvider: DIAL sent for {0}", destination);
+                LogManager.Log("WebclientTelephonyProvider: DIAL sent for {0}", LogManager.Mask(destination));
                 return 1;
             }
 
