@@ -287,7 +287,13 @@ namespace DatevBridge.Webclient
             }
             finally
             {
+                bool wasConnected = _clientConnected;
+                _clientConnected = false;
                 LogManager.Log("WebSocketBridgeServer: Read loop ended");
+                if (wasConnected)
+                {
+                    try { Disconnected?.Invoke(); } catch { }
+                }
             }
         }
 
