@@ -109,7 +109,3 @@ Then inspect:
 
 > Decoder status: `parse3cxFrame` includes a protobuf parser for `GenericMessage` + `MyExtensionInfo` (MessageId `201`) and extracts `LocalConnection` updates (`Action`, `State`, `IsIncoming`, `OtherPartyDn`, `OtherPartyDisplayName`).
 > If future 3CX versions change protobuf schema fields, update parser field mappings in `scripts/background.js`.
-
-## Legacy: Native Messaging fallback
-
-The `native-host/` directory contains the Native Messaging host manifest and registration script. This is a **fallback** mechanism for environments where the WebSocket transport (port 19800) is blocked. In normal operation, the extension connects directly to the bridge via WebSocket and does not use Native Messaging.

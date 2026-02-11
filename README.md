@@ -565,7 +565,6 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |  Webclient/                                                          |
 |    Protocol.cs                   - JSON protocol (v1) types & parser |
 |    WebSocketBridgeServer.cs      - WebSocket server (port 19800)     |
-|    NativeMessagingHost.cs        - Named pipe fallback transport      |
 |    WebclientTelephonyProvider.cs - ITelephonyProvider for Webclient   |
 +----------------------------------------------------------------------+
 |  Interop/                                                            |

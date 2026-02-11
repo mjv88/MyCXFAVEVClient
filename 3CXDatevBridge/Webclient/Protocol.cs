@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 
 namespace DatevBridge.Webclient
@@ -321,61 +320,6 @@ namespace DatevBridge.Webclient
         {
             while (pos < json.Length && char.IsWhiteSpace(json[pos]))
                 pos++;
-        }
-    }
-
-    /// <summary>
-    /// Handles Chrome/Edge Native Messaging framing.
-    /// Messages are: [4-byte LE length][UTF-8 JSON payload]
-    /// </summary>
-    public static class NativeMessagingFraming
-    {
-        /// <summary>
-        /// Read one framed message from stdin.
-        /// Returns null on EOF or error.
-        /// </summary>
-        public static string ReadMessage(Stream input)
-        {
-            // Read 4-byte length (little-endian)
-            byte[] lenBytes = new byte[4];
-            int read = ReadExact(input, lenBytes, 0, 4);
-            if (read < 4)
-                return null;
-
-            int length = BitConverter.ToInt32(lenBytes, 0);
-            if (length <= 0 || length > 1024 * 1024) // Max 1MB
-                return null;
-
-            byte[] payload = new byte[length];
-            read = ReadExact(input, payload, 0, length);
-            if (read < length)
-                return null;
-
-            return Encoding.UTF8.GetString(payload);
-        }
-
-        /// <summary>
-        /// Write one framed message to stdout.
-        /// </summary>
-        public static void WriteMessage(Stream output, string json)
-        {
-            byte[] payload = Encoding.UTF8.GetBytes(json);
-            byte[] lenBytes = BitConverter.GetBytes(payload.Length);
-            output.Write(lenBytes, 0, 4);
-            output.Write(payload, 0, payload.Length);
-            output.Flush();
-        }
-
-        private static int ReadExact(Stream stream, byte[] buffer, int offset, int count)
-        {
-            int totalRead = 0;
-            while (totalRead < count)
-            {
-                int n = stream.Read(buffer, offset + totalRead, count - totalRead);
-                if (n <= 0) break;
-                totalRead += n;
-            }
-            return totalRead;
         }
     }
 }
