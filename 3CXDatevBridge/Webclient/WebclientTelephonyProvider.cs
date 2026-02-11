@@ -131,6 +131,32 @@ namespace DatevBridge.Webclient
 
         private async Task StartWebSocketAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
+            // If TryConnectAsync left an active connection, wait for it to end first
+            // before entering the accept loop (avoids port conflict)
+            if (_wsServer != null && _wsServer.IsConnected)
+            {
+                LogManager.Log("WebclientTelephonyProvider: Continuing existing WebSocket connection");
+                var disconnectTcs = new TaskCompletionSource<bool>();
+                _wsServer.Disconnected += () => disconnectTcs.TrySetResult(true);
+
+                using (cancellationToken.Register(() => disconnectTcs.TrySetCanceled()))
+                {
+                    try { await disconnectTcs.Task; }
+                    catch (TaskCanceledException) { return; }
+                }
+
+                CleanupConnection();
+
+                if (cancellationToken.IsCancellationRequested || _disposed)
+                    return;
+                await Task.Delay(1000, cancellationToken);
+            }
+            else
+            {
+                // Clean up any leftover non-connected server (e.g. failed TryConnect)
+                CleanupConnection();
+            }
+
             while (!cancellationToken.IsCancellationRequested && !_disposed)
             {
                 try
