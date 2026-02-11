@@ -54,9 +54,47 @@
     logDebug("Injected page hook", { reason, href: location.href });
   }
 
+  /**
+   * Read 3CX provision data from localStorage (available on the webclient origin).
+   * Returns { extension, domain, version, userName } or null.
+   */
+  function readProvision() {
+    try {
+      const raw = localStorage.getItem("wc.provision");
+      if (!raw) return null;
+      const prov = JSON.parse(raw);
+      if (!prov || !prov.username) return null;
+
+      const version = localStorage.getItem("wc.version");
+      const yourname = localStorage.getItem("yourname");
+
+      return {
+        extension: String(prov.username).trim(),
+        domain: prov.domain || "",
+        version: version ? version.replace(/^"|"$/g, "") : "",
+        userName: yourname || ""
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  let provisionSent = false;
+
+  function sendProvision(reason) {
+    if (provisionSent) return;
+    const prov = readProvision();
+    if (!prov) return;
+    provisionSent = true;
+    logDebug("Sending provision", { reason, extension: prov.extension, domain: prov.domain });
+    safeSendMessage({ type: "3CX_PROVISION", provision: prov });
+  }
+
   function refreshWebClientDetection(reason) {
     if (pageHookInjected) {
       logDebug("WebClient detection skipped; page hook already injected", { reason });
+      // Still try to send provision (may have become available after page load)
+      sendProvision(reason);
       return;
     }
 
@@ -68,6 +106,7 @@
     pageHookInjected = true;
     logDebug("WebClient detection positive", { reason, href: location.href });
     injectPageHook(reason);
+    sendProvision(reason);
   }
 
   // Guard against stale content scripts after extension reload/update.

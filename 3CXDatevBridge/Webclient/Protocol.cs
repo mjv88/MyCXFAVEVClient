@@ -58,6 +58,9 @@ namespace DatevBridge.Webclient
         // HELLO fields
         public string ExtensionNumber { get; set; }
         public string WebclientIdentity { get; set; }
+        public string Domain { get; set; }
+        public string WebclientVersion { get; set; }
+        public string UserName { get; set; }
 
         // CALL_EVENT fields
         public long Timestamp { get; set; }
@@ -90,6 +93,9 @@ namespace DatevBridge.Webclient
             // HELLO fields
             msg.ExtensionNumber = GetString(dict, "extension");
             msg.WebclientIdentity = GetString(dict, "identity");
+            msg.Domain = GetString(dict, "domain");
+            msg.WebclientVersion = GetString(dict, "webclientVersion");
+            msg.UserName = GetString(dict, "userName");
 
             // CALL_EVENT nested "call" object
             msg.CallId = GetString(dict, "call.id");
