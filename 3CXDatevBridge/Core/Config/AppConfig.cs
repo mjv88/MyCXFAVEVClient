@@ -72,6 +72,7 @@ namespace DatevBridge.Core.Config
             { ConfigKeys.AutoDetectionTimeoutSec, "10" },
             { ConfigKeys.WebclientConnectTimeoutSec, "8" },
             { ConfigKeys.WebclientNativeMessagingEnabled, "true" },
+            { ConfigKeys.WebclientWebSocketPort, "19800" },
         };
 
         // Section grouping for INI file layout
@@ -125,6 +126,7 @@ namespace DatevBridge.Core.Config
             { ConfigKeys.AutoDetectionTimeoutSec, SectionConnection },
             { ConfigKeys.WebclientConnectTimeoutSec, SectionConnection },
             { ConfigKeys.WebclientNativeMessagingEnabled, SectionConnection },
+            { ConfigKeys.WebclientWebSocketPort, SectionConnection },
         };
 
         /// <summary>
@@ -339,6 +341,8 @@ namespace DatevBridge.Core.Config
                     writer.WriteLine("Webclient.ConnectTimeoutSec=8");
                     writer.WriteLine("; Enable Native Messaging host for browser extension");
                     writer.WriteLine("Webclient.NativeMessagingEnabled=true");
+                    writer.WriteLine("; WebSocket port for direct browser extension connection (0 = disabled)");
+                    writer.WriteLine("Webclient.WebSocketPort=19800");
                 }
             }
             catch
