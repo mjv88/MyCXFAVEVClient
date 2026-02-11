@@ -12,13 +12,11 @@ using DatevBridge.Datev.Managers;
 namespace DatevBridge.Webclient
 {
     /// <summary>
-    /// Minimal RFC 6455 WebSocket server on localhost.
-    /// Replaces the Named Pipe + NativeHost relay chain for browser extension
+    /// Minimal RFC 6455 WebSocket server on localhost for browser extension
     /// communication. The extension connects directly via ws://127.0.0.1:PORT.
     ///
-    /// Speaks the same JSON protocol as NativeMessagingHost (HELLO, HELLO_ACK,
-    /// CALL_EVENT, COMMAND) — no framing adapter needed because WebSocket
-    /// handles message boundaries natively.
+    /// Speaks the bridge JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
+    /// WebSocket handles message boundaries natively — no length-prefix framing needed.
     /// </summary>
     public class WebSocketBridgeServer : IDisposable
     {
@@ -171,7 +169,7 @@ namespace DatevBridge.Webclient
             }
         }
 
-        // ===== Send methods (same interface as NativeMessagingHost) =====
+        // ===== Send methods =====
 
         public bool SendHelloAck(string bridgeVersion, string extension)
         {

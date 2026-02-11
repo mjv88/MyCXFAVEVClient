@@ -541,7 +541,7 @@ The extension auto-detects the extension number from the 3CX PWA's `localStorage
 
 ### Protocol (v1)
 
-All messages are JSON with a `"v": 1` version field. Over WebSocket, messages are plain JSON text frames (no length prefix). Over the legacy Named Pipe fallback, messages use Chrome Native Messaging format: 4-byte little-endian length prefix + UTF-8 JSON payload.
+All messages are JSON with a `"v": 1` version field. Over WebSocket, messages are plain JSON text frames (no length prefix).
 
 #### Extension -> Bridge: HELLO
 
@@ -631,9 +631,8 @@ Sent for each call state change.
 
 | File | Purpose |
 |------|---------|
-| `Webclient/Protocol.cs` | Message types, constants, JSON parser, framing |
-| `Webclient/WebSocketBridgeServer.cs` | WebSocket server (primary transport, port 19800) |
-| `Webclient/NativeMessagingHost.cs` | Read/write loop for Named Pipe fallback |
+| `Webclient/Protocol.cs` | Message types, constants, JSON parser |
+| `Webclient/WebSocketBridgeServer.cs` | WebSocket server (port 19800) |
 | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider implementation |
 
 ### Browser Extension
@@ -682,7 +681,8 @@ When `TelephonyMode = Auto` (default), the bridge attempts to detect the best av
 | `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `Webclient` |
 | `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
 | `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
-| `Webclient.NativeMessagingEnabled` | `true` | Enable/disable Webclient detection in Auto mode |
+| `Webclient.Enabled` | `true` | Enable/disable Webclient detection in Auto mode |
+| `Webclient.WebSocketPort` | `19800` | WebSocket port for browser extension connection |
 
 ### Explicit Mode
 

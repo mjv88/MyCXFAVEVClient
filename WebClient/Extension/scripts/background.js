@@ -1,6 +1,5 @@
 // ===== Transport: WebSocket to bridge (ws://127.0.0.1:PORT) =====
-// Replaces Chrome Native Messaging — no NativeHost.exe relay needed.
-// Speaks the same JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
+// Speaks the bridge JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
 
 const PROTOCOL_VERSION = 1;
 const DEFAULT_BRIDGE_PORT = 19800;
