@@ -35,6 +35,8 @@ namespace DatevBridge.Webclient
         private volatile bool _helloReceived;
         private string _extensionNumber;
         private string _webclientIdentity;
+        private string _domain;
+        private string _webclientVersion;
 
         /// <summary>Fired when a CALL_EVENT message is received.</summary>
         public event Action<ExtensionMessage> CallEventReceived;
@@ -48,6 +50,8 @@ namespace DatevBridge.Webclient
         public bool IsConnected => _clientConnected && _helloReceived && !_disposed;
         public string ExtensionNumber => _extensionNumber;
         public string WebclientIdentity => _webclientIdentity;
+        public string Domain => _domain;
+        public string WebclientVersion => _webclientVersion;
 
         public WebSocketBridgeServer(int port)
         {
@@ -403,9 +407,12 @@ namespace DatevBridge.Webclient
             {
                 _extensionNumber = msg.ExtensionNumber;
                 _webclientIdentity = msg.WebclientIdentity;
+                _domain = msg.Domain;
+                _webclientVersion = msg.WebclientVersion;
                 _helloReceived = true;
-                LogManager.Log("WebSocketBridgeServer: HELLO from extension={0}, identity={1}",
-                    _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)");
+                LogManager.Log("WebSocketBridgeServer: HELLO from extension={0}, identity={1}, domain={2}, version={3}",
+                    _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
+                    _domain ?? "(none)", _webclientVersion ?? "(none)");
                 HelloReceived?.Invoke(_extensionNumber);
             }
             else if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))

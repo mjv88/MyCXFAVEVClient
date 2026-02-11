@@ -205,8 +205,9 @@ namespace DatevBridge.Webclient
             _webclientIdentity = msg.WebclientIdentity;
             _helloReceived = true;
 
-            LogManager.Log("NativeMessagingHost: HELLO from extension={0}, identity={1}",
-                _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)");
+            LogManager.Log("NativeMessagingHost: HELLO from extension={0}, identity={1}, domain={2}, version={3}",
+                _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
+                msg.Domain ?? "(none)", msg.WebclientVersion ?? "(none)");
 
             HelloReceived?.Invoke(_extensionNumber);
         }
