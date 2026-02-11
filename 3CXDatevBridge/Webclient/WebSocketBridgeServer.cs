@@ -392,6 +392,12 @@ namespace DatevBridge.Webclient
                 return;
             }
 
+            if (msg.Version != Protocol.Version)
+            {
+                LogManager.Warning("WebSocketBridgeServer: Unsupported protocol version {0} (expected {1})",
+                    msg.Version, Protocol.Version);
+            }
+
             if (string.Equals(msg.Type, Protocol.TypeHello, StringComparison.OrdinalIgnoreCase))
             {
                 _extensionNumber = msg.ExtensionNumber;
@@ -415,6 +421,10 @@ namespace DatevBridge.Webclient
                 {
                     LogManager.Log("WebSocketBridgeServer: Error in handler - {0}", ex.Message);
                 }
+            }
+            else
+            {
+                LogManager.Log("WebSocketBridgeServer: Unknown message type '{0}'", msg.Type);
             }
         }
 
@@ -455,7 +465,11 @@ namespace DatevBridge.Webclient
             _currentClient = client;
             _currentStream = stream;
             _clientConnected = true;
-            LogManager.Log("WebSocketBridgeServer: Client connected");
+
+            string remote = "(unknown)";
+            try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
+            LogManager.Log("WebSocketBridgeServer: Client connected from {0}", remote);
+
             await ReadLoopAsync(stream, ct);
             return true;
         }
@@ -469,7 +483,11 @@ namespace DatevBridge.Webclient
             _currentClient = null;
             _currentStream = null;
             if (client != null) try { client.Close(); } catch { }
-            if (wasConnected) Disconnected?.Invoke();
+            if (wasConnected)
+            {
+                LogManager.Log("WebSocketBridgeServer: Client disconnected");
+                Disconnected?.Invoke();
+            }
         }
 
         public void Dispose()
