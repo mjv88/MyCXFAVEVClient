@@ -1,4 +1,28 @@
 (() => {
+  // Guard against double injection (manifest content_scripts + chrome.scripting.executeScript
+  // share the same isolated world). Re-injection just re-sends provision data.
+  if (window.__3cx_datev_content_active) {
+    try {
+      const raw = localStorage.getItem("wc.provision");
+      if (raw) {
+        const prov = JSON.parse(raw);
+        if (prov?.username) {
+          chrome.runtime.sendMessage({
+            type: "3CX_PROVISION",
+            provision: {
+              extension: String(prov.username).trim(),
+              domain: prov.domain || "",
+              version: (localStorage.getItem("wc.version") || "").replace(/^"|"$/g, ""),
+              userName: localStorage.getItem("yourname") || ""
+            }
+          });
+        }
+      }
+    } catch {}
+    return;
+  }
+  window.__3cx_datev_content_active = true;
+
   const BRIDGE_CHANNEL = "__3cx_datev_bridge__";
   let debugLogging = false;
   let pageHookInjected = false;

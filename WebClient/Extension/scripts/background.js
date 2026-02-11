@@ -33,11 +33,19 @@ function logDebug(...args) {
 }
 
 async function loadConfig() {
-  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging", "bridgePort"]);
+  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging", "bridgePort", "lastProvision"]);
   configuredExtension = (cfg.extensionNumber || "").trim();
   debugLogging = !!cfg.debugLogging;
   bridgePort = parseInt(cfg.bridgePort, 10) || DEFAULT_BRIDGE_PORT;
-  logDebug("Config loaded", { configuredExtension, debugLogging, bridgePort });
+
+  // Restore last known provision (survives service worker restart)
+  if (!configuredExtension && cfg.lastProvision) {
+    detectedExtension = cfg.lastProvision.extension || "";
+    detectedDomain = cfg.lastProvision.domain || "";
+    detectedVersion = cfg.lastProvision.version || "";
+    detectedUserName = cfg.lastProvision.userName || "";
+  }
+  logDebug("Config loaded", { configuredExtension, detectedExtension, debugLogging, bridgePort });
 }
 
 function resolveExtensionNumber() {
@@ -589,6 +597,16 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       userName: detectedUserName
     });
 
+    // Persist so it survives service worker restarts
+    chrome.storage.local.set({
+      lastProvision: {
+        extension: detectedExtension,
+        domain: detectedDomain,
+        version: detectedVersion,
+        userName: detectedUserName
+      }
+    }).catch(() => {});
+
     // Re-send HELLO if extension changed or handshake not complete
     if (extensionChanged || !helloAcked) {
       helloSent = false;
@@ -616,13 +634,43 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 });
 
+// Inject content script into already-open 3CX tabs (content_scripts from
+// manifest only run on page navigation, not tabs that are already loaded).
+async function injectExistingTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: ["https://*/", "https://*/webclient/*"] });
+    for (const tab of tabs) {
+      try {
+        // Try to reach an existing content script first
+        await chrome.tabs.sendMessage(tab.id, { type: "REFRESH_WEBCLIENT_DETECTION" });
+        logDebug("Content script already present in tab", tab.id);
+      } catch {
+        // No content script — inject it
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["scripts/content.js"]
+          });
+          logDebug("Injected content script into tab", tab.id);
+        } catch (err) {
+          logDebug("Could not inject into tab", tab.id, err);
+        }
+      }
+    }
+  } catch (err) {
+    logDebug("injectExistingTabs failed", err);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
+  await injectExistingTabs();
   scheduleHelloBootstrap();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
+  await injectExistingTabs();
   scheduleHelloBootstrap();
 });
 
