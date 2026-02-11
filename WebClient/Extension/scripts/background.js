@@ -1,25 +1,25 @@
-const NATIVE_HOST_NAME = "com.mjv88.datevbridge";
-const PROTOCOL_VERSION = 1;
-const NATIVE_HOST_RETRY_DELAY_MISSING_MS = 10_000; // host not registered
-const NATIVE_HOST_RETRY_DELAY_ERROR_MS = 3_000;    // other errors (crash, pipe break)
-const NATIVE_HOST_MISSING_REGEX = /native( messaging)? host not found/i;
-const NATIVE_HOST_FORBIDDEN_REGEX = /forbidden|not allowed|access.*(denied|blocked)/i;
-const HELLO_RETRY_INTERVAL_MS = 2_000;  // re-send HELLO if no ACK
-const HELLO_MAX_RETRIES = 3;
-const RECONNECT_DELAY_MS = 1_500;       // auto-reconnect after disconnect
+// ===== Transport: WebSocket to bridge (ws://127.0.0.1:PORT) =====
+// Replaces Chrome Native Messaging — no NativeHost.exe relay needed.
+// Speaks the same JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
 
-let nativePort = null;
+const PROTOCOL_VERSION = 1;
+const DEFAULT_BRIDGE_PORT = 19800;
+const RECONNECT_DELAY_MS = 2_000;
+const RECONNECT_MAX_DELAY_MS = 30_000;
+const HELLO_RETRY_INTERVAL_MS = 2_000;
+const HELLO_MAX_RETRIES = 3;
+
+let ws = null;
 let helloSent = false;
 let helloAcked = false;
 let helloRetryTimer = null;
 let helloRetryCount = 0;
+let reconnectTimer = null;
+let reconnectDelay = RECONNECT_DELAY_MS;
 let configuredExtension = "";
 let detectedExtension = "";
 let debugLogging = false;
-let nativeHostUnavailableUntil = 0;
-let nativeHostUnavailableReason = "";
-let nativeHostMissingLogged = false;
-let nativeHostBackoffLogged = false; // log backoff skip only once per backoff window
+let bridgePort = DEFAULT_BRIDGE_PORT;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
@@ -30,133 +30,112 @@ function logDebug(...args) {
 }
 
 async function loadConfig() {
-  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging"]);
+  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging", "bridgePort"]);
   configuredExtension = (cfg.extensionNumber || "").trim();
   debugLogging = !!cfg.debugLogging;
-  logDebug("Config loaded", { configuredExtension, debugLogging });
+  bridgePort = parseInt(cfg.bridgePort, 10) || DEFAULT_BRIDGE_PORT;
+  logDebug("Config loaded", { configuredExtension, debugLogging, bridgePort });
 }
 
 function resolveExtensionNumber() {
   return configuredExtension || detectedExtension || "";
 }
 
-function isNativeHostMissing(message = "") {
-  return NATIVE_HOST_MISSING_REGEX.test(String(message));
-}
+// ===== WebSocket transport =====
 
-function isNativeHostForbidden(message = "") {
-  return NATIVE_HOST_FORBIDDEN_REGEX.test(String(message));
-}
-
-function isNativeHostPermanentError(message = "") {
-  return isNativeHostMissing(message) || isNativeHostForbidden(message);
-}
-
-function connectNativeHost() {
-  if (nativePort) {
-    return nativePort;
+function connectBridge() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    return ws;
   }
 
-  if (nativeHostUnavailableUntil && Date.now() < nativeHostUnavailableUntil) {
-    if (!nativeHostBackoffLogged) {
-      logDebug("Native host connection skipped (backoff)", {
-        until: nativeHostUnavailableUntil,
-        reason: nativeHostUnavailableReason
-      });
-      nativeHostBackoffLogged = true;
-    }
-    return null;
-  }
-  nativeHostBackoffLogged = false;
+  const url = `ws://127.0.0.1:${bridgePort}`;
+  logDebug("Connecting to bridge", url);
 
-  logDebug("Connecting native host", NATIVE_HOST_NAME);
   try {
-    nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+    ws = new WebSocket(url);
   } catch (err) {
-    nativeHostUnavailableReason = err?.message || String(err);
-    const delay = isNativeHostPermanentError(nativeHostUnavailableReason)
-      ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
-      : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
-    nativeHostUnavailableUntil = Date.now() + delay;
-    console.warn("[3CX-DATEV][bg] Native host connect failed", nativeHostUnavailableReason);
+    console.warn("[3CX-DATEV][bg] WebSocket create failed", err);
+    scheduleReconnect();
     return null;
   }
 
-  nativePort.onMessage.addListener((msg) => {
-    logDebug("Native -> extension", msg);
-    if (msg && msg.type === "HELLO_ACK") {
-      helloAcked = true;
-      clearHelloRetry();
-      logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
-    }
-  });
-
-  nativePort.onDisconnect.addListener(() => {
-    const err = chrome.runtime.lastError?.message || "";
-    if (isNativeHostMissing(err)) {
-      if (!nativeHostMissingLogged) {
-        console.warn(
-          "[3CX-DATEV][bg] Native host missing. Install/register native host:",
-          NATIVE_HOST_NAME
-        );
-        nativeHostMissingLogged = true;
-      }
-    } else if (isNativeHostForbidden(err)) {
-      console.warn(
-        "[3CX-DATEV][bg] Native host access forbidden. The extension ID in the native host manifest " +
-        "does not match this extension. Re-run register-native-host.ps1 with the correct extension ID " +
-        "(find it at chrome://extensions).",
-        { hostName: NATIVE_HOST_NAME, extensionId: chrome.runtime.id }
-      );
-    } else {
-      console.warn("[3CX-DATEV][bg] Native host disconnected", err);
-    }
-    if (err) {
-      nativeHostUnavailableReason = err;
-      const delay = isNativeHostPermanentError(err)
-        ? NATIVE_HOST_RETRY_DELAY_MISSING_MS
-        : NATIVE_HOST_RETRY_DELAY_ERROR_MS;
-      nativeHostUnavailableUntil = Date.now() + delay;
-    }
-    nativePort = null;
+  ws.onopen = () => {
+    logDebug("WebSocket connected");
+    reconnectDelay = RECONNECT_DELAY_MS; // reset backoff on success
     helloSent = false;
     helloAcked = false;
     clearHelloRetry();
-    // Auto-reconnect only for transient errors (crash, pipe break)
-    if (!isNativeHostPermanentError(err)) {
-      scheduleReconnect();
-    }
-  });
+    ensureHello("ws-open");
+  };
 
-  return nativePort;
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      logDebug("Bridge -> extension", msg);
+
+      if (msg && msg.type === "HELLO_ACK") {
+        helloAcked = true;
+        clearHelloRetry();
+        logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
+      }
+      // Future: handle COMMAND messages (DIAL, DROP) from bridge
+    } catch (err) {
+      console.warn("[3CX-DATEV][bg] Failed to parse bridge message", err);
+    }
+  };
+
+  ws.onclose = (event) => {
+    logDebug("WebSocket closed", { code: event.code, reason: event.reason });
+    ws = null;
+    helloSent = false;
+    helloAcked = false;
+    clearHelloRetry();
+    scheduleReconnect();
+  };
+
+  ws.onerror = (event) => {
+    // onerror is always followed by onclose, so reconnect is handled there
+    logDebug("WebSocket error", event);
+  };
+
+  return ws;
 }
 
-function sendNative(message) {
+function sendBridge(message) {
   try {
-    const port = connectNativeHost();
-    if (!port) {
+    const socket = connectBridge();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
     }
-    port.postMessage(message);
-    logDebug("Extension -> native", message);
+    socket.send(JSON.stringify(message));
+    logDebug("Extension -> bridge", message);
     return true;
   } catch (err) {
-    console.error("[3CX-DATEV][bg] Native host send failed", err);
+    console.error("[3CX-DATEV][bg] Bridge send failed", err);
     return false;
   }
 }
 
-function resetBackoff() {
-  nativeHostUnavailableUntil = 0;
-  nativeHostUnavailableReason = "";
-  nativeHostBackoffLogged = false;
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  logDebug("Scheduling reconnect", { delay: reconnectDelay });
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    connectBridge();
+    // Exponential backoff (capped)
+    reconnectDelay = Math.min(reconnectDelay * 1.5, RECONNECT_MAX_DELAY_MS);
+  }, reconnectDelay);
 }
+
+// ===== HELLO handshake =====
 
 function ensureHello(sourceTabId = "") {
   if (helloAcked) return;
-  if (helloSent && nativePort) return; // sent, port alive — wait for ACK / retry timer
+  if (helloSent && ws && ws.readyState === WebSocket.OPEN) return;
 
-  const sent = sendNative({
+  const sent = sendBridge({
     v: PROTOCOL_VERSION,
     type: "HELLO",
     extension: resolveExtensionNumber(),
@@ -184,21 +163,13 @@ function scheduleHelloRetry() {
 
   helloRetryTimer = setTimeout(() => {
     helloRetryTimer = null;
-    if (helloAcked || !nativePort) return;
+    if (helloAcked || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     helloRetryCount++;
     logDebug("HELLO retry (no ACK)", { attempt: helloRetryCount, max: HELLO_MAX_RETRIES });
     helloSent = false;
     ensureHello("retry");
   }, HELLO_RETRY_INTERVAL_MS);
-}
-
-function scheduleReconnect() {
-  setTimeout(() => {
-    if (nativePort || helloAcked) return;
-    logDebug("Auto-reconnect after disconnect");
-    ensureHello("reconnect");
-  }, RECONNECT_DELAY_MS);
 }
 
 function scheduleHelloBootstrap(delayMs = 250) {
@@ -228,6 +199,8 @@ function scheduleHelloBootstrap(delayMs = 250) {
   triggerHelloBootstrap();
 }
 
+// ===== Call event mapping =====
+
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
   return {
     v: PROTOCOL_VERSION,
@@ -249,13 +222,8 @@ function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reaso
 }
 
 function emitCallEvent(event, sourceTabId = "") {
-  // For real call events, bypass backoff — losing call data is worse than a retry
-  if (!nativePort && nativeHostUnavailableUntil && Date.now() < nativeHostUnavailableUntil) {
-    resetBackoff();
-    logDebug("Backoff reset for call event", { state: event?.call?.state });
-  }
   ensureHello(sourceTabId);
-  sendNative(event);
+  sendBridge(event);
 }
 
 function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
@@ -284,7 +252,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   }
 
   // LocalConnectionState: 0=Unknown/Idle, 1=Ringing, 2=Dialing, 3=Connected
-  // state may be undefined for partial updates (e.g., party info changes without state change)
   let state = "";
   if (conn.state === 1 && conn.isIncoming) {
     state = "offered";
@@ -297,7 +264,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   }
 
   if (!state) {
-    // state 0 (idle/unknown) and undefined (partial update) are normal — skip silently
     return;
   }
 
@@ -343,6 +309,8 @@ function tryHandleDecodedMyExtensionInfo(message, sourceTabId = "") {
 
   return true;
 }
+
+// ===== Protobuf parsing =====
 
 function base64ToBytes(base64) {
   const binary = atob(base64);
@@ -542,7 +510,6 @@ function parseGenericMessage(bytes) {
 
     if (wire === 2) {
       const payload = reader.readLengthDelimited();
-      // In GenericMessage, payload field index normally matches MessageId.
       if (field === 201) {
         messagePayload = payload;
       } else if (messageId != null && field === messageId) {
@@ -564,12 +531,10 @@ function parseGenericMessage(bytes) {
 function parse3cxFrame(payload) {
   if (!payload) return null;
 
-  // Already normalized object (e.g., future page-hook deep integration).
   if (payload.parsed && typeof payload.parsed === "object") {
     return payload.parsed;
   }
 
-  // Expected production path: binary websocket payload (protobuf GenericMessage).
   if (payload.kind === "WS_BINARY" && payload.base64) {
     try {
       const bytes = base64ToBytes(payload.base64);
@@ -587,7 +552,6 @@ function parse3cxFrame(payload) {
     }
   }
 
-  // Some deployments emit json text diagnostics; keep a tolerant fallback.
   if (payload.kind === "WS_TEXT" && payload.parsed && typeof payload.parsed === "object") {
     return payload.parsed;
   }
@@ -595,14 +559,14 @@ function parse3cxFrame(payload) {
   return null;
 }
 
+// ===== Message listeners =====
+
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (!msg || msg.type !== "3CX_RAW_SIGNAL") return;
 
   const sourceTabId = sender?.tab?.id ?? "";
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
 
-  // Proactively establish native-host handshake even when no call event exists yet.
-  // This allows bridge auto-detection to see the extension/PWA while idle.
   ensureHello(sourceTabId);
 
   const decoded = parse3cxFrame(msg.payload);
@@ -628,11 +592,16 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
-  if (changes.extensionNumber || changes.debugLogging) {
+  if (changes.extensionNumber || changes.debugLogging || changes.bridgePort) {
+    const portChanged = !!changes.bridgePort;
     loadConfig().catch((err) => {
       console.warn("[3CX-DATEV][bg] Failed to reload config", err);
     });
-    if (changes.extensionNumber) {
+    if (changes.extensionNumber || portChanged) {
+      // Close existing connection so it reconnects with new settings
+      if (ws) {
+        try { ws.close(); } catch {}
+      }
       helloSent = false;
       helloAcked = false;
       clearHelloRetry();
