@@ -18,6 +18,9 @@ let reconnectTimer = null;
 let reconnectDelay = RECONNECT_DELAY_MS;
 let configuredExtension = "";
 let detectedExtension = "";
+let detectedDomain = "";
+let detectedVersion = "";
+let detectedUserName = "";
 let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
@@ -135,12 +138,17 @@ function ensureHello(sourceTabId = "") {
   if (helloAcked) return;
   if (helloSent && ws && ws.readyState === WebSocket.OPEN) return;
 
-  const sent = sendBridge({
+  const hello = {
     v: PROTOCOL_VERSION,
     type: "HELLO",
     extension: resolveExtensionNumber(),
     identity: "3CX Webclient Extension MV3"
-  });
+  };
+  if (detectedDomain) hello.domain = detectedDomain;
+  if (detectedVersion) hello.webclientVersion = detectedVersion;
+  if (detectedUserName) hello.userName = detectedUserName;
+
+  const sent = sendBridge(hello);
 
   helloSent = sent;
   if (sent) {
@@ -562,6 +570,34 @@ function parse3cxFrame(payload) {
 // ===== Message listeners =====
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
+  // Handle provision data from content script (localStorage auto-detect)
+  if (msg?.type === "3CX_PROVISION" && msg.provision) {
+    const prov = msg.provision;
+    const extensionChanged = prov.extension && !configuredExtension && prov.extension !== detectedExtension;
+
+    if (prov.extension && !configuredExtension) {
+      detectedExtension = prov.extension;
+    }
+    if (prov.domain) detectedDomain = prov.domain;
+    if (prov.version) detectedVersion = prov.version;
+    if (prov.userName) detectedUserName = prov.userName;
+
+    logDebug("Provision received", {
+      extension: resolveExtensionNumber(),
+      domain: detectedDomain,
+      version: detectedVersion,
+      userName: detectedUserName
+    });
+
+    // Re-send HELLO if extension changed or handshake not complete
+    if (extensionChanged || !helloAcked) {
+      helloSent = false;
+      if (extensionChanged) helloAcked = false; // allow re-handshake with correct extension
+      ensureHello("provision");
+    }
+    return;
+  }
+
   if (!msg || msg.type !== "3CX_RAW_SIGNAL") return;
 
   const sourceTabId = sender?.tab?.id ?? "";
