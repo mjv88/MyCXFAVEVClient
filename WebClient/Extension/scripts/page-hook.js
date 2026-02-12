@@ -20,18 +20,30 @@
     return btoa(binary);
   };
 
-  // TEMP: Intercept XHR to capture SOAP MakeCall format from manual dials
+  // TEMP: Intercept XHR + fetch to capture SOAP MakeCall format from manual dials
   const NativeXHROpen = XMLHttpRequest.prototype.open;
   const NativeXHRSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function(method, url, ...args) {
     this.__3cxUrl = url;
+    this.__3cxMethod = method;
     return NativeXHROpen.call(this, method, url, ...args);
   };
   XMLHttpRequest.prototype.send = function(body) {
     if (this.__3cxUrl && String(this.__3cxUrl).includes("MPWebService")) {
-      post({ kind: "XHR_SOAP_OUT", url: this.__3cxUrl, body: String(body).substring(0, 1000) });
+      post({ kind: "XHR_SOAP_OUT", method: this.__3cxMethod, url: this.__3cxUrl, body: String(body).substring(0, 2000) });
     }
     return NativeXHRSend.call(this, body);
+  };
+
+  const NativeFetch = window.fetch;
+  window.fetch = function(input, init) {
+    const url = typeof input === "string" ? input : input?.url || "";
+    if (url.includes("MPWebService") || url.includes("MyPhone")) {
+      const body = init?.body ? String(init.body).substring(0, 2000) : "(no body)";
+      const headers = init?.headers || {};
+      post({ kind: "FETCH_SOAP_OUT", url, method: init?.method || "GET", headers: JSON.stringify(headers), body });
+    }
+    return NativeFetch.apply(this, arguments);
   };
 
   let webclientSocket = null; // Reference to the active 3CX WebSocket
