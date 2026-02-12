@@ -159,47 +159,97 @@
     }
   });
 
-  // Auto-dial: open dialer via tel: link, populate the number input, then click Call
+  // Auto-dial: find dialer input, set number, click Call
+  // NOTE: Do NOT use tel: link - it immediately calls the WRONG number (last dialed)
   async function triggerDial(number) {
-    // Step 1: Click tel: link to open the webclient's dialer UI
-    try {
-      const link = document.createElement("a");
-      link.href = "tel:" + number;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      post({ kind: "DIAL_TEL_CLICKED", number });
-    } catch (err) {
-      post({ kind: "DIAL_TEL_ERROR", error: String(err) });
-      return;
-    }
+    post({ kind: "DIAL_STARTING", number });
 
-    // Step 2: Wait for the dialer UI to render
-    await new Promise(r => setTimeout(r, 500));
+    // Approach 1: Check if a number input is already visible on the page
+    let inputSet = await setDialerNumber(number);
 
-    // Step 3: Find the dialer input and set the correct number
-    const inputSet = await setDialerNumber(number);
     if (!inputSet) {
-      // Diagnostic: dump what the dialer looks like
-      dumpDialerDiagnostics("after tel: link");
-      return;
-    }
-
-    // Step 4: Wait for Angular to process the input change, then click Call
-    await new Promise(r => setTimeout(r, 300));
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const btn = findCallButton(document.body);
-      if (btn) {
-        btn.click();
-        post({ kind: "DIAL_AUTO_CLICKED", attempt, number, text: btn.textContent.trim() });
-        return;
+      // Approach 2: Try to open the dialer panel first
+      const opened = await openDialerPanel();
+      if (opened) {
+        await new Promise(r => setTimeout(r, 500));
+        inputSet = await setDialerNumber(number);
       }
-      await new Promise(r => setTimeout(r, 300));
     }
 
-    dumpDialerDiagnostics("after input set, no Call button");
+    if (inputSet) {
+      // Wait for Angular to process the value change, then click Call
+      await new Promise(r => setTimeout(r, 300));
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const btn = findCallButton(document.body);
+        if (btn) {
+          btn.click();
+          post({ kind: "DIAL_AUTO_CLICKED", attempt, number, text: btn.textContent.trim() });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    // All approaches failed - dump comprehensive diagnostics
+    dumpDialerDiagnostics(number);
+  }
+
+  // Try to open the dialer/keypad panel in the webclient
+  async function openDialerPanel() {
+    // Strategy 1: Find a navigation link/button that opens the dialer
+    // 3CX webclient v20 uses Angular Material with mat-icons
+    const dialpadSelectors = [
+      // Icon-based buttons
+      'mat-icon[fonticon="dialpad"]',
+      '.mat-icon[fonticon="dialpad"]',
+      'button mat-icon[fonticon="dialpad"]',
+      'a mat-icon[fonticon="dialpad"]',
+      // Text/aria based
+      '[aria-label*="dialpad" i]',
+      '[aria-label*="keypad" i]',
+      '[aria-label*="Wähltastatur" i]',
+      '[aria-label*="Tastatur" i]',
+      '[aria-label*="Ziffernblock" i]',
+      '[title*="dialpad" i]',
+      '[title*="keypad" i]',
+      // Common class patterns
+      '.dialpad-btn',
+      '.keypad-btn',
+      '[routerlink*="dial"]',
+      'a[href*="dial"]',
+      'a[href*="keypad"]'
+    ];
+
+    for (const sel of dialpadSelectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const clickTarget = el.closest("button") || el.closest("a") || el;
+        clickTarget.click();
+        post({ kind: "DIAL_PANEL_OPENED", selector: sel });
+        return true;
+      }
+    }
+
+    // Strategy 2: Look for mat-icon elements containing "dialpad" text
+    const matIcons = document.querySelectorAll("mat-icon, .mat-icon");
+    for (const icon of matIcons) {
+      const text = (icon.textContent || "").trim().toLowerCase();
+      const fontIcon = icon.getAttribute("fonticon") || "";
+      if (text === "dialpad" || fontIcon === "dialpad" ||
+          text === "call" || text === "phone") {
+        const clickTarget = icon.closest("button") || icon.closest("a") || icon;
+        if (clickTarget.offsetParent !== null) {
+          clickTarget.click();
+          post({ kind: "DIAL_PANEL_OPENED", via: "mat-icon:" + (text || fontIcon) });
+          return true;
+        }
+      }
+    }
+
+    // Strategy 3: Navigate via hash route (some webclient versions use hash routing)
+    // Don't navigate blindly - just report that we couldn't find the panel
+    post({ kind: "DIAL_PANEL_NOT_FOUND" });
+    return false;
   }
 
   // Find the dialer's number input and populate it with the phone number
@@ -217,7 +267,6 @@
       );
       for (const input of inputs) {
         if (input.offsetParent === null || input.disabled || input.readOnly) continue;
-        // Skip tiny/hidden inputs
         if (input.offsetWidth < 30) continue;
 
         // Set the value using native setter to bypass Angular's getter/setter
@@ -250,7 +299,6 @@
       }
     }
 
-    post({ kind: "DIAL_NO_INPUT_FOUND", number });
     return false;
   }
 
@@ -274,7 +322,6 @@
       const btn = icon.closest("button");
       if (btn && btn.offsetParent !== null && !btn.disabled) {
         const text = btn.textContent.trim().toLowerCase();
-        // Skip buttons that are clearly NOT call buttons
         if (!text.includes("end") && !text.includes("hang") && !text.includes("auflegen")) {
           return btn;
         }
@@ -283,30 +330,78 @@
     return null;
   }
 
-  // Diagnostic dump of the dialer area - helps us adjust selectors
-  function dumpDialerDiagnostics(context) {
-    const inputs = [...document.querySelectorAll("input")].map(i => ({
-      type: i.type, value: i.value.substring(0, 30),
-      placeholder: i.placeholder || "", classes: i.className.substring(0, 60),
+  // Comprehensive diagnostic dump - helps us see the webclient's actual DOM structure
+  function dumpDialerDiagnostics(number) {
+    // All inputs on the page
+    const inputs = [...document.querySelectorAll("input, textarea")].map(i => ({
+      tag: i.tagName, type: i.type, value: i.value.substring(0, 30),
+      placeholder: i.placeholder || "", classes: i.className.substring(0, 80),
       visible: i.offsetParent !== null, disabled: i.disabled,
-      readOnly: i.readOnly, width: i.offsetWidth
+      readOnly: i.readOnly, width: i.offsetWidth, id: i.id || ""
     }));
+
+    // CDK overlay panes
     const overlays = [...document.querySelectorAll(".cdk-overlay-pane")].map(o => ({
       classes: o.className.substring(0, 80),
       childCount: o.children.length,
-      innerHtml: o.innerHTML.substring(0, 300)
+      innerHTML: o.innerHTML.substring(0, 500)
     }));
-    const allBtns = [...document.querySelectorAll("button")].filter(b => b.offsetParent !== null);
+
+    // All visible buttons
+    const allBtns = [...document.querySelectorAll("button, [role='button']")]
+      .filter(b => b.offsetParent !== null);
+    const buttons = allBtns.slice(0, 30).map(b => ({
+      text: b.textContent.trim().substring(0, 50),
+      classes: b.className.substring(0, 80),
+      ariaLabel: b.getAttribute("aria-label") || "",
+      title: b.getAttribute("title") || "",
+      id: b.id || ""
+    }));
+
+    // All mat-icon elements (Angular Material icons)
+    const matIcons = [...document.querySelectorAll("mat-icon, .mat-icon")].map(i => ({
+      text: i.textContent.trim().substring(0, 30),
+      fontIcon: i.getAttribute("fonticon") || "",
+      classes: i.className.substring(0, 60),
+      visible: i.offsetParent !== null,
+      parentTag: i.parentElement?.tagName || "",
+      parentAriaLabel: i.parentElement?.getAttribute("aria-label") || ""
+    }));
+
+    // Navigation links
+    const navLinks = [...document.querySelectorAll("a[href], a[routerlink], [routerlink]")].map(a => ({
+      href: (a.getAttribute("href") || "").substring(0, 60),
+      routerLink: a.getAttribute("routerlink") || "",
+      text: a.textContent.trim().substring(0, 30),
+      ariaLabel: a.getAttribute("aria-label") || "",
+      visible: a.offsetParent !== null
+    }));
+
+    // Angular internals check
+    const angular = {
+      hasAppRoot: !!document.querySelector("app-root"),
+      hasNgVersion: !!document.querySelector("[ng-version]"),
+      ngVersion: document.querySelector("[ng-version]")?.getAttribute("ng-version") || "",
+      hasNgDebug: typeof window.ng !== "undefined",
+    };
+
+    // Check for phone/SIP globals
+    const phoneGlobals = Object.keys(window).filter(k =>
+      /phone|sip|call|oCall|oLine|oSession|oUA/i.test(k) && k.length < 30
+    ).slice(0, 10);
+
     post({
       kind: "DIAL_DIAGNOSTICS",
-      context,
+      number,
       inputs: inputs.slice(0, 15),
       overlays: overlays.slice(0, 5),
-      visibleButtons: allBtns.slice(0, 20).map(b => ({
-        text: b.textContent.trim().substring(0, 40),
-        classes: b.className.substring(0, 60),
-        ariaLabel: b.getAttribute("aria-label") || ""
-      }))
+      buttons,
+      matIcons: matIcons.slice(0, 20),
+      navLinks: navLinks.filter(l => l.visible).slice(0, 15),
+      angular,
+      phoneGlobals,
+      url: window.location.href.substring(0, 100),
+      hash: window.location.hash
     });
   }
 
