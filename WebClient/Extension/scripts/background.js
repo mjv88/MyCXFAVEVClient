@@ -234,7 +234,8 @@ function emitCallEvent(event, sourceTabId = "") {
 }
 
 function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
-  logDebug("RAW LocalConnection:", JSON.stringify({
+  // TEMP diagnostic – always log so we can verify field 2 vs field 3
+  console.warn("[3CX-DATEV] RAW LocalConnection:", JSON.stringify({
     "conn.id(f2)": conn.id, "conn.callId(f3)": conn.callId,
     action: actionType, state: conn.state, isIncoming: conn.isIncoming,
     callerId: conn.otherPartyCallerId, dn: conn.otherPartyDn,
