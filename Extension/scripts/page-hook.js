@@ -1,5 +1,7 @@
 (() => {
   const channel = document.currentScript?.dataset.bridgeChannel || "__3cx_datev_connector__";
+  const DEFAULT_DIAL_DELAY = 650;
+  let dialDelay = DEFAULT_DIAL_DELAY;
 
   const post = (payload) => {
     window.postMessage({
@@ -112,6 +114,9 @@
 
     if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
       const number = msg.payload.number;
+      if (msg.payload.dialDelay != null) {
+        dialDelay = parseInt(msg.payload.dialDelay, 10) || DEFAULT_DIAL_DELAY;
+      }
       post({ kind: "DIAL_RECEIVED", number });
       triggerDial(number);
     }
