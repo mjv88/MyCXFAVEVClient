@@ -26,6 +26,10 @@ const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
 
+// Deduplication: field 3 (callId) groups all legs of one logical call
+const logicalCallConns = new Map(); // callId(f3) -> Set of active conn.id(f2)
+const connIdToCallId = new Map();   // conn.id(f2) -> callId(f3)
+
 function logDebug(...args) {
   if (!debugLogging) return;
   console.log("[3CX-DATEV][bg]", ...args);
@@ -234,36 +238,66 @@ function emitCallEvent(event, sourceTabId = "") {
 }
 
 function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
-  // TEMP diagnostic – always log so we can verify field 2 vs field 3
-  console.warn("[3CX-DATEV] RAW LocalConnection:", JSON.stringify({
-    "conn.id(f2)": conn.id, "conn.callId(f3)": conn.callId,
-    action: actionType, state: conn.state, isIncoming: conn.isIncoming,
-    callerId: conn.otherPartyCallerId, dn: conn.otherPartyDn,
-    displayName: conn.otherPartyDisplayName
+  logDebug("RAW LocalConnection:", JSON.stringify({
+    "f2": conn.id, "f3": conn.callId, action: actionType,
+    state: conn.state, isIncoming: conn.isIncoming,
+    callerId: conn.otherPartyCallerId, dn: conn.otherPartyDn
   }));
 
-  const callId = conn.id ?? conn.callId;
+  // Resolve logical call ID: field 3 groups all legs of one call
+  let logicalId;
+  if (conn.callId != null && conn.id != null) {
+    logicalId = conn.callId;
+    connIdToCallId.set(conn.id, logicalId);
+  } else if (conn.id != null) {
+    logicalId = connIdToCallId.get(conn.id);
+  }
+  const callId = logicalId ?? conn.id ?? conn.callId;
   if (callId == null) return;
 
   const direction = conn.isIncoming ? "inbound" : "outbound";
   const remoteNumber = conn.otherPartyCallerId || conn.otherPartyDn || "";
   const remoteName = conn.otherPartyDisplayName || "";
 
-  // ActionType: 2=Inserted, 3=Updated, 4=Deleted
+  // ActionType: 1=Inserted, 3=Updated, 4=Deleted
   if (actionType === 4) {
+    // Remove this connection from tracking
+    if (conn.id != null) {
+      connIdToCallId.delete(conn.id);
+      const conns = logicalCallConns.get(callId);
+      if (conns) {
+        conns.delete(conn.id);
+        if (conns.size > 0) {
+          logDebug("Suppressed ended for conn", conn.id, "- other legs active for logical call", callId);
+          return; // other legs still active
+        }
+        logicalCallConns.delete(callId);
+      }
+    }
+
     calls.delete(callId);
     const evt = toCallEvent({
-      callId,
-      direction,
-      remoteNumber,
-      remoteName,
-      state: "ended",
-      reason: "unknown",
-      tabId: sourceTabId
+      callId, direction, remoteNumber, remoteName,
+      state: "ended", reason: "unknown", tabId: sourceTabId
     });
-    logDebug("Mapped deleted connection -> ended", evt);
+    logDebug("Mapped last connection deleted -> ended", evt);
     emitCallEvent(evt, sourceTabId);
     return;
+  }
+
+  // For inserts (action=1): register connection, suppress duplicates
+  if (actionType === 1 && conn.id != null) {
+    let conns = logicalCallConns.get(callId);
+    if (!conns) {
+      conns = new Set();
+      logicalCallConns.set(callId, conns);
+    }
+    const isFirst = conns.size === 0;
+    conns.add(conn.id);
+    if (!isFirst) {
+      logDebug("Suppressed duplicate leg conn", conn.id, "for logical call", callId);
+      return;
+    }
   }
 
   // LocalConnectionState: 0=Unknown/Idle, 1=Ringing, 2=Dialing, 3=Connected
@@ -290,11 +324,7 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   });
 
   const evt = toCallEvent({
-    callId,
-    direction,
-    remoteNumber,
-    remoteName,
-    state,
+    callId, direction, remoteNumber, remoteName, state,
     tabId: sourceTabId
   });
 
