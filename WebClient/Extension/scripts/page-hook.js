@@ -155,46 +155,89 @@
     if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
       const number = msg.payload.number;
       post({ kind: "DIAL_RECEIVED", number });
-      dialViaSoap(number);
+      triggerDial(number);
     }
   });
 
-  // Auto-dial via 3CX SOAP API (MPWebService.asmx)
-  async function dialViaSoap(number) {
-    const baseUrl = window.location.origin;
-    const url = baseUrl + "/MyPhone/MPWebService.asmx";
-
-    const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-               xmlns:mp="http://www.3cx.com/MPWebService/">
-  <soap:Body>
-    <mp:MakeCallTo>
-      <mp:to>${number}</mp:to>
-    </mp:MakeCallTo>
-  </soap:Body>
-</soap:Envelope>`;
-
+  // Auto-dial: use tel: link to show number in webclient, then auto-click Call button
+  async function triggerDial(number) {
+    // Step 1: Click tel: link (triggers webclient's dial UI with number pre-filled)
     try {
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/xml; charset=utf-8",
-          "SOAPAction": "http://www.3cx.com/MPWebService/MakeCallTo"
-        },
-        body: soapBody,
-        credentials: "include"
-      });
-
-      const text = await resp.text();
-      post({
-        kind: "DIAL_SOAP_RESULT",
-        status: resp.status,
-        ok: resp.ok,
-        body: text.substring(0, 500)
-      });
+      const link = document.createElement("a");
+      link.href = "tel:" + number;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      post({ kind: "DIAL_TEL_CLICKED", number });
     } catch (err) {
-      post({ kind: "DIAL_SOAP_ERROR", error: String(err) });
+      post({ kind: "DIAL_TEL_ERROR", error: String(err) });
+      return;
     }
+
+    // Step 2: Wait for the webclient UI to update, then find and click the Call button
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise(r => setTimeout(r, 400));
+
+      // Search overlays (Angular Material CDK dialogs/modals)
+      const overlays = document.querySelectorAll(".cdk-overlay-pane, .modal, [role='dialog']");
+      for (const overlay of overlays) {
+        const btn = findCallButton(overlay);
+        if (btn) {
+          btn.click();
+          post({ kind: "DIAL_AUTO_CLICKED", attempt, text: btn.textContent.trim() });
+          return;
+        }
+      }
+
+      // Search main page content
+      const btn = findCallButton(document.body);
+      if (btn) {
+        btn.click();
+        post({ kind: "DIAL_AUTO_CLICKED", attempt, text: btn.textContent.trim() });
+        return;
+      }
+    }
+
+    // Diagnostic: log what buttons exist so we can adjust selectors
+    const allBtns = [...document.querySelectorAll("button")].filter(b => b.offsetParent !== null);
+    post({
+      kind: "DIAL_NO_BUTTON_FOUND",
+      visibleButtons: allBtns.slice(0, 20).map(b => ({
+        text: b.textContent.trim().substring(0, 40),
+        classes: b.className.substring(0, 60),
+        ariaLabel: b.getAttribute("aria-label") || ""
+      }))
+    });
+  }
+
+  function findCallButton(container) {
+    // Match by aria-label, title, or text content (English + German)
+    const buttons = container.querySelectorAll("button, a.btn, [role='button']");
+    const callPatterns = /\b(call|dial|anrufen|anruf starten|make call)\b/i;
+    for (const btn of buttons) {
+      const label = btn.getAttribute("aria-label") || "";
+      const title = btn.getAttribute("title") || "";
+      const text = btn.textContent.trim();
+      if (callPatterns.test(label) || callPatterns.test(title) || callPatterns.test(text)) {
+        if (btn.offsetParent !== null && !btn.disabled) {
+          return btn;
+        }
+      }
+    }
+    // Also try phone icon buttons (SVG with phone path)
+    const iconBtns = container.querySelectorAll("button .mat-icon, button svg, button i.icon-phone");
+    for (const icon of iconBtns) {
+      const btn = icon.closest("button");
+      if (btn && btn.offsetParent !== null && !btn.disabled) {
+        const text = btn.textContent.trim().toLowerCase();
+        // Skip buttons that are clearly NOT call buttons
+        if (!text.includes("end") && !text.includes("hang") && !text.includes("auflegen")) {
+          return btn;
+        }
+      }
+    }
+    return null;
   }
 
   post({
