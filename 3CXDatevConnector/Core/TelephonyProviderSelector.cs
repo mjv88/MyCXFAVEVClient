@@ -285,7 +285,7 @@ namespace DatevConnector.Core
             switch (mode)
             {
                 case TelephonyMode.Tapi:
-                    return "TAPI 2.x (3CX Windows Client)";
+                    return "TAPI 2.x (3CX Windows App)";
                 case TelephonyMode.Pipe:
                     return "Terminal Server (3CX Softphone)";
                 case TelephonyMode.Webclient:
