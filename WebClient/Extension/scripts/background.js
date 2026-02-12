@@ -22,7 +22,7 @@ let detectedVersion = "";
 let detectedUserName = "";
 let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
-const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
+const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevConnectorHelloTimer";
 
 let webclientTabId = null; // Tab ID of the active 3CX webclient
 
@@ -32,7 +32,7 @@ const connIdToCallId = new Map();   // conn.id(f2) -> callId(f3)
 
 function logDebug(...args) {
   if (!debugLogging) return;
-  console.log("[3CX-DATEV][bg]", ...args);
+  console.log("[3CX-DATEV-C][bg]", ...args);
 }
 
 async function loadConfig() {
@@ -68,7 +68,7 @@ function connectBridge() {
   try {
     ws = new WebSocket(url);
   } catch (err) {
-    console.warn("[3CX-DATEV][bg] WebSocket create failed", err);
+    console.warn("[3CX-DATEV-C][bg] WebSocket create failed", err);
     scheduleReconnect();
     return null;
   }
@@ -97,7 +97,7 @@ function connectBridge() {
         handleBridgeCommand(msg);
       }
     } catch (err) {
-      console.warn("[3CX-DATEV][bg] Failed to parse bridge message", err);
+      console.warn("[3CX-DATEV-C][bg] Failed to parse bridge message", err);
     }
   };
 
@@ -128,7 +128,7 @@ function sendBridge(message) {
     logDebug("Extension -> bridge", message);
     return true;
   } catch (err) {
-    console.error("[3CX-DATEV][bg] Bridge send failed", err);
+    console.error("[3CX-DATEV-C][bg] Bridge send failed", err);
     return false;
   }
 }
@@ -156,7 +156,7 @@ function ensureHello(sourceTabId = "") {
     v: PROTOCOL_VERSION,
     type: "HELLO",
     extension: resolveExtensionNumber(),
-    identity: "3CX Webclient Extension MV3"
+    identity: "3CX DATEV Connector Extension MV3"
   };
   if (detectedDomain) hello.domain = detectedDomain;
   if (detectedVersion) hello.webclientVersion = detectedVersion;
@@ -208,7 +208,7 @@ function scheduleHelloBootstrap(delayMs = 250) {
     try {
       ensureHello("bootstrap");
     } catch (err) {
-      console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
+      console.warn("[3CX-DATEV-C][bg] HELLO bootstrap failed", err);
     }
   }, Math.max(0, delayMs));
 }
@@ -282,7 +282,7 @@ async function forwardDialToTab(number) {
     logDebug("DIAL failed - no 3CX tab found", err);
   }
 
-  console.warn("[3CX-DATEV][bg] DIAL failed: no webclient tab available");
+  console.warn("[3CX-DATEV-C][bg] DIAL failed: no webclient tab available");
 }
 
 
@@ -633,7 +633,7 @@ function parse3cxFrame(payload) {
       }
       return parsed;
     } catch (err) {
-      console.warn("[3CX-DATEV][bg] Failed to parse protobuf frame", err);
+      console.warn("[3CX-DATEV-C][bg] Failed to parse protobuf frame", err);
       return null;
     }
   }
@@ -750,7 +750,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes.extensionNumber || changes.debugLogging || changes.bridgePort) {
     const portChanged = !!changes.bridgePort;
     loadConfig().catch((err) => {
-      console.warn("[3CX-DATEV][bg] Failed to reload config", err);
+      console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
     });
     if (changes.extensionNumber || portChanged) {
       // Close existing connection so it reconnects with new settings
@@ -766,6 +766,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 loadConfig().catch((err) => {
-  console.warn("[3CX-DATEV][bg] Initial config load failed", err);
+  console.warn("[3CX-DATEV-C][bg] Initial config load failed", err);
 });
 scheduleHelloBootstrap(500);

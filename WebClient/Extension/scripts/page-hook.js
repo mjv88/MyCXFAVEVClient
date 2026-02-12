@@ -1,5 +1,5 @@
 (() => {
-  const channel = document.currentScript?.dataset.bridgeChannel || "__3cx_datev_bridge__";
+  const channel = document.currentScript?.dataset.bridgeChannel || "__3cx_datev_connector__";
 
   const post = (payload) => {
     window.postMessage({
@@ -108,7 +108,7 @@
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
     const msg = event.data;
-    if (msg.channel !== channel || msg.source !== "3cx-datev-content") return;
+    if (msg.channel !== channel || msg.source !== "3cx-datev-connector") return;
 
     if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
       const number = msg.payload.number;

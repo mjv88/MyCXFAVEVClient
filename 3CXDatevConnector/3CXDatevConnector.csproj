@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>DatevConnector</RootNamespace>
+    <AssemblyName>3CXDatevConnector</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Framework References -->
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    
+    <!-- DATEV DLLs from GAC -->
+    <Reference Include="DATEV.Interop.DatevCtiBuddy, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cbc631f1c682336b">
+      <EmbedInteropTypes>False</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="Datev.Sdd.Data.ClientInterfaces, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cbc631f1c682336b" />
+    <Reference Include="Datev.Sdd.Data.ClientPlugIn.Base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cbc631f1c682336b" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Assembly Info -->
+    <Compile Include="Properties\AssemblyInfo.cs" />
+
+    <!-- Entry Point -->
+    <Compile Include="Program.cs" />
+    
+    <!-- Core -->
+    <Compile Include="Core\BridgeService.cs" />
+    <Compile Include="Core\CallRecord.cs" />
+    <Compile Include="Core\CallTracker.cs" />
+    <Compile Include="Core\CallStateMachine.cs" />
+    <Compile Include="Core\CallIdGenerator.cs" />
+    <Compile Include="Core\CallHistoryEntry.cs" />
+    <Compile Include="Core\CallHistoryStore.cs" />
+    <Compile Include="Core\ConfigKeys.cs" />
+    <Compile Include="Core\ContactRoutingCache.cs" />
+    <Compile Include="Core\CircuitBreaker.cs" />
+    <Compile Include="Core\RetryHelper.cs" />
+    <Compile Include="Core\DebugConfigWatcher.cs" />
+    <Compile Include="Core\SessionManager.cs" />
+    <Compile Include="Core\LogPrefixes.cs" />
+    <Compile Include="Core\ShortcutManager.cs" />
+    <Compile Include="Core\AutoStartManager.cs" />
+    <Compile Include="Core\CommandLineOptions.cs" />
+
+    <!-- Core - Config -->
+    <Compile Include="Core\Config\AppConfig.cs" />
+    <Compile Include="Core\Config\IniConfig.cs" />
+
+    <!-- Core - Constants -->
+    <Compile Include="Core\Constants\IntegrationConstants.cs" />
+
+    <!-- Core - Exceptions -->
+    <Compile Include="Core\Exceptions\TapiException.cs" />
+    <Compile Include="Core\Exceptions\DatevException.cs" />
+
+    <!-- Core - Telephony Mode -->
+    <Compile Include="Core\TelephonyMode.cs" />
+    <Compile Include="Core\TelephonyProviderSelector.cs" />
+
+    <!-- TAPI -->
+    <Compile Include="Tapi\ITelephonyProvider.cs" />
+    <Compile Include="Tapi\TapiLineMonitor.cs" />
+    <Compile Include="Tapi\PipeTelephonyProvider.cs" />
+    <Compile Include="Tapi\TapiMessage.cs" />
+    <Compile Include="Tapi\TapiPipeServer.cs" />
+    <Compile Include="Tapi\TapiCommands.cs" />
+    <Compile Include="Tapi\TapiCallState.cs" />
+    <Compile Include="Tapi\TapiConfigReader.cs" />
+
+    <!-- Webclient (Browser Extension) -->
+    <Compile Include="Webclient\Protocol.cs" />
+    <Compile Include="Webclient\WebSocketBridgeServer.cs" />
+    <Compile Include="Webclient\WebclientTelephonyProvider.cs" />
+    
+    <!-- DATEV COMs -->
+    <Compile Include="Datev\COMs\CallData.cs" />
+    <Compile Include="Datev\COMs\DatevAdapter.cs" />
+
+    <!-- DATEV Enums -->
+    <Compile Include="Datev\Enums\DatevEventType.cs" />
+
+    <!-- DATEV Managers -->
+    <Compile Include="Datev\Managers\NotificationManager.cs" />
+    <Compile Include="Datev\Managers\AdapterManager.cs" />
+    <Compile Include="Datev\Managers\CallDataManager.cs" />
+    <Compile Include="Datev\Managers\DatevContactManager.cs" />
+    <Compile Include="Datev\Managers\LogManager.cs" />
+    
+    <!-- DATEV Constants -->
+    <Compile Include="Datev\Constants\CommonParameters.cs" />
+    <Compile Include="Datev\Constants\DatevDataSource.cs" />
+    
+    <!-- DATEV Cache & Connection -->
+    <Compile Include="Datev\DatevCache.cs" />
+    <Compile Include="Datev\DatevConnectionChecker.cs" />
+    
+    <!-- DATEV Data Models -->
+    <Compile Include="Datev\DatevData\Communication.cs" />
+    <Compile Include="Datev\DatevData\Enums\ContactType.cs" />
+    <Compile Include="Datev\DatevData\Enums\Medium.cs" />
+    <Compile Include="Datev\DatevData\Recipients\RecipientContact.cs" />
+    <Compile Include="Datev\DatevData\Recipients\RecipientContactDetail.cs" />
+    <Compile Include="Datev\DatevData\Recipients\RecipientsContactList.cs" />
+    <Compile Include="Datev\DatevData\Institutions\InstitutionContactDetail.cs" />
+    <Compile Include="Datev\DatevData\Institutions\InstitutionsContactList.cs" />
+    
+    <!-- DATEV Plugin Data -->
+    <Compile Include="Datev\PluginData\DatevContact.cs" />
+    <Compile Include="Datev\PluginData\DatevContactInfo.cs" />
+    
+    <!-- Interop -->
+    <Compile Include="Interop\Rot.cs" />
+    <Compile Include="Interop\TapiInterop.cs" />
+    
+    <!-- Extensions -->
+    <Compile Include="Extensions\PhoneNumberNormalizer.cs" />
+
+    <!-- UI - Theme -->
+    <Compile Include="UI\Theme\Layout.cs" />
+    <Compile Include="UI\Theme\DarkMenuRenderer.cs" />
+
+    <!-- UI - Strings -->
+    <Compile Include="UI\Strings\UIStrings.cs" />
+
+    <!-- UI - Forms -->
+    <Compile Include="UI\AboutForm.cs" />
+    <Compile Include="UI\TrayApplication.cs" />
+    <Compile Include="UI\SettingsForm.cs" />
+    <Compile Include="UI\CallHistoryForm.cs" />
+    <Compile Include="UI\StatusForm.cs" />
+    <Compile Include="UI\CallerPopupForm.cs" />
+    <Compile Include="UI\JournalForm.cs" />
+    <Compile Include="UI\ContactSelectionForm.cs" />
+    <Compile Include="UI\TroubleshootingForm.cs" />
+    <Compile Include="UI\SetupWizardForm.cs" />
+    <Compile Include="UI\UITheme.cs" />
+    <Compile Include="Core\BridgeStatus.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="UI\Assets\bridge_icon.png" />
+    <EmbeddedResource Include="UI\Assets\DATEVLogo.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

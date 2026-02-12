@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "3CX DATEV Bridge Connector",
-  "description": "Captures 3CX WebClient call states and forwards them to 3CX-DATEV Bridge via WebSocket.",
+  "name": "3CX DATEV Connector",
+  "description": "Captures 3CX WebClient call states and forwards them to 3CX - DATEV Connector via WebSocket.",
   "version": "0.1.0",
   "minimum_chrome_version": "114",
   "permissions": [
@@ -35,6 +35,6 @@
     }
   ],
   "action": {
-    "default_title": "3CX DATEV Bridge Connector"
+    "default_title": "3CX DATEV Connector"
   }
 }
