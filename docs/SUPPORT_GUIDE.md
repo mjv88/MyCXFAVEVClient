@@ -37,7 +37,7 @@ The bridge is a .NET Framework 4.8 WinForms system tray application (x86) that a
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| **BridgeService** | `Core/BridgeService.cs` | Central orchestrator — wires TAPI, DATEV, and UI |
+| **ConnectorService** | `Core/ConnectorService.cs` | Central orchestrator — wires TAPI, DATEV, and UI |
 | **TapiLineMonitor** | `Tapi/TapiLineMonitor.cs` | TAPI 2.x call event monitoring |
 | **PipeTelephonyProvider** | `Tapi/PipeTelephonyProvider.cs` | Named pipe server for 3CX commands |
 | **TapiPipeServer** | `Tapi/TapiPipeServer.cs` | Low-level pipe I/O |

@@ -18,16 +18,16 @@ using DatevConnector.Webclient;
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Main orchestrator - bridges 3CX TAPI and DATEV Telefonie
+    /// Main orchestrator - connects 3CX TAPI and DATEV Telefonie
     /// </summary>
-    public class BridgeService : IDisposable
+    public class ConnectorService : IDisposable
     {
         private string _extension;
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly DatevAdapter _datevAdapter;
         private readonly object _statusLock = new object();
-        private BridgeStatus _status = BridgeStatus.Disconnected;
+        private ConnectorStatus _status = ConnectorStatus.Disconnected;
 
         // Thread-safe mutable state (volatile ensures visibility across threads)
         private volatile ITelephonyProvider _tapiMonitor;
@@ -57,12 +57,12 @@ namespace DatevConnector.Core
         /// <summary>
         /// Event fired when connection status changes
         /// </summary>
-        public event Action<BridgeStatus> StatusChanged;
+        public event Action<ConnectorStatus> StatusChanged;
 
         /// <summary>
         /// Current connection status (thread-safe)
         /// </summary>
-        public BridgeStatus Status
+        public ConnectorStatus Status
         {
             get
             {
@@ -73,7 +73,7 @@ namespace DatevConnector.Core
             }
             private set
             {
-                Action<BridgeStatus> handler = null;
+                Action<ConnectorStatus> handler = null;
                 lock (_statusLock)
                 {
                     if (_status != value)
@@ -110,7 +110,7 @@ namespace DatevConnector.Core
         /// <summary>
         /// Whether TAPI is currently connected (at least one line)
         /// </summary>
-        public bool TapiConnected => Status == BridgeStatus.Connected;
+        public bool TapiConnected => Status == ConnectorStatus.Connected;
 
         /// <summary>
         /// When true, all popups and notifications are suppressed (silent mode).
@@ -147,7 +147,7 @@ namespace DatevConnector.Core
         /// </summary>
         public List<DatevContactInfo> GetCachedContacts() => DatevCache.GetAllContacts();
 
-        public BridgeService(string extension)
+        public ConnectorService(string extension)
         {
             _extension = extension;
             _callTracker = new CallTracker();
@@ -252,7 +252,7 @@ namespace DatevConnector.Core
                 LogManager.Warning("No telephony provider detected!");
                 LogManager.Warning("========================================");
                 LogManager.Warning(selectionResult.DiagnosticSummary ?? "No diagnostics available");
-                Status = BridgeStatus.Disconnected;
+                Status = ConnectorStatus.Disconnected;
                 return;
             }
 
@@ -463,7 +463,7 @@ namespace DatevConnector.Core
                             else
                             {
                                 LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
-                                Status = BridgeStatus.Disconnected;
+                                Status = ConnectorStatus.Disconnected;
                                 await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                                 continue;
                             }
@@ -477,7 +477,7 @@ namespace DatevConnector.Core
                         }
                     }
 
-                    Status = BridgeStatus.Connecting;
+                    Status = ConnectorStatus.Connecting;
 
                     _tapiMonitor?.Dispose();
                     _tapiMonitor = providerToUse;
@@ -494,11 +494,11 @@ namespace DatevConnector.Core
                     _tapiMonitor.Connected += () =>
                     {
                         AdoptExtensionFromProvider("connected line");
-                        Status = BridgeStatus.Connected;
+                        Status = ConnectorStatus.Connected;
                     };
                     _tapiMonitor.Disconnected += () =>
                     {
-                        Status = BridgeStatus.Disconnected;
+                        Status = ConnectorStatus.Disconnected;
                         LogManager.Log("Telephony provider disconnected (all lines)");
                     };
 
@@ -506,7 +506,7 @@ namespace DatevConnector.Core
                     if (_tapiMonitor.IsMonitoring)
                     {
                         AdoptExtensionFromProvider("initial provider");
-                        Status = BridgeStatus.Connected;
+                        Status = ConnectorStatus.Connected;
                     }
 
                     // StartAsync blocks until cancelled or line closed

@@ -58,7 +58,7 @@
     <Compile Include="Program.cs" />
     
     <!-- Core -->
-    <Compile Include="Core\BridgeService.cs" />
+    <Compile Include="Core\ConnectorService.cs" />
     <Compile Include="Core\CallRecord.cs" />
     <Compile Include="Core\CallTracker.cs" />
     <Compile Include="Core\CallStateMachine.cs" />
@@ -168,7 +168,7 @@
     <Compile Include="UI\TroubleshootingForm.cs" />
     <Compile Include="UI\SetupWizardForm.cs" />
     <Compile Include="UI\UITheme.cs" />
-    <Compile Include="Core\BridgeStatus.cs" />
+    <Compile Include="Core\ConnectorStatus.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="UI\Assets\bridge_icon.png" />

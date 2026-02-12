@@ -24,7 +24,7 @@ namespace DatevConnector.UI
         private readonly Label _lblStepIndicator;
         private readonly Button _btnBack;
         private readonly Button _btnNext;
-        private readonly BridgeService _bridgeService;
+        private readonly ConnectorService _bridgeService;
 
         // Step 2: Mode Selection
         private RadioButton _rbModeAuto;
@@ -43,7 +43,7 @@ namespace DatevConnector.UI
         // Step 5: Finish
         private CheckBox _chkAutoStart;
 
-        public SetupWizardForm(BridgeService bridgeService = null)
+        public SetupWizardForm(ConnectorService bridgeService = null)
         {
             _bridgeService = bridgeService;
             InitializeForm();
@@ -805,7 +805,7 @@ namespace DatevConnector.UI
         /// <summary>
         /// Show the setup wizard as a modal dialog.
         /// </summary>
-        public static DialogResult ShowWizard(BridgeService bridgeService = null)
+        public static DialogResult ShowWizard(ConnectorService bridgeService = null)
         {
             using (var wizard = new SetupWizardForm(bridgeService))
             {

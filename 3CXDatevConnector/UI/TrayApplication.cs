@@ -22,14 +22,14 @@ namespace DatevConnector.UI
     {
         private readonly NotifyIcon _notifyIcon;
         private readonly ContextMenuStrip _contextMenu;
-        private readonly BridgeService _bridgeService;
+        private readonly ConnectorService _bridgeService;
         private readonly CancellationTokenSource _cts;
         private readonly Icon _iconConnected;
         private readonly Icon _iconDisconnected;
         private readonly Icon _iconConnecting;
 
         // Track last notified status to avoid duplicate balloons
-        private BridgeStatus _lastNotifiedStatus = BridgeStatus.Disconnected;
+        private ConnectorStatus _lastNotifiedStatus = ConnectorStatus.Disconnected;
 
         // Mute status balloons (separate from caller popup muting)
         private readonly bool _muteStatusBalloons;
@@ -68,7 +68,7 @@ namespace DatevConnector.UI
             CallerPopupForm.SetNotifyIcon(_notifyIcon);
 
             // Create bridge service
-            _bridgeService = new BridgeService(extension);
+            _bridgeService = new ConnectorService(extension);
             _bridgeService.StatusChanged += OnStatusChanged;
             _bridgeService.DatevUnavailableNotified += OnDatevUnavailable;
             _bridgeService.DatevBecameAvailable += OnDatevBecameAvailable;
@@ -86,7 +86,7 @@ namespace DatevConnector.UI
             Opacity = 0;
 
             // Start the bridge service (fire-and-forget with proper exception handling)
-            _ = StartBridgeServiceAsync();
+            _ = StartConnectorServiceAsync();
         }
 
         /// <summary>
@@ -207,7 +207,7 @@ namespace DatevConnector.UI
         /// <summary>
         /// Start bridge service async with proper exception handling
         /// </summary>
-        private async Task StartBridgeServiceAsync()
+        private async Task StartConnectorServiceAsync()
         {
             try
             {
@@ -282,12 +282,12 @@ namespace DatevConnector.UI
         /// <summary>
         /// Handle status changes from bridge service
         /// </summary>
-        private void OnStatusChanged(BridgeStatus status)
+        private void OnStatusChanged(ConnectorStatus status)
         {
             // Ensure we're on the UI thread
             if (InvokeRequired)
             {
-                BeginInvoke(new Action<BridgeStatus>(OnStatusChanged), status);
+                BeginInvoke(new Action<ConnectorStatus>(OnStatusChanged), status);
                 return;
             }
 
@@ -297,7 +297,7 @@ namespace DatevConnector.UI
 
             switch (status)
             {
-                case BridgeStatus.Connected:
+                case ConnectorStatus.Connected:
                     if (statusChanged)
                     {
                         string connMsg;
@@ -311,14 +311,14 @@ namespace DatevConnector.UI
                     }
                     break;
 
-                case BridgeStatus.Connecting:
+                case ConnectorStatus.Connecting:
                     _notifyIcon.Icon = _iconConnecting;
                     _notifyIcon.Text = UIStrings.Status.TrayConnecting;
                     UpdateStatusMenuItem(UIStrings.Status.Connecting);
                     _lastNotifiedStatus = status;
                     return; // Don't run combined status update
 
-                case BridgeStatus.Disconnected:
+                case ConnectorStatus.Disconnected:
                     if (statusChanged)
                     {
                         string discMsg;
