@@ -388,9 +388,9 @@ namespace DatevConnector.UI.Strings
         {
             public const string Datev = "DATEV";
             public const string Tapi = "3CX";
-            public const string Bridge = "Bridge";
-            public const string CallPopUp = "Call-Pop-Up";
-            public const string CallNote = "Gesprächsnotiz";
+            public const string Bridge = "Connector";
+            public const string CallPopUp = "Contact-Pop-Up";
+            public const string CallNote = "Journal-Pop-Up";
             public const string MultipleContacts = "Multiple Kontakte";
             public const string Advanced = "Erweitert";
             public const string CallerId = "Anruferkennung";
@@ -402,10 +402,10 @@ namespace DatevConnector.UI.Strings
         // ===== SETTINGS LABELS =====
         public static class SettingsLabels
         {
-            public const string Incoming = "Eingehende Gespräche";
-            public const string Outgoing = "Ausgehende Gespräche";
+            public const string Incoming = "Eingehend";
+            public const string Outgoing = "Ausgehend";
             public const string Window = "Fenster";
-            public const string Journaling = "Aktivieren";
+            public const string Journaling = "Gesprächsnotiz";
             public const string Notification = "Benachrichtigungen";
             public const string Reselection = "Wiederauswahl";
             public const string Seconds = "Sek.";
@@ -426,7 +426,6 @@ namespace DatevConnector.UI.Strings
             public const string TelephonyModePipe = "Terminal Server";
             public const string TelephonyModeWebclient = "Webclient (Browser)";
             public const string WebclientTimeout = "Webclient Timeout:";
-            public const string ActiveMode = "Aktiver Modus: {0}";
         }
     }
 }

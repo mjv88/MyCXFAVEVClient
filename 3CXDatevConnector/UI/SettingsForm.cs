@@ -63,7 +63,6 @@ namespace DatevConnector.UI
 
         // Telephony Mode
         private ComboBox _cboTelephonyMode;
-        private Label _lblActiveMode;
 
         // Popup - Journaling
         private CheckBox _chkJournaling;
@@ -271,7 +270,7 @@ namespace DatevConnector.UI
                 Location = new Point(UITheme.SpacingM, y)
             };
             card.Controls.Add(_lblExtension);
-            y += 16;
+            y += 14;
 
             var modeText = _bridgeService != null
                 ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
@@ -282,7 +281,7 @@ namespace DatevConnector.UI
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
                 Location = new Point(UITheme.SpacingM, y)
             });
-            y += 22;
+            y += 16;
 
             _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
             _btnReconnectTapi.Size = new Size(btnWidth, btnHeight);
@@ -399,7 +398,7 @@ namespace DatevConnector.UI
             card.Controls.Add(new Label { Text = UIStrings.Sections.CallerId, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col1, row1) });
 
             card.Controls.Add(new Label { Text = UIStrings.SettingsLabels.MinLength, Location = new Point(col1, row1 + 24), AutoSize = true, ForeColor = UITheme.TextSecondary });
-            _numMinCallerIdLength = CreateCompactNumeric(col1 + 85, row1 + 22, 1, 20, 2);
+            _numMinCallerIdLength = CreateCompactNumeric(col1 + 85, row1 + 22, 1, 20, 3);
             card.Controls.Add(_numMinCallerIdLength);
 
             card.Controls.Add(new Label { Text = UIStrings.SettingsLabels.MaxCompare, Location = new Point(col1, row1 + 50), AutoSize = true, ForeColor = UITheme.TextSecondary });
@@ -478,20 +477,6 @@ namespace DatevConnector.UI
                 UIStrings.SettingsLabels.TelephonyModeWebclient
             });
             card.Controls.Add(_cboTelephonyMode);
-
-            // Active mode indicator
-            string activeModeName = _bridgeService != null
-                ? TelephonyProviderSelector.GetModeDescription(_bridgeService.SelectedTelephonyMode)
-                : "-";
-            _lblActiveMode = new Label
-            {
-                Text = string.Format(UIStrings.SettingsLabels.ActiveMode, activeModeName),
-                AutoSize = true,
-                ForeColor = UITheme.TextMuted,
-                Font = UITheme.FontSmall,
-                Location = new Point(col1, row1 + 24)
-            };
-            card.Controls.Add(_lblActiveMode);
 
             return card;
         }
@@ -691,7 +676,7 @@ namespace DatevConnector.UI
             _chkJournaling.Checked = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);
 
             // Caller ID
-            _numMinCallerIdLength.Value = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
+            _numMinCallerIdLength.Value = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 3);
             _numMaxCompareLength.Value = AppConfig.GetInt(ConfigKeys.MaxCompareLength, 10);
 
             // Popup
