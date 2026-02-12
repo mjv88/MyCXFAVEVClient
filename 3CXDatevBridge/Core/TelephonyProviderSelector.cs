@@ -45,7 +45,7 @@ namespace DatevBridge.Core
     ///
     /// Explicit mode (Tapi/Pipe/Webclient): creates that provider, fails with guided error if unavailable.
     /// Auto mode: attempts detection in priority order:
-    ///   1. Webclient (browser extension via Named Pipe IPC)
+    ///   1. Webclient (browser extension via WebSocket)
     ///   2. Pipe (3CX Softphone Named Pipe handshake)
     ///   3. TAPI (enumerate and open 3CX TAPI lines)
     /// If none detected, returns failure with diagnostic summary for the Setup Wizard.
@@ -151,10 +151,10 @@ namespace DatevBridge.Core
             diagnostics.AppendLine("Auto-Detection Results:");
 
             int webclientTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
-            bool nativeMessagingEnabled = AppConfig.GetBool(ConfigKeys.WebclientNativeMessagingEnabled, true);
+            bool webclientEnabled = AppConfig.GetBool(ConfigKeys.WebclientEnabled, true);
 
             // ── (A) Try Webclient ──
-            if (nativeMessagingEnabled)
+            if (webclientEnabled)
             {
                 progressText?.Invoke("Auto-Erkennung: Prüfe Webclient...");
                 LogManager.Log("TelephonyProviderSelector: [A] Trying Webclient (timeout={0}s)", webclientTimeoutSec);
@@ -183,7 +183,7 @@ namespace DatevBridge.Core
                     webclientProvider.Dispose();
                     diagnostics.AppendLine("  [A] Webclient: Not detected (no extension connected within timeout)");
                     LogManager.Log("TelephonyProviderSelector: [A] Webclient not detected");
-                    LogManager.Log("TelephonyProviderSelector: [A] Hint: Webclient detection does not use PBX/FQDN; it requires browser extension + native host + matching local session pipe");
+                    LogManager.Log("TelephonyProviderSelector: [A] Hint: Webclient detection requires browser extension connected via WebSocket (port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
                 }
                 catch (Exception ex)
                 {
@@ -193,7 +193,7 @@ namespace DatevBridge.Core
             }
             else
             {
-                diagnostics.AppendLine("  [A] Webclient: Disabled (NativeMessagingEnabled=false)");
+                diagnostics.AppendLine("  [A] Webclient: Disabled (Webclient.Enabled=false)");
                 LogManager.Log("TelephonyProviderSelector: [A] Webclient disabled");
             }
 
@@ -243,9 +243,9 @@ namespace DatevBridge.Core
                 var tapiProvider = new TapiLineMonitor(lineFilter, extension);
                 string reason = "Desktop environment - using TAPI";
                 LogManager.Log("TelephonyProviderSelector: TAPI selected - {0}", reason);
-                if (nativeMessagingEnabled)
+                if (webclientEnabled)
                 {
-                    LogManager.Log("TelephonyProviderSelector: TAPI fallback active. If Webclient is expected, set TelephonyMode=Webclient and verify extension/native-host registration in this Windows user session");
+                    LogManager.Log("TelephonyProviderSelector: TAPI fallback active. If Webclient is expected, set TelephonyMode=Webclient and verify browser extension is installed");
                 }
                 diagnostics.AppendLine("  [C] TAPI: SELECTED (desktop environment)");
 

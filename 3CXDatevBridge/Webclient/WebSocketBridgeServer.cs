@@ -12,13 +12,11 @@ using DatevBridge.Datev.Managers;
 namespace DatevBridge.Webclient
 {
     /// <summary>
-    /// Minimal RFC 6455 WebSocket server on localhost.
-    /// Replaces the Named Pipe + NativeHost relay chain for browser extension
+    /// Minimal RFC 6455 WebSocket server on localhost for browser extension
     /// communication. The extension connects directly via ws://127.0.0.1:PORT.
     ///
-    /// Speaks the same JSON protocol as NativeMessagingHost (HELLO, HELLO_ACK,
-    /// CALL_EVENT, COMMAND) — no framing adapter needed because WebSocket
-    /// handles message boundaries natively.
+    /// Speaks the bridge JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
+    /// WebSocket handles message boundaries natively — no length-prefix framing needed.
     /// </summary>
     public class WebSocketBridgeServer : IDisposable
     {
@@ -121,16 +119,7 @@ namespace DatevBridge.Webclient
                     client = await AcceptAsync(timeoutCts.Token);
                     if (client == null) return false;
 
-                    var stream = client.GetStream();
-                    if (!await PerformHandshakeAsync(stream))
-                    {
-                        client.Close();
-                        return false;
-                    }
-
-                    _currentClient = client;
-                    _currentStream = stream;
-                    _clientConnected = true;
+                    if (!await SetupClientAsync(client)) return false;
 
                     // Wait for HELLO
                     var helloTcs = new TaskCompletionSource<bool>();
@@ -138,7 +127,7 @@ namespace DatevBridge.Webclient
                     HelloReceived += onHello;
 
                     // Start reading in background (uses outer ct so it survives beyond TryAccept return)
-                    var readTask = ReadLoopAsync(stream, ct);
+                    var readTask = ReadLoopAsync(_currentStream, ct);
 
                     var helloWait = await Task.WhenAny(
                         helloTcs.Task,
@@ -171,7 +160,7 @@ namespace DatevBridge.Webclient
             }
         }
 
-        // ===== Send methods (same interface as NativeMessagingHost) =====
+        // ===== Send methods =====
 
         public bool SendHelloAck(string bridgeVersion, string extension)
         {
@@ -466,7 +455,7 @@ namespace DatevBridge.Webclient
             return done == acceptTask ? await acceptTask : null;
         }
 
-        private async Task<bool> HandshakeAndRunClient(TcpClient client, CancellationToken ct)
+        private async Task<bool> SetupClientAsync(TcpClient client)
         {
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
@@ -479,12 +468,18 @@ namespace DatevBridge.Webclient
             _currentClient = client;
             _currentStream = stream;
             _clientConnected = true;
+            return true;
+        }
+
+        private async Task<bool> HandshakeAndRunClient(TcpClient client, CancellationToken ct)
+        {
+            if (!await SetupClientAsync(client)) return false;
 
             string remote = "(unknown)";
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
             LogManager.Log("WebSocketBridgeServer: Client connected from {0}", remote);
 
-            await ReadLoopAsync(stream, ct);
+            await ReadLoopAsync(_currentStream, ct);
             return true;
         }
 

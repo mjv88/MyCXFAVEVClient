@@ -71,7 +71,7 @@ namespace DatevBridge.Core.Config
             { ConfigKeys.TelephonyMode, "Auto" },
             { ConfigKeys.AutoDetectionTimeoutSec, "10" },
             { ConfigKeys.WebclientConnectTimeoutSec, "8" },
-            { ConfigKeys.WebclientNativeMessagingEnabled, "true" },
+            { ConfigKeys.WebclientEnabled, "true" },
             { ConfigKeys.WebclientWebSocketPort, "19800" },
         };
 
@@ -125,7 +125,7 @@ namespace DatevBridge.Core.Config
             { ConfigKeys.TelephonyMode, SectionConnection },
             { ConfigKeys.AutoDetectionTimeoutSec, SectionConnection },
             { ConfigKeys.WebclientConnectTimeoutSec, SectionConnection },
-            { ConfigKeys.WebclientNativeMessagingEnabled, SectionConnection },
+            { ConfigKeys.WebclientEnabled, SectionConnection },
             { ConfigKeys.WebclientWebSocketPort, SectionConnection },
         };
 
@@ -339,9 +339,9 @@ namespace DatevBridge.Core.Config
                     writer.WriteLine("Auto.DetectionTimeoutSec=10");
                     writer.WriteLine("; Webclient extension connect timeout in seconds");
                     writer.WriteLine("Webclient.ConnectTimeoutSec=8");
-                    writer.WriteLine("; Enable Native Messaging host for browser extension");
-                    writer.WriteLine("Webclient.NativeMessagingEnabled=true");
-                    writer.WriteLine("; WebSocket port for direct browser extension connection (0 = disabled)");
+                    writer.WriteLine("; Enable Webclient mode (browser extension via WebSocket)");
+                    writer.WriteLine("Webclient.Enabled=true");
+                    writer.WriteLine("; WebSocket port for browser extension connection");
                     writer.WriteLine("Webclient.WebSocketPort=19800");
                 }
             }

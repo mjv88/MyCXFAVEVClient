@@ -510,29 +510,38 @@ The project uses old-style `.csproj` with explicit `<Compile Include>` entries. 
 
 The Webclient mode enables DATEV integration for users who use ONLY the 3CX Webclient (browser-based, WebRTC). No 3CX Windows application is required.
 
-Call events are received from a browser extension (Chrome/Edge) via a Named Pipe IPC mechanism. The bridge sends Dial/Drop commands back to the extension using the same channel.
+Call events are received from a browser extension (Chrome/Edge) via a direct WebSocket connection. The bridge sends Dial/Drop commands back to the extension using the same channel.
 
 ### Architecture
 
 ```
-Browser Extension (Chrome/Edge)
+3CX Server (wss protobuf)
         |
-        | Native Messaging (stdin/stdout JSON)
         v
-Native Messaging Host (subprocess)
+3CX PWA (Browser)
         |
-        | Named Pipe: \\.\pipe\3CX_DATEV_Webclient_{ext}_{sessionId}
+        | page-hook.js (WebSocket monkey-patch)
         v
-3CX-DATEV Bridge (WebclientTelephonyProvider)
+content.js (content script, isolated world)
+        |
+        | chrome.runtime.sendMessage
+        v
+background.js (MV3 service worker)
+        |
+        | WebSocket ws://127.0.0.1:19800
+        v
+3CX-DATEV Bridge (WebSocketBridgeServer)
         |
         | ITelephonyProvider events (TapiCallEvent)
         v
 BridgeService -> DATEV (COM/ROT)
 ```
 
+The extension auto-detects the extension number from the 3CX PWA's `localStorage.wc.provision` and from protobuf `MyExtensionInfo` (MessageId 201). Provision data is persisted to `chrome.storage.local` to survive MV3 service worker restarts.
+
 ### Protocol (v1)
 
-All messages are JSON with a `"v": 1` version field. Messages are framed using Chrome Native Messaging format: 4-byte little-endian length prefix + UTF-8 JSON payload.
+All messages are JSON with a `"v": 1` version field. Over WebSocket, messages are plain JSON text frames (no length prefix).
 
 #### Extension -> Bridge: HELLO
 
@@ -622,46 +631,29 @@ Sent for each call state change.
 
 | File | Purpose |
 |------|---------|
-| `Webclient/Protocol.cs` | Message types, constants, JSON parser, framing |
-| `Webclient/NativeMessagingHost.cs` | Read/write loop for Native Messaging streams |
+| `Webclient/Protocol.cs` | Message types, constants, JSON parser |
+| `Webclient/WebSocketBridgeServer.cs` | WebSocket server (port 19800) |
 | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider implementation |
 
-### Browser Extension Starter
+### Browser Extension
 
-A practical MV3 starter skeleton for interception/forwarding is included in:
+The MV3 browser extension in `WebClient/Extension/` performs:
 
-- `WebClient/Extension/manifest.json`
-- `WebClient/Extension/scripts/content.js`
-- `WebClient/Extension/scripts/page-hook.js`
-- `WebClient/Extension/scripts/background.js`
-- `WebClient/Extension/native-host/com.mjv88.datevbridge.json`
-
-The skeleton already performs:
-
-- WebSocket interception (`/ws/webclient`) from the page context
-- Native Messaging connection (`com.mjv88.datevbridge`)
-- Protocol-compliant `HELLO` / `CALL_EVENT` emission (v1)
-- Automatic extension-number detection from `MyExtensionInfo.Number` (MessageId 201), with optional manual override via `chrome.storage.local.extensionNumber`
-
-`background.js` includes a protobuf decoder for `GenericMessage` and `MyExtensionInfo`
-(MessageId 201) that extracts normalized `LocalConnection` updates for DATEV forwarding.
+- `page-hook.js` — Monkey-patches `window.WebSocket` to intercept the 3CX `wss://` connection; posts binary frames (base64) and text frames to the content script
+- `content.js` — Relays page-hook signals to the service worker; reads `localStorage.wc.provision` to auto-detect extension number; detects 3CX pages via path, hash route, or localStorage presence
+- `background.js` — Connects to bridge via `ws://127.0.0.1:19800`; decodes protobuf `GenericMessage` + `MyExtensionInfo` (MessageId 201); maps `LocalConnection` deltas to bridge `CALL_EVENT` messages; persists provision to `chrome.storage.local`
 
 If 3CX changes protobuf field numbers in future builds, adjust parser mappings in
 `WebClient/Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
 `parseLocalConnection`).
 
-### RDS / Terminal Server
-
-- The Named Pipe name includes the Windows session ID: `3CX_DATEV_Webclient_{extension}_{sessionId}`
-- Each user session gets its own pipe, preventing cross-session call mixing
-- DACL restricts pipe access to the current user
-
 ### Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check Native Messaging host registration |
+| "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check bridge is running on port 19800 |
 | Extension connects but no HELLO | Protocol version mismatch | Verify extension sends `"v": 1` and `"type": "HELLO"` |
+| HELLO has empty extension | Content script not injected or PWA not detected | Check `localStorage.wc.provision` exists; reload extension |
 | Calls not appearing in DATEV | State mapping issue | Check logs for "WebclientTelephonyProvider" entries |
 | Timeout during auto-detection | Extension takes too long | Increase `Webclient.ConnectTimeoutSec` in INI |
 
@@ -689,7 +681,8 @@ When `TelephonyMode = Auto` (default), the bridge attempts to detect the best av
 | `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `Webclient` |
 | `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
 | `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
-| `Webclient.NativeMessagingEnabled` | `true` | Enable/disable Webclient detection in Auto mode |
+| `Webclient.Enabled` | `true` | Enable/disable Webclient detection in Auto mode |
+| `Webclient.WebSocketPort` | `19800` | WebSocket port for browser extension connection |
 
 ### Explicit Mode
 
@@ -752,7 +745,7 @@ Outbound no-answer (absence):
 
 ## 3CX Webclient Protocol Internals
 
-This section documents the internal signaling protocol of the 3CX Webclient, reverse-engineered from `WebClient/Internal.js` (86K lines, beautified). This knowledge is needed to build the browser extension that intercepts call events.
+This section documents the internal signaling protocol of the 3CX Webclient, reverse-engineered from the 3CX PWA's main bundle. This knowledge is needed to build the browser extension that intercepts call events.
 
 ### Transport
 
@@ -970,7 +963,7 @@ Based on these findings, the browser extension should:
    - `Inserted (2)` → new call, emit `CALL_EVENT` with state `offered` (inbound) or `dialing` (outbound)
    - `Updated (3)` + State=Connected → emit `CALL_EVENT` with state `connected`
    - `Deleted (4)` → call ended, emit `CALL_EVENT` with state `ended`
-5. **Relay via Native Messaging** — Send our JSON protocol to the bridge EXE through the Chrome/Edge Native Messaging channel
+5. **Relay via WebSocket** — Send our JSON protocol to the bridge via `ws://127.0.0.1:19800`
 6. **Receive commands** — Listen for DIAL/DROP commands from the bridge and construct the corresponding `RequestMakeCall` (MessageId 119) / `RequestDropCall` (MessageId 115) protobuf messages to inject into the WebSocket
 
 ### Key Insight: Why LocalConnection Over WebRTC SDP

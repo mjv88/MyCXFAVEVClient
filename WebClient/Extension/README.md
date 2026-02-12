@@ -1,14 +1,17 @@
-# 3CX WebClient Browser Extension (MV3 Skeleton)
+# 3CX WebClient Browser Extension (MV3)
 
-This folder contains a **practical starter implementation** for capturing 3CX WebClient call states and forwarding them to the bridge using the repository protocol.
+This folder contains the browser extension that captures 3CX WebClient call states and forwards them to the bridge via WebSocket.
 
-## What it already does
+## What it does
 
 - Injects a page hook to observe the WebClient WebSocket (`/ws/webclient`).
 - Forwards raw signals to the extension service worker.
-- Opens a Native Messaging channel to `com.mjv88.datevbridge`.
+- Connects to the bridge via WebSocket (`ws://127.0.0.1:19800`).
 - Sends protocol-compatible `HELLO` and `CALL_EVENT` JSON messages.
 - Sends an eager `HELLO` bootstrap so the bridge can detect the extension even before the first call starts.
+- Auto-detects extension number from `localStorage.wc.provision` (set by the 3CX PWA).
+- Persists provision data to `chrome.storage.local` so it survives service worker restarts.
+- Injects content script into already-open 3CX tabs on install/startup.
 - Implements state mapping from normalized `LocalConnection` snapshots to bridge states:
   - `Ringing + inbound` -> `offered`
   - `Dialing` -> `dialing`
@@ -18,7 +21,7 @@ This folder contains a **practical starter implementation** for capturing 3CX We
 
 ## Decoder status (implemented)
 
-`scripts/background.js` already includes protobuf decoding in `parse3cxFrame`:
+`scripts/background.js` includes protobuf decoding in `parse3cxFrame`:
 
 1. Decodes `payload.base64` from WebSocket binary frames.
 2. Parses `GenericMessage` wrapper.
@@ -46,46 +49,22 @@ Normalized shape handled by the mapper:
 
 ## Installation (Chrome / Edge)
 
-
 ## Tab vs PWA behavior
 
-- The extension is injected by URL match for both `https://*/webclient/*` and root `https://*/` pages, then gated by runtime checks (`/webclient` path/hash or `/#/people` hash route). This keeps PWA/hash-routed WebClient variants working.
+- The extension is injected by URL match for both `https://*/webclient/*` and root `https://*/` pages, then gated by runtime checks (`/webclient` path/hash, `/#/people` hash route, or `localStorage.wc.provision` presence). This keeps PWA/hash-routed WebClient variants working.
+- At `document_start`, `localStorage.wc.provision` is checked to detect 3CX PWAs served at root URLs before Angular bootstraps — ensuring the page hook injects before the WebSocket connection is created.
 - In both cases, the service worker receives a `sender.tab.id`; this value is forwarded into `CALL_EVENT.context.tabId` for traceability.
 - No manual allocation is required: whichever WebClient page is active and producing websocket frames is processed automatically.
 
-### 1) Register the Native Messaging host
-
-1. Copy `native-host/com.mjv88.datevbridge.json` to a stable local path, e.g.
-   `%LocalAppData%\3CXDATEVBridge\com.mjv88.datevbridge.json` (recommended for per-user setup).
-2. Edit the manifest:
-   - Set `path` to your installed native host executable (for example `3CXDatevNativeHost.exe`).
-   - Replace `<YOUR_EXTENSION_ID>` entries in `allowed_origins` after loading the extension once (step 3 below).
-3. Register it in user registry (PowerShell):
-
-> Note: The bridge MSI installs per-user under `%LocalAppData%\Programs\3CXDATEVBridge\`.
-> So do **not** use `C:\Program Files\...` unless you intentionally deployed there.
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\native-host\register-native-host.ps1 -ManifestPath "$env:LOCALAPPDATA\3CXDATEVBridge\com.mjv88.datevbridge.json"
-```
-
-This writes both keys:
-
-- `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.mjv88.datevbridge`
-- `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.mjv88.datevbridge`
-
-### 2) Load the extension unpacked
+### 1) Load the extension unpacked
 
 1. Open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select `WebClient/Extension`.
-4. Open the extension details and copy the extension ID.
-5. Put that ID into `allowed_origins` in `com.mjv88.datevbridge.json` and re-run the PowerShell registration script.
 
-### 3) Configure extension number (optional)
+### 2) Configure extension number (optional)
 
-`extensionNumber` is auto-detected from WebClient protobuf `MyExtensionInfo.Number` (MessageId 201).
+`extensionNumber` is auto-detected from the 3CX PWA's `localStorage.wc.provision` and from WebClient protobuf `MyExtensionInfo.Number` (MessageId 201).
 
 If you want to override it explicitly, set `extensionNumber` in `chrome.storage.local`; this value has priority over auto-detection and is used in `HELLO` and `CALL_EVENT.context.extension`.
 
@@ -95,22 +74,20 @@ You can set it from the extension service worker console:
 chrome.storage.local.set({ extensionNumber: "101" })
 ```
 
-### 4) Verify end-to-end
+### 3) Verify end-to-end
 
 1. Start `3cxDatevBridge.exe` with `TelephonyMode=Webclient` (or `Auto`).
 2. Open 3CX WebClient and place/receive a call.
 3. Check bridge logs for:
-   - `NativeMessagingHost: HELLO ...`
-   - `NativeMessagingHost: CALL_EVENT ...`
+   - `WebSocketBridgeServer: HELLO ...`
+   - `WebSocketBridgeServer: CALL_EVENT ...`
    - `WebclientTelephonyProvider: ... (mapped from ...)`
 
-> Note: The extension now sends `HELLO` proactively (startup/raw-signal bootstrap), so Webclient auto-detection can succeed even when no active call is running yet.
+> Note: The extension sends `HELLO` proactively (startup/raw-signal bootstrap), so Webclient auto-detection can succeed even when no active call is running yet.
 
-If no events arrive, most often `allowed_origins` or native host registry path is wrong.
+If no events arrive, verify that the bridge is running and listening on port 19800 (default).
 
-If your PR UI still reports merge conflicts, resolve them in the six extension/bridge files listed by GitHub and ensure no `<<<<<<<`, `=======`, `>>>>>>>` markers remain before pushing.
-
-### 5) Enable diagnostic logging (recommended while validating)
+### 4) Enable diagnostic logging (recommended while validating)
 
 Enable verbose extension logs:
 
@@ -121,14 +98,14 @@ chrome.storage.local.set({ debugLogging: true })
 Then inspect:
 
 - **Extension service worker console** (`background.js`) for:
-  - native host connect/disconnect errors
+  - WebSocket connect/disconnect errors
   - raw signal receipt (`WS_TEXT`, `WS_BINARY`, etc.)
   - call-event mapping decisions (`LocalConnection -> CALL_EVENT`)
 - **Tab console** (`content.js`) for page-hook relay traces.
 - **Bridge log** (`%AppData%\3CXDATEVBridge\3CXDatevBridge.log`) for:
-  - `NativeMessagingHost: HELLO ...`
-  - `NativeMessagingHost: CALL_EVENT ...`
+  - `WebSocketBridgeServer: HELLO ...`
+  - `WebSocketBridgeServer: CALL_EVENT ...`
   - `WebclientTelephonyProvider: ... (mapped from ...)`
 
-> Decoder status: `parse3cxFrame` now includes a protobuf parser for `GenericMessage` + `MyExtensionInfo` (MessageId `201`) and extracts `LocalConnection` updates (`Action`, `State`, `IsIncoming`, `OtherPartyDn`, `OtherPartyDisplayName`).
+> Decoder status: `parse3cxFrame` includes a protobuf parser for `GenericMessage` + `MyExtensionInfo` (MessageId `201`) and extracts `LocalConnection` updates (`Action`, `State`, `IsIncoming`, `OtherPartyDn`, `OtherPartyDisplayName`).
 > If future 3CX versions change protobuf schema fields, update parser field mappings in `scripts/background.js`.

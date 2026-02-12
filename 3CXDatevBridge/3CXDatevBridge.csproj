@@ -103,7 +103,6 @@
 
     <!-- Webclient (Browser Extension) -->
     <Compile Include="Webclient\Protocol.cs" />
-    <Compile Include="Webclient\NativeMessagingHost.cs" />
     <Compile Include="Webclient\WebSocketBridgeServer.cs" />
     <Compile Include="Webclient\WebclientTelephonyProvider.cs" />
     

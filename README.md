@@ -1,6 +1,6 @@
 # 3CX - DATEV Bridge
 
-A Windows system tray application that bridges **3CX Windows Softphone App (V20)** with **DATEV**.
+A Windows system tray application that bridges **3CX** (Desktop App or WebClient) with **DATEV**.
 
 ## Background
 
@@ -11,8 +11,9 @@ As 3CX v20 evolved it introduced significant architectural changes:
 
 This broke existing DATEV integrations. This standalone proxy application restores functionality by:
 
-- Monitoring calls via Windows TAPI 2.x API (3CX Multi-Line TAPI driver)
-- Sending commands to 3CX via Named Pipes (TAPI interface)
+- Monitoring calls via Windows TAPI 2.x API (3CX Multi-Line TAPI driver) — **Desktop mode**
+- Monitoring calls via browser extension WebSocket relay — **Webclient mode**
+- Sending commands to 3CX via Named Pipes (TAPI) or WebSocket (Webclient)
 - Communicating with DATEV via COM/ROT interfaces
 - Running as a lightweight system tray application
 
@@ -43,14 +44,16 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Troubleshooting Help** | Built-in help dialog with common problems and solutions |
 | **Command Line Options** | Silent mode, custom config paths, verbose logging for deployment |
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
+| **Webclient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
+| **Auto-Detection** | Automatic telephony mode selection (TAPI, Pipe, or Webclient) based on environment |
 
 ## Requirements
 
 - Windows 10/11 (x86 or x64)
 - .NET Framework 4.8
-- 3CX Windows Softphone App (V20) or later
-- 3CX Multi-Line TAPI driver installed and configured
 - DATEV Arbeitsplatz with Telefonie component
+- **Desktop mode:** 3CX Windows Softphone App (V20) or later + 3CX Multi-Line TAPI driver
+- **Webclient mode:** Chrome or Edge browser with 3CX DATEV Bridge Connector extension
 - DATEV DLLs found in GAC:
   - `DATEV.Interop.DatevCtiBuddy.dll`
   - `Datev.Sdd.Data.ClientInterfaces.dll`
@@ -559,6 +562,11 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    TapiCallState.cs              - TAPI call state definitions       |
 |    TapiCommands.cs               - Pipe protocol command constants   |
 +----------------------------------------------------------------------+
+|  Webclient/                                                          |
+|    Protocol.cs                   - JSON protocol (v1) types & parser |
+|    WebSocketBridgeServer.cs      - WebSocket server (port 19800)     |
+|    WebclientTelephonyProvider.cs - ITelephonyProvider for Webclient   |
++----------------------------------------------------------------------+
 |  Interop/                                                            |
 |    Rot.cs                        - Running Object Table interop      |
 |    TapiInterop.cs                - TAPI P/Invoke and error handling  |
@@ -599,18 +607,18 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |  Extensions/                                                         |
 |    PhoneNumberNormalizer.cs      - Unified phone normalization       |
 +----------------------------------------------------------------------+
-         |                              |
-         | TAPI 2.x                     | COM/ROT
-         | (lineMonitor)                | (per-session)
-         |                              |
-         | Named Pipe (server)          |
-         | (MAKE-CALL, DROP-CALL)       |
-         v                              v
-+-----------------+           +-----------------+
-|  3CX Windows    |           |     DATEV       |
-|  Softphone App  |           |   Telefonie     |
-|  (V20)          |           |   (Arbeitsplatz)|
-+-----------------+           +-----------------+
+         |                |                              |
+         | TAPI 2.x       | WebSocket                    | COM/ROT
+         | (Desktop)       | ws://127.0.0.1:19800         | (per-session)
+         |                 | (Webclient)                  |
+         | Named Pipe      |                              |
+         | (MAKE-CALL)     |                              |
+         v                 v                              v
++-----------------+ +-----------------+          +-----------------+
+|  3CX Windows    | |  3CX WebClient  |          |     DATEV       |
+|  Softphone App  | |  Browser Ext.   |          |   Telefonie     |
+|  (V20)          | |  (Chrome/Edge)  |          |   (Arbeitsplatz)|
++-----------------+ +-----------------+          +-----------------+
 ```
 
 ## Data Flow & Events
@@ -1082,6 +1090,9 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 | DATEV SyncID lost | Ensure DATEV-initiated calls are using Dial command (not manual dialing) |
 | Short internal numbers triggering lookup | MinCallerIdLength auto-adjusts to extension length |
 | Fewer contacts than expected | If "Aktive Kontakte" is enabled, only contacts with Status ≠ 0 are loaded (inactive contacts excluded) — check setting |
+| Webclient: no calls forwarded | Ensure browser extension is installed, 3CX WebClient is open, and bridge is listening on port 19800 |
+| Webclient: empty extension in HELLO | Reload extension; ensure `localStorage.wc.provision` exists in the 3CX PWA origin |
+| Webclient: connection refused | Bridge not running or port 19800 blocked; check `Webclient.WebSocketPort` in INI |
 | Sync timestamp not updating | Reload contacts via Laden button — timestamp updates on successful load |
 | StatusForm shows disconnected after reconnect | Wait for event-based update (up to 6 seconds) or status will auto-refresh |
 

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace DatevBridge.Tapi
 {
     /// <summary>
-    /// Abstraction for telephony providers (TAPI 2.x or Named Pipe).
-    /// Desktop sessions use TAPI; terminal server sessions use Named Pipe
-    /// to communicate directly with the 3CX softphone.
+    /// Abstraction for telephony providers (TAPI 2.x, Named Pipe, or Webclient).
+    /// Desktop sessions use TAPI; terminal server sessions use Named Pipe;
+    /// browser-only setups use Webclient (browser extension via WebSocket).
     /// </summary>
     public interface ITelephonyProvider : IDisposable
     {

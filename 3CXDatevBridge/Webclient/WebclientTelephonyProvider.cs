@@ -1,11 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using DatevBridge.Core;
@@ -18,19 +14,11 @@ namespace DatevBridge.Webclient
 {
     /// <summary>
     /// Telephony provider for 3CX Webclient via browser extension.
-    /// Call events arrive from the extension through a Named Pipe (IPC);
+    /// Call events arrive from the extension through a WebSocket connection;
     /// commands (DIAL, DROP) are sent back to the extension.
     ///
-    /// IPC mechanism: a per-user Named Pipe that the native messaging host
-    /// subprocess connects to. This avoids requiring the bridge process itself
-    /// to be the native messaging host (which would conflict with WinForms).
-    ///
-    /// The bridge creates a pipe server "3CX_DATEV_Webclient_{sessionId}".
-    /// The native messaging host (launched by the browser) connects as client and
-    /// relays messages bidirectionally.
-    ///
-    /// For RDS/multi-session: the pipe name includes the session ID,
-    /// preventing cross-session call mixing.
+    /// The bridge listens on ws://127.0.0.1:{port} (default 19800).
+    /// The browser extension connects directly — no relay process needed.
     /// </summary>
     public class WebclientTelephonyProvider : ITelephonyProvider
     {
@@ -39,6 +27,7 @@ namespace DatevBridge.Webclient
 
         private string _extension;
         private readonly int _connectTimeoutSec;
+        private readonly int _wsPort;
         private volatile bool _disposed;
         private volatile bool _connected;
 
@@ -54,12 +43,8 @@ namespace DatevBridge.Webclient
         private readonly ConcurrentDictionary<string, string> _lastCallState =
             new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // IPC — WebSocket (preferred) or Named Pipe + NativeMessagingHost (fallback)
-        private readonly int _wsPort;
-        private readonly bool _useWebSocket;
+        // IPC — WebSocket
         private WebSocketBridgeServer _wsServer;
-        private NativeMessagingHost _host;
-        private NamedPipeServerStream _pipeServer;
 
         // ===== ITelephonyProvider Events =====
         public event Action<TapiCallEvent> CallStateChanged;
@@ -80,12 +65,11 @@ namespace DatevBridge.Webclient
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
             _connectTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
             _wsPort = AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800);
-            _useWebSocket = _wsPort > 0;
         }
 
         /// <summary>
-        /// Start the Webclient provider. Creates a Named Pipe server and waits for
-        /// the browser extension's native messaging host to connect.
+        /// Start the Webclient provider. Creates a WebSocket server and waits for
+        /// the browser extension to connect.
         /// Blocks until cancelled or disconnected.
         /// </summary>
         public Task StartAsync(CancellationToken cancellationToken)
@@ -95,29 +79,13 @@ namespace DatevBridge.Webclient
 
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
-            LogManager.Log("WebclientTelephonyProvider: Starting for extension {0} (transport={1})",
-                _extension, _useWebSocket ? "WebSocket:" + _wsPort : "NamedPipe");
+            LogManager.Log("WebclientTelephonyProvider: Starting for extension {0} (WebSocket:{1})",
+                _extension, _wsPort);
             progressText?.Invoke("Webclient-Modus: Warte auf Browser-Erweiterung...");
 
-            // Set up virtual line
-            _virtualLine = new TapiLineInfo
-            {
-                DeviceId = 0,
-                LineName = "3CX Webclient: " + _extension,
-                Extension = _extension,
-                Handle = IntPtr.Zero
-            };
-            _lines.Clear();
-            _lines.Add(_virtualLine);
+            InitVirtualLine();
 
-            if (_useWebSocket)
-            {
-                await StartWebSocketAsync(cancellationToken, progressText);
-            }
-            else
-            {
-                await StartPipeAsync(cancellationToken, progressText);
-            }
+            await StartWebSocketAsync(cancellationToken, progressText);
 
             // Final cleanup
             _connected = false;
@@ -188,72 +156,6 @@ namespace DatevBridge.Webclient
             }
         }
 
-        private async Task StartPipeAsync(CancellationToken cancellationToken, Action<string> progressText)
-        {
-            string pipeName = GetPipeName();
-            LogManager.Log("WebclientTelephonyProvider: Pipe name = {0}", pipeName);
-
-            // Accept connections in a loop (reconnect on disconnect)
-            while (!cancellationToken.IsCancellationRequested && !_disposed)
-            {
-                try
-                {
-                    progressText?.Invoke("Webclient: Warte auf Erweiterung...");
-
-                    // Create a new pipe server for each connection cycle
-                    _pipeServer = CreatePipeServer(pipeName);
-
-                    // Wait for client connection (browser native messaging host)
-                    LogManager.Log("WebclientTelephonyProvider: Waiting for extension to connect on pipe {0}", pipeName);
-                    await Task.Factory.FromAsync(
-                        _pipeServer.BeginWaitForConnection,
-                        _pipeServer.EndWaitForConnection,
-                        null);
-
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
-
-                    LogManager.Log("WebclientTelephonyProvider: Extension connected on pipe");
-                    progressText?.Invoke("Webclient: Erweiterung verbunden, warte auf HELLO...");
-
-                    // Create host for this connection
-                    _host = new NativeMessagingHost(_pipeServer, _pipeServer);
-                    _host.CallEventReceived += OnExtensionCallEvent;
-                    _host.HelloReceived += (ext) =>
-                    {
-                        OnHelloReceived(ext, progressText);
-                        _host.SendHelloAck("1.0", _extension);
-                    };
-                    _host.Disconnected += () =>
-                    {
-                        OnTransportDisconnected(progressText);
-                    };
-
-                    // Run the host read loop (blocks until disconnect)
-                    await _host.RunAsync(cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    LogManager.Log("WebclientTelephonyProvider: Error - {0}", ex.Message);
-                    progressText?.Invoke("Webclient: Fehler - " + ex.Message);
-                }
-                finally
-                {
-                    CleanupConnection();
-                }
-
-                // Brief delay before accepting next connection
-                if (!cancellationToken.IsCancellationRequested && !_disposed)
-                {
-                    await Task.Delay(1000, cancellationToken);
-                }
-            }
-        }
-
         private void WireWebSocketEvents(Action<string> progressText)
         {
             _wsServer.CallEventReceived += OnExtensionCallEvent;
@@ -307,156 +209,23 @@ namespace DatevBridge.Webclient
         /// </summary>
         public async Task<bool> TryConnectAsync(CancellationToken cancellationToken, int timeoutSec)
         {
-            // Set up virtual line
-            _virtualLine = new TapiLineInfo
-            {
-                DeviceId = 0,
-                LineName = "3CX Webclient: " + _extension,
-                Extension = _extension,
-                Handle = IntPtr.Zero
-            };
-            _lines.Clear();
-            _lines.Add(_virtualLine);
+            InitVirtualLine();
 
-            if (_useWebSocket)
-                return await TryConnectWebSocketAsync(cancellationToken, timeoutSec);
-            else
-                return await TryConnectPipeAsync(cancellationToken, timeoutSec);
-        }
-
-        private async Task<bool> TryConnectWebSocketAsync(CancellationToken cancellationToken, int timeoutSec)
-        {
             try
             {
                 _wsServer = new WebSocketBridgeServer(_wsPort);
-                _wsServer.CallEventReceived += OnExtensionCallEvent;
-                _wsServer.HelloReceived += (ext) =>
-                {
-                    _connected = true;
-                    _virtualLine.Handle = WebclientConnectedHandle;
-
-                    if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
-                    {
-                        _extension = ext;
-                        _virtualLine.Extension = ext;
-                        _virtualLine.LineName = "3CX Webclient: " + ext;
-                        LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
-                    }
-
-                    _wsServer.SendHelloAck("1.0", _extension);
-                };
-                _wsServer.Disconnected += () =>
-                {
-                    _connected = false;
-                    _virtualLine.Handle = IntPtr.Zero;
-                    _activeCalls.Clear();
-                    _lastCallState.Clear();
-                    LineDisconnected?.Invoke(_virtualLine);
-                };
+                WireWebSocketEvents(null);
 
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);
                 if (ok)
                 {
                     LogManager.Log("WebclientTelephonyProvider: TryConnect succeeded via WebSocket");
-                    LineConnected?.Invoke(_virtualLine);
-                    Connected?.Invoke();
                     return true;
                 }
 
-                LogManager.Log("WebclientTelephonyProvider: TryConnect failed via WebSocket (no HELLO)");
+                LogManager.Log("WebclientTelephonyProvider: TryConnect failed (no HELLO within timeout)");
                 CleanupConnection();
                 return false;
-            }
-            catch (OperationCanceledException)
-            {
-                CleanupConnection();
-                return false;
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("WebclientTelephonyProvider: TryConnect WebSocket error - {0}", ex.Message);
-                CleanupConnection();
-                return false;
-            }
-        }
-
-        private async Task<bool> TryConnectPipeAsync(CancellationToken cancellationToken, int timeoutSec)
-        {
-            string pipeName = GetPipeName();
-            try
-            {
-                _pipeServer = CreatePipeServer(pipeName);
-                LogManager.Log("WebclientTelephonyProvider: TryConnect on pipe {0} (timeout={1}s)", pipeName, timeoutSec);
-
-                using (var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-                {
-                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
-
-                    var connectTask = Task.Factory.FromAsync(
-                        _pipeServer.BeginWaitForConnection,
-                        _pipeServer.EndWaitForConnection,
-                        null);
-
-                    var completedTask = await Task.WhenAny(connectTask, Task.Delay(Timeout.Infinite, timeoutCts.Token));
-
-                    if (completedTask != connectTask || timeoutCts.IsCancellationRequested)
-                    {
-                        LogManager.Log("WebclientTelephonyProvider: TryConnect timed out");
-                        CleanupConnection();
-                        return false;
-                    }
-
-                    await connectTask;
-
-                    _host = new NativeMessagingHost(_pipeServer, _pipeServer);
-                    var helloTcs = new TaskCompletionSource<bool>();
-
-                    _host.HelloReceived += (ext) =>
-                    {
-                        _connected = true;
-                        _virtualLine.Handle = WebclientConnectedHandle;
-
-                        if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
-                        {
-                            _extension = ext;
-                            _virtualLine.Extension = ext;
-                            _virtualLine.LineName = "3CX Webclient: " + ext;
-                            LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
-                        }
-
-                        _host.SendHelloAck("1.0", _extension);
-                        helloTcs.TrySetResult(true);
-                    };
-                    _host.Disconnected += () =>
-                    {
-                        helloTcs.TrySetResult(false);
-                    };
-
-                    var readTask = _host.RunAsync(timeoutCts.Token);
-
-                    var helloResult = await Task.WhenAny(helloTcs.Task, Task.Delay(TimeSpan.FromSeconds(timeoutSec), cancellationToken));
-                    if (helloResult == helloTcs.Task && helloTcs.Task.Result)
-                    {
-                        LogManager.Log("WebclientTelephonyProvider: TryConnect succeeded (HELLO received)");
-                        _host.CallEventReceived += OnExtensionCallEvent;
-                        _host.Disconnected += () =>
-                        {
-                            _connected = false;
-                            _virtualLine.Handle = IntPtr.Zero;
-                            _activeCalls.Clear();
-                            _lastCallState.Clear();
-                            LineDisconnected?.Invoke(_virtualLine);
-                        };
-
-                        LineConnected?.Invoke(_virtualLine);
-                        Connected?.Invoke();
-                        return true;
-                    }
-
-                    LogManager.Log("WebclientTelephonyProvider: TryConnect failed (no HELLO)");
-                    CleanupConnection();
-                    return false;
-                }
             }
             catch (OperationCanceledException)
             {
@@ -473,31 +242,18 @@ namespace DatevBridge.Webclient
 
         /// <summary>
         /// Continue running after TryConnectAsync succeeded.
-        /// Blocks until disconnection.
+        /// Blocks until disconnection, then reconnects.
         /// </summary>
         public async Task RunAfterConnectAsync(CancellationToken cancellationToken)
         {
-            if (_useWebSocket)
-            {
-                await RunWebSocketAfterConnectAsync(cancellationToken);
-                return;
-            }
+            if (_wsServer == null || !_connected) return;
 
-            if (_host == null || !_connected)
-                return;
-
-            // The read loop from TryConnectAsync is still running.
-            // Wait for disconnection or cancellation.
             var tcs = new TaskCompletionSource<bool>();
-            _host.Disconnected += () => tcs.TrySetResult(true);
+            _wsServer.Disconnected += () => tcs.TrySetResult(true);
 
             using (cancellationToken.Register(() => tcs.TrySetCanceled()))
             {
-                try
-                {
-                    await tcs.Task;
-                }
-                catch (TaskCanceledException) { }
+                try { await tcs.Task; } catch (TaskCanceledException) { }
             }
 
             // Reconnect loop
@@ -628,9 +384,7 @@ namespace DatevBridge.Webclient
                 return -1;
             }
 
-            bool sent = _useWebSocket && _wsServer != null
-                ? _wsServer.SendDial(destination)
-                : _host != null && _host.SendDial(destination);
+            bool sent = _wsServer != null && _wsServer.SendDial(destination);
 
             if (sent)
             {
@@ -658,9 +412,7 @@ namespace DatevBridge.Webclient
                 .Select(kvp => kvp.Key)
                 .LastOrDefault();
 
-            bool sent = _useWebSocket && _wsServer != null
-                ? _wsServer.SendDrop(lastCall)
-                : _host != null && _host.SendDrop(lastCall);
+            bool sent = _wsServer != null && _wsServer.SendDrop(lastCall);
             if (sent)
             {
                 LogManager.Log("WebclientTelephonyProvider: DROP sent (callId={0})", lastCall ?? "(all)");
@@ -679,18 +431,18 @@ namespace DatevBridge.Webclient
 
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
-            LogManager.Log("WebclientTelephonyProvider: ReconnectLine - pipe server handles reconnect automatically");
+            LogManager.Log("WebclientTelephonyProvider: ReconnectLine - WebSocket server handles reconnect automatically");
             return _connected;
         }
 
         public void ReconnectAllLines(Action<string> progressText = null)
         {
-            LogManager.Log("WebclientTelephonyProvider: ReconnectAllLines - pipe server handles reconnect automatically");
+            LogManager.Log("WebclientTelephonyProvider: ReconnectAllLines - WebSocket server handles reconnect automatically");
         }
 
         public bool TestLine(string extension, Action<string> progressText = null, int maxRetries = 3)
         {
-            bool ok = _connected && (_useWebSocket ? (_wsServer != null && _wsServer.IsConnected) : (_host != null && _host.IsConnected));
+            bool ok = _connected && _wsServer != null && _wsServer.IsConnected;
             progressText?.Invoke(ok
                 ? string.Format("Webclient ({0}): Browser-Erweiterung verbunden", _extension)
                 : string.Format("Webclient ({0}): Warte auf Browser-Erweiterung", _extension));
@@ -699,45 +451,17 @@ namespace DatevBridge.Webclient
 
         // ===== Helpers =====
 
-        private string GetPipeName()
+        private void InitVirtualLine()
         {
-            int sessionId = SessionManager.SessionId;
-            return string.Format("3CX_DATEV_Webclient_{0}", sessionId);
-        }
-
-        private static NamedPipeServerStream CreatePipeServer(string pipeName)
-        {
-            // Set up DACL: current user = full control, block others
-            var pipeSecurity = new PipeSecurity();
-            var currentUser = WindowsIdentity.GetCurrent().User;
-            pipeSecurity.AddAccessRule(new PipeAccessRule(
-                currentUser,
-                PipeAccessRights.FullControl,
-                AccessControlType.Allow));
-
-            // Allow ALL_APPLICATION_PACKAGES (MSIX/AppContainer access)
-            try
+            _virtualLine = new TapiLineInfo
             {
-                var appPackages = new SecurityIdentifier("S-1-15-2-1");
-                pipeSecurity.AddAccessRule(new PipeAccessRule(
-                    appPackages,
-                    PipeAccessRights.ReadWrite,
-                    AccessControlType.Allow));
-            }
-            catch
-            {
-                // Ignore if SID not valid on this OS version
-            }
-
-            return new NamedPipeServerStream(
-                pipeName,
-                PipeDirection.InOut,
-                1, // maxConnections — one extension at a time per session
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous,
-                4096, // inBufferSize
-                4096, // outBufferSize
-                pipeSecurity);
+                DeviceId = 0,
+                LineName = "3CX Webclient: " + _extension,
+                Extension = _extension,
+                Handle = IntPtr.Zero
+            };
+            _lines.Clear();
+            _lines.Add(_virtualLine);
         }
 
         private void CleanupConnection()
@@ -751,18 +475,6 @@ namespace DatevBridge.Webclient
                 try { _wsServer.Dispose(); } catch { }
                 _wsServer = null;
             }
-
-            if (_host != null)
-            {
-                _host.Dispose();
-                _host = null;
-            }
-
-            if (_pipeServer != null)
-            {
-                try { _pipeServer.Dispose(); } catch { }
-                _pipeServer = null;
-            }
         }
 
         public void Dispose()
@@ -774,29 +486,6 @@ namespace DatevBridge.Webclient
 
             if (_virtualLine != null)
                 _virtualLine.Handle = IntPtr.Zero;
-        }
-
-        // ===== RunAfterConnect helper (WebSocket path) =====
-
-        private async Task RunWebSocketAfterConnectAsync(CancellationToken cancellationToken)
-        {
-            if (_wsServer == null || !_connected) return;
-
-            var tcs = new TaskCompletionSource<bool>();
-            _wsServer.Disconnected += () => tcs.TrySetResult(true);
-
-            using (cancellationToken.Register(() => tcs.TrySetCanceled()))
-            {
-                try { await tcs.Task; } catch (TaskCanceledException) { }
-            }
-
-            // Reconnect loop
-            while (!cancellationToken.IsCancellationRequested && !_disposed)
-            {
-                CleanupConnection();
-                await Task.Delay(1000, cancellationToken);
-                await StartAsync(cancellationToken);
-            }
         }
     }
 }

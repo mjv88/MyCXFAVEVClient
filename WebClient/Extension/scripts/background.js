@@ -1,6 +1,5 @@
 // ===== Transport: WebSocket to bridge (ws://127.0.0.1:PORT) =====
-// Replaces Chrome Native Messaging — no NativeHost.exe relay needed.
-// Speaks the same JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
+// Speaks the bridge JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
 
 const PROTOCOL_VERSION = 1;
 const DEFAULT_BRIDGE_PORT = 19800;
@@ -33,11 +32,19 @@ function logDebug(...args) {
 }
 
 async function loadConfig() {
-  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging", "bridgePort"]);
+  const cfg = await chrome.storage.local.get(["extensionNumber", "debugLogging", "bridgePort", "lastProvision"]);
   configuredExtension = (cfg.extensionNumber || "").trim();
   debugLogging = !!cfg.debugLogging;
   bridgePort = parseInt(cfg.bridgePort, 10) || DEFAULT_BRIDGE_PORT;
-  logDebug("Config loaded", { configuredExtension, debugLogging, bridgePort });
+
+  // Restore last known provision (survives service worker restart)
+  if (!configuredExtension && cfg.lastProvision) {
+    detectedExtension = cfg.lastProvision.extension || "";
+    detectedDomain = cfg.lastProvision.domain || "";
+    detectedVersion = cfg.lastProvision.version || "";
+    detectedUserName = cfg.lastProvision.userName || "";
+  }
+  logDebug("Config loaded", { configuredExtension, detectedExtension, debugLogging, bridgePort });
 }
 
 function resolveExtensionNumber() {
@@ -184,27 +191,19 @@ function scheduleHelloBootstrap(delayMs = 250) {
   if (helloAcked) return;
   logDebug("Scheduling HELLO bootstrap", { delayMs });
 
-  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY] || null;
+  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY];
   if (currentTimer) {
     clearTimeout(currentTimer);
-    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
   }
 
-  const triggerHelloBootstrap = () => {
+  globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = setTimeout(() => {
     globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
     try {
       ensureHello("bootstrap");
     } catch (err) {
       console.warn("[3CX-DATEV][bg] HELLO bootstrap failed", err);
     }
-  };
-
-  if (typeof globalThis.setTimeout === "function") {
-    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = globalThis.setTimeout(triggerHelloBootstrap, Math.max(0, delayMs));
-    return;
-  }
-
-  triggerHelloBootstrap();
+  }, Math.max(0, delayMs));
 }
 
 // ===== Call event mapping =====
@@ -589,6 +588,16 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       userName: detectedUserName
     });
 
+    // Persist so it survives service worker restarts
+    chrome.storage.local.set({
+      lastProvision: {
+        extension: detectedExtension,
+        domain: detectedDomain,
+        version: detectedVersion,
+        userName: detectedUserName
+      }
+    }).catch(() => {});
+
     // Re-send HELLO if extension changed or handshake not complete
     if (extensionChanged || !helloAcked) {
       helloSent = false;
@@ -616,13 +625,43 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 });
 
+// Inject content script into already-open 3CX tabs (content_scripts from
+// manifest only run on page navigation, not tabs that are already loaded).
+async function injectExistingTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: ["https://*/", "https://*/webclient/*"] });
+    for (const tab of tabs) {
+      try {
+        // Try to reach an existing content script first
+        await chrome.tabs.sendMessage(tab.id, { type: "REFRESH_WEBCLIENT_DETECTION" });
+        logDebug("Content script already present in tab", tab.id);
+      } catch {
+        // No content script — inject it
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["scripts/content.js"]
+          });
+          logDebug("Injected content script into tab", tab.id);
+        } catch (err) {
+          logDebug("Could not inject into tab", tab.id, err);
+        }
+      }
+    }
+  } catch (err) {
+    logDebug("injectExistingTabs failed", err);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
+  await injectExistingTabs();
   scheduleHelloBootstrap();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
+  await injectExistingTabs();
   scheduleHelloBootstrap();
 });
 

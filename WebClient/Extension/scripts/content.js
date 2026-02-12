@@ -1,4 +1,42 @@
 (() => {
+  /**
+   * Read 3CX provision data from localStorage (available on the webclient origin).
+   * Returns { extension, domain, version, userName } or null.
+   */
+  function readProvision() {
+    try {
+      const raw = localStorage.getItem("wc.provision");
+      if (!raw) return null;
+      const prov = JSON.parse(raw);
+      if (!prov || !prov.username) return null;
+
+      const version = localStorage.getItem("wc.version");
+      const yourname = localStorage.getItem("yourname");
+
+      return {
+        extension: String(prov.username).trim(),
+        domain: prov.domain || "",
+        version: version ? version.replace(/^"|"$/g, "") : "",
+        userName: yourname || ""
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // Guard against double injection (manifest content_scripts + chrome.scripting.executeScript
+  // share the same isolated world). Re-injection just re-sends provision data.
+  if (window.__3cx_datev_content_active) {
+    try {
+      const prov = readProvision();
+      if (prov) {
+        chrome.runtime.sendMessage({ type: "3CX_PROVISION", provision: prov });
+      }
+    } catch {}
+    return;
+  }
+  window.__3cx_datev_content_active = true;
+
   const BRIDGE_CHANNEL = "__3cx_datev_bridge__";
   let debugLogging = false;
   let pageHookInjected = false;
@@ -21,6 +59,13 @@
       const normalizedHash = hash.replace(/^#\/?/, "/");
       if (WEBCLIENT_HASH_ROUTES.some((route) => normalizedHash.startsWith(route))) return true;
     }
+
+    // localStorage-based: wc.provision exists at this origin.
+    // This catches root-URL PWAs (path="/", hash="") at document_start,
+    // before Angular creates the WebSocket — critical for page-hook timing.
+    try {
+      if (localStorage.getItem("wc.provision")) return true;
+    } catch {}
 
     return false;
   };
@@ -52,31 +97,6 @@
     (document.head || document.documentElement).appendChild(script);
     script.remove();
     logDebug("Injected page hook", { reason, href: location.href });
-  }
-
-  /**
-   * Read 3CX provision data from localStorage (available on the webclient origin).
-   * Returns { extension, domain, version, userName } or null.
-   */
-  function readProvision() {
-    try {
-      const raw = localStorage.getItem("wc.provision");
-      if (!raw) return null;
-      const prov = JSON.parse(raw);
-      if (!prov || !prov.username) return null;
-
-      const version = localStorage.getItem("wc.version");
-      const yourname = localStorage.getItem("yourname");
-
-      return {
-        extension: String(prov.username).trim(),
-        domain: prov.domain || "",
-        version: version ? version.replace(/^"|"$/g, "") : "",
-        userName: yourname || ""
-      };
-    } catch {
-      return null;
-    }
   }
 
   let provisionSent = false;
