@@ -250,8 +250,8 @@ namespace DatevConnector.UI.Strings
             // Telephony mode selection (setup wizard)
             public const string ModeSelectionTitle = "Telefonie-Modus";
             public const string ModeSelectionDesc = "Wie verbinden Sie sich mit 3CX?";
-            public const string ModeOptionTapi = "3CX Windows Client (Desktop / TAPI)";
-            public const string ModeOptionPipe = "3CX Windows Client (Terminal Server)";
+            public const string ModeOptionTapi = "3CX Windows App (Desktop / TAPI)";
+            public const string ModeOptionPipe = "3CX Windows App (Terminal Server)";
             public const string ModeOptionWebclient = "3CX Webclient (nur Browser / WebRTC)";
             public const string ModeOptionAuto = "Automatisch erkennen";
             public const string FeatureWebclient = "Webclient / Browser-Erweiterung konfigurieren";
@@ -338,11 +338,11 @@ namespace DatevConnector.UI.Strings
 
             // TAPI problems
             public const string TapiNotConnected = "TAPI nicht verbunden";
-            public const string TapiNotConnectedDesc = "Stellen Sie sicher, dass der 3CX Windows Client läuft und der TAPI-Treiber installiert ist.";
+            public const string TapiNotConnectedDesc = "Stellen Sie sicher, dass der 3CX Windows App läuft und der TAPI-Treiber installiert ist.";
             public const string TapiIniNotFound = "3CX TAPI INI nicht gefunden";
             public const string TapiIniNotFoundDesc = "Installieren und konfigurieren Sie den 3CX Multi-Line TAPI-Treiber.";
             public const string TapiNoLines = "Keine TAPI-Leitungen gefunden";
-            public const string TapiNoLinesDesc = "Prüfen Sie die TAPI-Konfiguration in der 3CX Windows Client Verwaltung.";
+            public const string TapiNoLinesDesc = "Prüfen Sie die TAPI-Konfiguration in der 3CX Windows App Verwaltung.";
 
             // DATEV problems
             public const string DatevNotReachable = "DATEV nicht erreichbar";
