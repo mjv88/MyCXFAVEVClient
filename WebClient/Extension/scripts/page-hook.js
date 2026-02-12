@@ -20,6 +20,20 @@
     return btoa(binary);
   };
 
+  // TEMP: Intercept XHR to capture SOAP MakeCall format from manual dials
+  const NativeXHROpen = XMLHttpRequest.prototype.open;
+  const NativeXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function(method, url, ...args) {
+    this.__3cxUrl = url;
+    return NativeXHROpen.call(this, method, url, ...args);
+  };
+  XMLHttpRequest.prototype.send = function(body) {
+    if (this.__3cxUrl && String(this.__3cxUrl).includes("MPWebService")) {
+      post({ kind: "XHR_SOAP_OUT", url: this.__3cxUrl, body: String(body).substring(0, 1000) });
+    }
+    return NativeXHRSend.call(this, body);
+  };
+
   let webclientSocket = null; // Reference to the active 3CX WebSocket
 
   const NativeWebSocket = window.WebSocket;
@@ -129,21 +143,47 @@
     if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
       const number = msg.payload.number;
       post({ kind: "DIAL_RECEIVED", number });
-
-      // Try tel: link (works if 3CX PWA registered as protocol handler)
-      try {
-        const link = document.createElement("a");
-        link.href = "tel:" + number;
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        post({ kind: "DIAL_ATTEMPTED", method: "tel-link", number });
-      } catch (err) {
-        post({ kind: "DIAL_ERROR", method: "tel-link", error: String(err) });
-      }
+      dialViaSoap(number);
     }
   });
+
+  // Auto-dial via 3CX SOAP API (MPWebService.asmx)
+  async function dialViaSoap(number) {
+    const baseUrl = window.location.origin;
+    const url = baseUrl + "/MyPhone/MPWebService.asmx";
+
+    const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:mp="http://www.3cx.com/MPWebService/">
+  <soap:Body>
+    <mp:MakeCallTo>
+      <mp:to>${number}</mp:to>
+    </mp:MakeCallTo>
+  </soap:Body>
+</soap:Envelope>`;
+
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "http://www.3cx.com/MPWebService/MakeCallTo"
+        },
+        body: soapBody,
+        credentials: "include"
+      });
+
+      const text = await resp.text();
+      post({
+        kind: "DIAL_SOAP_RESULT",
+        status: resp.status,
+        ok: resp.ok,
+        body: text.substring(0, 500)
+      });
+    } catch (err) {
+      post({ kind: "DIAL_SOAP_ERROR", error: String(err) });
+    }
+  }
 
   post({
     kind: "HOOK_READY",
