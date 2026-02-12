@@ -24,7 +24,6 @@ let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
-const calls = new Map();
 let webclientTabId = null; // Tab ID of the active 3CX webclient
 
 // Deduplication: field 3 (callId) groups all legs of one logical call
@@ -325,7 +324,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
       }
     }
 
-    calls.delete(callId);
     const evt = toCallEvent({
       callId, direction, remoteNumber, remoteName,
       state: "ended", reason: "unknown", tabId: sourceTabId
@@ -365,13 +363,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   if (!state) {
     return;
   }
-
-  calls.set(callId, {
-    direction,
-    remoteNumber,
-    remoteName,
-    state
-  });
 
   const evt = toCallEvent({
     callId, direction, remoteNumber, remoteName, state,
@@ -482,58 +473,6 @@ class ProtoReader {
         throw new Error(`Unsupported wire type ${wireType}`);
     }
   }
-}
-
-// TEMP: Generic protobuf field dumper for reverse-engineering outgoing messages
-function dumpProtobufFields(bytes, depth = 0) {
-  if (depth > 3) return "(max depth)";
-  const reader = new ProtoReader(bytes);
-  const fields = [];
-
-  while (!reader.eof()) {
-    try {
-      const tag = reader.readVarint();
-      const field = tag >>> 3;
-      const wire = tag & 0x7;
-
-      if (wire === 0) {
-        fields.push({ f: field, t: "varint", v: reader.readVarint() });
-      } else if (wire === 2) {
-        const data = reader.readLengthDelimited();
-        // Try to decode as UTF-8 string first
-        let str;
-        try {
-          str = new TextDecoder("utf-8", { fatal: true }).decode(data);
-          if (/^[\x20-\x7e\u00c0-\u024f]+$/.test(str)) {
-            fields.push({ f: field, t: "string", v: str });
-            continue;
-          }
-        } catch {}
-        // Try to parse as nested protobuf
-        try {
-          const nested = dumpProtobufFields(data, depth + 1);
-          if (Array.isArray(nested) && nested.length > 0) {
-            fields.push({ f: field, t: "msg", v: nested });
-            continue;
-          }
-        } catch {}
-        // Raw bytes (show first 32 bytes as hex)
-        const hex = Array.from(data.subarray(0, 32)).map(b => b.toString(16).padStart(2, "0")).join(" ");
-        fields.push({ f: field, t: "bytes", len: data.length, hex });
-      } else if (wire === 1) {
-        reader.pos += 8;
-        fields.push({ f: field, t: "fixed64" });
-      } else if (wire === 5) {
-        reader.pos += 4;
-        fields.push({ f: field, t: "fixed32" });
-      } else {
-        break;
-      }
-    } catch {
-      break;
-    }
-  }
-  return fields;
 }
 
 function parseLocalConnection(bytes) {
@@ -680,18 +619,6 @@ function parse3cxFrame(payload) {
 
   if (payload.parsed && typeof payload.parsed === "object") {
     return payload.parsed;
-  }
-
-  // TEMP: dump outgoing binary messages to discover MakeCall protobuf format
-  if (payload.kind === "WS_OUT_BINARY" && payload.base64) {
-    try {
-      const bytes = base64ToBytes(payload.base64);
-      const dump = dumpProtobufFields(bytes);
-      console.warn("[3CX-DATEV] OUTGOING protobuf:", JSON.stringify(dump));
-    } catch (err) {
-      console.warn("[3CX-DATEV] Failed to dump outgoing protobuf", err);
-    }
-    return null;
   }
 
   if (payload.kind === "WS_BINARY" && payload.base64) {
