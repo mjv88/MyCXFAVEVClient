@@ -1,5 +1,7 @@
 (() => {
   const channel = document.currentScript?.dataset.bridgeChannel || "__3cx_datev_connector__";
+  const DEFAULT_DIAL_DELAY = 650;
+  let dialDelay = DEFAULT_DIAL_DELAY;
 
   const post = (payload) => {
     window.postMessage({
@@ -112,6 +114,9 @@
 
     if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
       const number = msg.payload.number;
+      if (msg.payload.dialDelay != null) {
+        dialDelay = parseInt(msg.payload.dialDelay, 10) || DEFAULT_DIAL_DELAY;
+      }
       post({ kind: "DIAL_RECEIVED", number });
       triggerDial(number);
     }
@@ -133,7 +138,7 @@
     post({ kind: "DIAL_TEL_LINK_CLICKED", number: cleanNumber });
 
     // Wait for the PWA to open the dialer / call confirmation dialog
-    await new Promise(r => setTimeout(r, 650));
+    await new Promise(r => setTimeout(r, dialDelay));
 
     // Simulate Enter keypress to confirm the call
     const enterEvent = new KeyboardEvent("keydown", {
