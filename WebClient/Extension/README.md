@@ -76,7 +76,7 @@ chrome.storage.local.set({ extensionNumber: "101" })
 
 ### 3) Verify end-to-end
 
-1. Start `3cxDatevBridge.exe` with `TelephonyMode=Webclient` (or `Auto`).
+1. Start `3cxDatevConnector.exe` with `TelephonyMode=Webclient` (or `Auto`).
 2. Open 3CX WebClient and place/receive a call.
 3. Check bridge logs for:
    - `WebSocketBridgeServer: HELLO ...`
@@ -102,7 +102,7 @@ Then inspect:
   - raw signal receipt (`WS_TEXT`, `WS_BINARY`, etc.)
   - call-event mapping decisions (`LocalConnection -> CALL_EVENT`)
 - **Tab console** (`content.js`) for page-hook relay traces.
-- **Bridge log** (`%AppData%\3CXDATEVBridge\3CXDatevBridge.log`) for:
+- **Bridge log** (`%AppData%\3CXDATEVConnector\3CXDatevConnector.log`) for:
   - `WebSocketBridgeServer: HELLO ...`
   - `WebSocketBridgeServer: CALL_EVENT ...`
   - `WebclientTelephonyProvider: ... (mapped from ...)`

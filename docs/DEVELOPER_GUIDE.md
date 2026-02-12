@@ -1,4 +1,4 @@
-# 3CX-DATEV Bridge — Developer Guide
+# 3CX - DATEV Connector — Developer Guide
 
 ## Why This Application Exists
 
@@ -417,7 +417,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 ## File Structure
 
 ```
-3CXDatevBridge/
+3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
 │   ├── BridgeService.cs                Central orchestrator (1,200 lines)
@@ -493,12 +493,12 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 
 ## Building
 
-1. Open `3CXDatevBridge.sln` in Visual Studio 2019 or later
+1. Open `3CXDatevConnector.sln` in Visual Studio 2019 or later
 2. Ensure DATEV DLLs are available in the GAC (install DATEV Simulator or DATEV Basis)
 3. Ensure 3CX Multi-Line TAPI driver is installed for testing
 4. Target: **x86** (required by DATEV SDK)
 5. Build → Release
-6. Output: `bin\Release\3cxDatevBridge.exe`
+6. Output: `bin\Release\3cxDatevConnector.exe`
 
 The project uses old-style `.csproj` with explicit `<Compile Include>` entries. When adding or removing files, update the `.csproj` accordingly.
 
@@ -530,7 +530,7 @@ background.js (MV3 service worker)
         |
         | WebSocket ws://127.0.0.1:19800
         v
-3CX-DATEV Bridge (WebSocketBridgeServer)
+3CX - DATEV Connector (WebSocketBridgeServer)
         |
         | ITelephonyProvider events (TapiCallEvent)
         v
@@ -708,7 +708,7 @@ TelephonyMode chosen: Tapi (reason: Desktop environment - using TAPI)
 A developer-only console mode is available for testing the Webclient provider:
 
 ```
-3CXDatevBridge.exe --test-webclient [extension]
+3CXDatevConnector.exe --test-webclient [extension]
 ```
 
 This reads JSON CALL_EVENT lines from stdin and logs the DATEV notifications that would be emitted.

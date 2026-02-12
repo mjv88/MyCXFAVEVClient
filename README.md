@@ -1,4 +1,4 @@
-# 3CX - DATEV Bridge
+# 3CX - DATEV Connector
 
 A Windows system tray application that bridges **3CX** (Desktop App or WebClient) with **DATEV**.
 
@@ -53,7 +53,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 - .NET Framework 4.8
 - DATEV Arbeitsplatz with Telefonie component
 - **Desktop mode:** 3CX Windows Softphone App (V20) or later + 3CX Multi-Line TAPI driver
-- **Webclient mode:** Chrome or Edge browser with 3CX DATEV Bridge Connector extension
+- **Webclient mode:** Chrome or Edge browser with 3CX - DATEV Connector Connector extension
 - DATEV DLLs found in GAC:
   - `DATEV.Interop.DatevCtiBuddy.dll`
   - `Datev.Sdd.Data.ClientInterfaces.dll`
@@ -63,46 +63,46 @@ This broke existing DATEV integrations. This standalone proxy application restor
 
 ### Portable Mode
 
-Copy `3cxDatevBridge.exe` to any folder and run. Configuration is stored at:
+Copy `3cxDatevConnector.exe` to any folder and run. Configuration is stored at:
 
 ```
-%AppData%\3CXDATEVBridge\3CXDATEVBridge.ini
+%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini
 ```
 
 ### MSI Mode (Recommended)
 
 Deploy via GPO / SCCM / Intune as a **per-user installation**.
 
-- Installs `3cxDatevBridge.exe` to `%LocalAppData%\Programs\3CXDATEVBridge\`
-- Creates the configuration directory at `%AppData%\3CXDATEVBridge\`
-- Optionally pre-seeds `3CXDATEVBridge.ini` during deployment
-- Logs written to `%AppData%\3CXDATEVBridge\3CXDatevBridge.log`
+- Installs `3cxDatevConnector.exe` to `%LocalAppData%\Programs\3CXDATEVConnector\`
+- Creates the configuration directory at `%AppData%\3CXDATEVConnector\`
+- Optionally pre-seeds `3CXDATEVConnector.ini` during deployment
+- Logs written to `%AppData%\3CXDATEVConnector\3CXDatevConnector.log`
 
 ### Pre-Seeding Configuration
 
-To deploy with pre-configured settings, place a prepared `3CXDATEVBridge.ini` at:
+To deploy with pre-configured settings, place a prepared `3CXDATEVConnector.ini` at:
 
 ```
-%AppData%\3CXDATEVBridge\3CXDATEVBridge.ini
+%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini
 ```
 
 The application reads this file on startup. See the [Configuration](#configuration) section for the full INI structure.
 
 **First-run behavior:** If no INI file exists, the application creates one with default values and prompts the user to launch the Setup Wizard. An existing INI file is never overwritten on startup.
 
-**Enterprise rollout:** To replicate configuration across users, distribute the same `3CXDATEVBridge.ini` via Intune, SCCM, GPO script, or include a template INI in the MSI package that is copied to `%AppData%` on first launch.
+**Enterprise rollout:** To replicate configuration across users, distribute the same `3CXDATEVConnector.ini` via Intune, SCCM, GPO script, or include a template INI in the MSI package that is copied to `%AppData%` on first launch.
 
 ### Autostart Options
 
 | Method | Details |
 |--------|---------|
-| **HKCU Run** (recommended) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `3CXDATEVBridge` = `"<path>\3cxDatevBridge.exe" /minimized /silent` |
-| **Task Scheduler** (alternative) | Create a per-user logon task that runs `3cxDatevBridge.exe /minimized /silent` — useful when DATEV needs time to start (configure 30–60s delay) |
+| **HKCU Run** (recommended) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `3CXDATEVConnector` = `"<path>\3cxDatevConnector.exe" /minimized /silent` |
+| **Task Scheduler** (alternative) | Create a per-user logon task that runs `3cxDatevConnector.exe /minimized /silent` — useful when DATEV needs time to start (configure 30–60s delay) |
 
 ## Admin Options (Optional)
 
 ```
-3cxDatevBridge.exe [Options]
+3cxDatevConnector.exe [Options]
 
 Options:
   /minimized    Start without showing status window
@@ -114,9 +114,9 @@ Options:
   /help         Show help information
 
 Examples:
-  3cxDatevBridge.exe /minimized /silent
-  3cxDatevBridge.exe /config="%AppData%\3CXDATEVBridge\3CXDATEVBridge.ini"
-  3cxDatevBridge.exe /logdir="D:\Logs\3cxDatevBridge"
+  3cxDatevConnector.exe /minimized /silent
+  3cxDatevConnector.exe /config="%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini"
+  3cxDatevConnector.exe /logdir="D:\Logs\3cxDatevConnector"
 
 Note: Options can start with /, - or --
 ```
@@ -126,10 +126,10 @@ Note: Options can start with /, - or --
 All settings are stored in a single INI file:
 
 ```
-%AppData%\3CXDATEVBridge\3CXDATEVBridge.ini
+%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini
 ```
 
-The file is **hot-reloaded** — changes to `3CXDATEVBridge.ini` take effect immediately without restart.
+The file is **hot-reloaded** — changes to `3CXDATEVConnector.ini` take effect immediately without restart.
 
 **Defaults handling:** Missing keys fall back to built-in defaults. Delete a line to restore its default value.
 
@@ -140,7 +140,7 @@ The default INI file generated on first run contains only the `[Settings]` secti
 **Default INI (generated on first run):**
 
 ```ini
-; 3CX-DATEV Bridge Configuration
+; 3CX - DATEV Connector Configuration
 ; Edit values below. Delete a line to restore its default.
 
 [Settings]
@@ -282,7 +282,7 @@ The configured value is used as a floor; if the extension is longer, the length 
 ### Configuration Hot-Reload Flow
 
 ```
-1. User edits 3CXDATEVBridge.ini
+1. User edits 3CXDATEVConnector.ini
    └─> FileSystemWatcher detects change
        └─> DebugConfigWatcher.OnFileChanged()
            └─> Debounce timer (300ms)
@@ -316,7 +316,7 @@ The context menu uses a **dark theme** (matching the form/popup color scheme) wi
 
 | Menu Item | Shortcut | Description |
 |-----------|----------|-------------|
-| **3CX - DATEV Bridge** | - | Bold app title (non-interactive) |
+| **3CX - DATEV Connector** | - | Bold app title (non-interactive) |
 | --- | - | Separator |
 | 🟢 Status: Betriebsbereit | - | Clickable status with colored dot (green=OK, orange=partial, red=error) |
 | 📞 Anrufliste | Strg+H | Open call history for re-journaling |
@@ -502,7 +502,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 
 ```
 +----------------------------------------------------------------------+
-|                       3cxDatevBridge.exe                              |
+|                       3cxDatevConnector.exe                              |
 +----------------------------------------------------------------------+
 |  Program.cs                      - Entry point, single instance      |
 +----------------------------------------------------------------------+
@@ -535,7 +535,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    CallHistoryStore.cs           - Circular buffer store (in/out)    |
 |    ConfigKeys.cs                 - Centralized INI key constants     |
 |    ContactRoutingCache.cs        - Last-contact routing memory       |
-|    DebugConfigWatcher.cs         - 3CXDATEVBridge.ini hot-reload     |
+|    DebugConfigWatcher.cs         - 3CXDATEVConnector.ini hot-reload     |
 |    CircuitBreaker.cs             - Circuit breaker pattern           |
 |    RetryHelper.cs                - Retry with exponential backoff    |
 |    SessionManager.cs             - Terminal server session detection  |
@@ -965,20 +965,20 @@ Post-cache GC logs working set before/after and managed heap size (Debug level):
 
 ## Logging
 
-Log file location: `%AppData%\3CXDATEVBridge\3CXDatevBridge.log`
+Log file location: `%AppData%\3CXDATEVConnector\3CXDatevConnector.log`
 
 ### Log Rotation
 
 - **Size-based rotation**: When a log file reaches `LogMaxSizeMB` (default: 10 MB), it is rotated. Up to `LogMaxFiles` (default: 5) rotated files are kept. Oldest rotated files are deleted when the limit is exceeded.
 
-Configure via `[Logging]` section in `3CXDATEVBridge.ini`:
+Configure via `[Logging]` section in `3CXDATEVConnector.ini`:
 ```ini
 [Logging]
 LogMaxSizeMB=10
 LogMaxFiles=5
 ```
 
-Enable verbose logging at runtime by setting in `3CXDATEVBridge.ini`:
+Enable verbose logging at runtime by setting in `3CXDATEVConnector.ini`:
 ```ini
 [Debug]
 VerboseLogging=true
@@ -1063,11 +1063,11 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 
 ## Building
 
-1. Open `3CXDatevBridge.sln` in Visual Studio 2019+
+1. Open `3CXDatevConnector.sln` in Visual Studio 2019+
 2. Ensure DATEV DLLs are available (GAC or local `Lib/` folder)
 3. Ensure 3CX Multi-Line TAPI driver is installed
 4. Build -> Release
-5. Output: `bin\Release\3cxDatevBridge.exe`
+5. Output: `bin\Release\3cxDatevConnector.exe`
 
 ## Troubleshooting
 
@@ -1106,10 +1106,10 @@ Proprietary — Internal use only
 |------|----------|-----------|
 | **Authorization** | Current user SID (DACL) on named pipe | Extension numbers are guessable and not OS security principals |
 | **Routing** | Extension number in pipe name | Identifies the correct channel without serving as a security boundary |
-| **Configuration** | Single INI file (`3CXDATEVBridge.ini`) in `%AppData%\3CXDATEVBridge\` | Simpler deployment, hot-reloadable, admin-friendly for enterprise rollout |
+| **Configuration** | Single INI file (`3CXDATEVConnector.ini`) in `%AppData%\3CXDATEVConnector\` | Simpler deployment, hot-reloadable, admin-friendly for enterprise rollout |
 | **Deployment** | Per-user MSI via Intune/SCCM/GPO + HKCU Run autostart | Tray app requires per-user context; HKCU Run is simplest reliable autostart |
 | **Log Retention** | Size-based rotation (10 MB per file, 5 files max) | Prevents unbounded disk usage while keeping recent diagnostic data |
-| **Naming** | `3CXDATEVBridge` (install/log folder), `3CXDatevBridge` (exe, log), `3CXDATEVBridge` (INI) | Consistent naming across all artifacts |
+| **Naming** | `3CXDATEVConnector` (install/log folder), `3CXDatevConnector` (exe, log), `3CXDATEVConnector` (INI) | Consistent naming across all artifacts |
 | **Contact Routing** | `LastContactRoutingMinutes` in `[Settings]` | Configurable window for remembering last-used contact per phone number |
 | **Config Portability** | Distribute INI file directly (no import/export features) | INI is the single portable artifact; enterprise tools handle distribution |
 
