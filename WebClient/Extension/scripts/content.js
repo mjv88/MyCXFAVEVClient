@@ -169,6 +169,15 @@
     if (message?.type === "REFRESH_WEBCLIENT_DETECTION") {
       refreshWebClientDetection("runtime-message");
     }
+
+    if (message?.type === "DIAL" && message?.number) {
+      logDebug("DIAL received from background, forwarding to page", message.number);
+      window.postMessage({
+        channel: BRIDGE_CHANNEL,
+        source: "3cx-datev-content",
+        payload: { kind: "DIAL", number: message.number }
+      }, "*");
+    }
   });
 
   window.addEventListener("hashchange", () => {
