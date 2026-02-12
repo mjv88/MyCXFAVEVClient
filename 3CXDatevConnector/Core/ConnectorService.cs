@@ -160,7 +160,7 @@ namespace DatevConnector.Core
             
             // Read configuration
             _enableJournaling = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);
-            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
+            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 3);
 
             // UI Popup settings
             _enableJournalPopup = AppConfig.GetBool(ConfigKeys.EnableJournalPopup, true);

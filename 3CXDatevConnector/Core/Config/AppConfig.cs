@@ -33,7 +33,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.CallerPopupMode, "Form" },
 
             // Call Handling
-            { ConfigKeys.MinCallerIdLength, "2" },
+            { ConfigKeys.MinCallerIdLength, "3" },
             { ConfigKeys.MaxCompareLength, "10" },
             { ConfigKeys.ContactReshowDelaySeconds, "3" },
             { ConfigKeys.LastContactRoutingMinutes, "60" },
