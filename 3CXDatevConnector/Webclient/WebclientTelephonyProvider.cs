@@ -268,7 +268,7 @@ namespace DatevConnector.Webclient
 
         /// <summary>
         /// Map extension CALL_EVENT messages to TapiCallEvent and fire CallStateChanged.
-        /// Maps webclient states to TAPI LINECALLSTATE constants so BridgeService
+        /// Maps webclient states to TAPI LINECALLSTATE constants so ConnectorService
         /// can process them identically to TAPI/Pipe events.
         /// </summary>
         private void OnExtensionCallEvent(ExtensionMessage msg)

@@ -525,8 +525,8 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |      DarkMenuRenderer.cs         - Dark theme for context menus      |
 +----------------------------------------------------------------------+
 |  Core/                                                               |
-|    BridgeService.cs              - Main orchestrator                 |
-|    BridgeStatus.cs               - Connection status enum            |
+|    ConnectorService.cs              - Main orchestrator                 |
+|    ConnectorStatus.cs               - Connection status enum            |
 |    CallTracker.cs                - Active call management            |
 |    CallStateMachine.cs           - State transition validation       |
 |    CallRecord.cs                 - Call data record model            |
@@ -628,7 +628,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 ```
 1. TAPI Event (LINECALLSTATE_OFFERING)
    └─> TapiLineMonitor detects incoming call
-       └─> BridgeService.OnCallStateChanged()
+       └─> ConnectorService.OnCallStateChanged()
            ├─> CallTracker.Add() - create CallRecord
            ├─> DatevCache.Lookup(callerNumber) - find contact
            ├─> ContactRoutingCache.ApplyRouting() - apply last-contact preference
@@ -636,7 +636,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
            └─> CallerPopupForm.Show() - display popup
 
 2. TAPI Event (LINECALLSTATE_CONNECTED)
-   └─> BridgeService.OnCallStateChanged()
+   └─> ConnectorService.OnCallStateChanged()
        ├─> CallStateMachine.Transition(Connected)
        ├─> NotificationManager.CallStateChanged(Connected)
        ├─> CallerPopupForm.Close()
@@ -646,7 +646,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
                └─> NotificationManager.CallAdressatChanged()
 
 3. TAPI Event (LINECALLSTATE_DISCONNECTED)
-   └─> BridgeService.OnCallStateChanged()
+   └─> ConnectorService.OnCallStateChanged()
        ├─> CallStateMachine.Transition(Disconnected)
        ├─> NotificationManager.CallStateChanged(Finished)
        ├─> CallHistoryStore.Add() (if DATEV-matched)
@@ -659,13 +659,13 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 
 ```
 1. DATEV calls DatevAdapter.Dial(callData)
-   └─> BridgeService.OnDatevDial()
+   └─> ConnectorService.OnDatevDial()
        ├─> CallIdGenerator.Next() - generate unique ID
        ├─> Store pending call with SyncID and contact info
        └─> PipeTelephonyProvider.MakeCall(number)
 
 2. TAPI Event (LINECALLSTATE_RINGBACK)
-   └─> BridgeService.OnCallStateChanged()
+   └─> ConnectorService.OnCallStateChanged()
        ├─> Match pending call by phone number
        ├─> Apply stored SyncID and contact info to CallRecord
        ├─> CallTracker.Add()
@@ -682,7 +682,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 
 ```
 1. Startup / Manual Reload
-   └─> BridgeService.ReloadContactsAsync()
+   └─> ConnectorService.ReloadContactsAsync()
        └─> RetryHelper.ExecuteWithRetry()
            └─> DatevContactManager.GetContacts()
                ├─> GetRecipients() - fetch from SDD with filter

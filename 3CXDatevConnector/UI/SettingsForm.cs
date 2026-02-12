@@ -73,10 +73,10 @@ namespace DatevConnector.UI
         private Button _btnSave;
         private Button _btnCancel;
 
-        private BridgeService _bridgeService;
+        private ConnectorService _bridgeService;
         private bool _isLoadingSettings;
 
-        public SettingsForm(BridgeService bridgeService = null)
+        public SettingsForm(ConnectorService bridgeService = null)
         {
             _bridgeService = bridgeService;
             RequestedAction = Action.None;
