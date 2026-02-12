@@ -271,7 +271,18 @@ namespace DatevConnector.UI
                 Location = new Point(UITheme.SpacingM, y)
             };
             card.Controls.Add(_lblExtension);
-            y += 30;
+            y += 16;
+
+            var modeText = _bridgeService != null
+                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                : "\u2014";
+            card.Controls.Add(new Label
+            {
+                Text = modeText,
+                AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
+                Location = new Point(UITheme.SpacingM, y)
+            });
+            y += 22;
 
             _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
             _btnReconnectTapi.Size = new Size(btnWidth, btnHeight);

@@ -387,7 +387,7 @@ namespace DatevConnector.UI.Strings
         public static class Sections
         {
             public const string Datev = "DATEV";
-            public const string Tapi = "3CX TAPI";
+            public const string Tapi = "3CX";
             public const string Bridge = "Bridge";
             public const string CallPopUp = "Call-Pop-Up";
             public const string CallNote = "Gesprächsnotiz";
@@ -417,7 +417,7 @@ namespace DatevConnector.UI.Strings
             public const string Count = "Anzahl:";
             public const string ActiveContacts = "Aktive Kontakte";
             public const string Contacts = "Kontakte: {0}";
-            public const string Extension = "Nst: {0}";
+            public const string Extension = "Nst. {0}";
             public const string Sync = "Sync: {0}";
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
             public const string TelephonyMode = "Telefonie-Modus:";

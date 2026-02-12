@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Tapi;
+using DatevConnector.UI.Strings;
 using DatevConnector.Webclient;
 
 namespace DatevConnector.Core
@@ -293,6 +294,25 @@ namespace DatevConnector.Core
                 case TelephonyMode.Auto:
                 default:
                     return "Automatisch (Webclient -> Terminal Server -> TAPI)";
+            }
+        }
+
+        /// <summary>
+        /// Get the short UI label for a telephony mode (matches Settings dropdown text).
+        /// </summary>
+        public static string GetModeShortName(TelephonyMode mode)
+        {
+            switch (mode)
+            {
+                case TelephonyMode.Tapi:
+                    return UIStrings.SettingsLabels.TelephonyModeTapi;
+                case TelephonyMode.Pipe:
+                    return UIStrings.SettingsLabels.TelephonyModePipe;
+                case TelephonyMode.Webclient:
+                    return UIStrings.SettingsLabels.TelephonyModeWebclient;
+                case TelephonyMode.Auto:
+                default:
+                    return UIStrings.SettingsLabels.TelephonyModeAuto;
             }
         }
     }

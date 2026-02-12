@@ -168,7 +168,7 @@ namespace DatevConnector.UI
             var tapiLines = _bridgeService?.TapiLines ?? new List<TapiLineInfo>();
             int lineCount = tapiLines.Count;
             int extraTapiHeight = lineCount > 1 ? (lineCount - 1) * 24 : 0;
-            ClientSize = new Size(420, 416 + extraTapiHeight);
+            ClientSize = new Size(420, 434 + extraTapiHeight);
 
             // ==================== DATEV Section ====================
             var datevCard = CreateSectionCard(UIStrings.Sections.Datev, UITheme.AccentDatev, y, cardWidth, datevCardHeight);
@@ -231,18 +231,23 @@ namespace DatevConnector.UI
 
             y += datevCardHeight + UITheme.SpacingM;
 
-            // ==================== 3CX TAPI Section ====================
+            // ==================== 3CX Section ====================
             // Calculate card height based on number of lines (reuse tapiLines/lineCount from above)
-            int tapiCardHeight = lineCount > 1 ? 70 + (lineCount * 24) : cardHeight;
+            int tapiCardHeight = lineCount > 1 ? 88 + (lineCount * 24) : cardHeight + 18;
 
             _tapiCard = CreateSectionCard(UIStrings.Sections.Tapi, UITheme.AccentIncoming, y, cardWidth, tapiCardHeight);
             Controls.Add(_tapiCard);
 
             bool tapiOk = _bridgeService?.TapiConnected ?? false;
 
+            // Active mode label (shown in both single and multi-line)
+            var activeModeName = _bridgeService != null
+                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                : "\u2014";
+
             if (lineCount <= 1)
             {
-                // Single line mode (backward compatible display)
+                // Single line mode
                 string ext = _bridgeService?.Extension ?? "—";
 
                 _lblTapiStatus = new Label
@@ -255,15 +260,24 @@ namespace DatevConnector.UI
                 };
                 _tapiCard.Controls.Add(_lblTapiStatus);
 
+                _tapiCard.Controls.Add(new Label
+                {
+                    Text = activeModeName,
+                    ForeColor = UITheme.TextMuted,
+                    Font = UITheme.FontSmall,
+                    Location = new Point(12, 48),
+                    AutoSize = true
+                });
+
                 // Buttons aligned to the right
                 _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Connect, btnWidth);
-                _btnReconnectTapi.Location = new Point(cardWidth - 12 - btnWidth, 40);
+                _btnReconnectTapi.Location = new Point(cardWidth - 12 - btnWidth, 58);
                 _btnReconnectTapi.Click += BtnReconnectTapi_Click;
                 _btnReconnectTapi.Enabled = !tapiOk;
                 _tapiCard.Controls.Add(_btnReconnectTapi);
 
                 _btnTestTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
-                _btnTestTapi.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 40);
+                _btnTestTapi.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 58);
                 _btnTestTapi.Click += BtnTestTapi_Click;
                 _tapiCard.Controls.Add(_btnTestTapi);
             }
@@ -281,6 +295,15 @@ namespace DatevConnector.UI
                 };
                 _tapiCard.Controls.Add(_lblTapiStatus);
 
+                _tapiCard.Controls.Add(new Label
+                {
+                    Text = activeModeName,
+                    ForeColor = UITheme.TextMuted,
+                    Font = UITheme.FontSmall,
+                    Location = new Point(12, 48),
+                    AutoSize = true
+                });
+
                 // "Neuverbinden" button for reconnecting all lines
                 _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.ReconnectShort, 90);
                 _btnReconnectTapi.Location = new Point(cardWidth - 12 - 90, 24);
@@ -288,7 +311,7 @@ namespace DatevConnector.UI
                 _tapiCard.Controls.Add(_btnReconnectTapi);
 
                 // Individual line rows: Status | Progress | Testen | Verb.
-                int lineY = 52;
+                int lineY = 70;
                 int btnTestWidth = 50;
                 int btnVerbWidth = 45;
                 int btnGap = 4;
@@ -343,7 +366,7 @@ namespace DatevConnector.UI
             if (lineCount <= 1)
             {
                 _lblTapiProgress = UITheme.CreateProgressLabel(cardWidth - 24);
-                _lblTapiProgress.Location = new Point(12, 78);
+                _lblTapiProgress.Location = new Point(12, 96);
                 _lblTapiProgress.Visible = false;
                 _tapiCard.Controls.Add(_lblTapiProgress);
             }
