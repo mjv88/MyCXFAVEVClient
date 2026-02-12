@@ -637,14 +637,14 @@ Sent for each call state change.
 
 ### Browser Extension
 
-The MV3 browser extension in `WebClient/Extension/` performs:
+The MV3 browser extension in `Extension/` performs:
 
 - `page-hook.js` — Monkey-patches `window.WebSocket` to intercept the 3CX `wss://` connection; posts binary frames (base64) and text frames to the content script
 - `content.js` — Relays page-hook signals to the service worker; reads `localStorage.wc.provision` to auto-detect extension number; detects 3CX pages via path, hash route, or localStorage presence
 - `background.js` — Connects to bridge via `ws://127.0.0.1:19800`; decodes protobuf `GenericMessage` + `MyExtensionInfo` (MessageId 201); maps `LocalConnection` deltas to bridge `CALL_EVENT` messages; persists provision to `chrome.storage.local`
 
 If 3CX changes protobuf field numbers in future builds, adjust parser mappings in
-`WebClient/Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
+`Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
 `parseLocalConnection`).
 
 ### Troubleshooting
