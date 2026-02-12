@@ -153,7 +153,7 @@ namespace DatevConnector.Tapi
 
         /// <summary>
         /// Process incoming pipe messages from the 3CX Softphone
-        /// and translate to TapiCallEvent for BridgeService.
+        /// and translate to TapiCallEvent for ConnectorService.
         ///
         /// Protocol note: Softphone replies echo the original cmd with additional
         /// __answ# and reply fields. Check IsReply first to avoid treating replies

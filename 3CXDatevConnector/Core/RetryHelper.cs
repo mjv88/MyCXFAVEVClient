@@ -81,6 +81,7 @@ namespace DatevConnector.Core
 
         /// <summary>
         /// Executes an action with retry logic and exponential backoff.
+        /// Delegates to the generic overload internally.
         /// </summary>
         /// <param name="action">The action to execute</param>
         /// <param name="operationName">Name for logging purposes</param>
@@ -95,42 +96,10 @@ namespace DatevConnector.Core
             int? initialDelaySeconds = null,
             Func<Exception, bool> shouldRetry = null)
         {
-            int retries = maxRetries ?? DefaultMaxRetries;
-            int delay = initialDelaySeconds ?? DefaultInitialDelaySeconds;
-
-            for (int attempt = 0; attempt <= retries; attempt++)
-            {
-                try
-                {
-                    action();
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    // Check if this exception type should be retried
-                    if (shouldRetry != null && !shouldRetry(ex))
-                    {
-                        LogManager.Log("{0} failed with non-retryable error: {1}", operationName, ex.Message);
-                        return false;
-                    }
-
-                    if (attempt < retries)
-                    {
-                        int currentDelay = delay * (int)Math.Pow(2, attempt);
-                        LogManager.Log("{0} failed (attempt {1}/{2}), retrying in {3}s: {4}",
-                            operationName, attempt + 1, retries + 1, currentDelay, ex.Message);
-
-                        Thread.Sleep(currentDelay * 1000);
-                    }
-                    else
-                    {
-                        LogManager.Log("{0} failed after {1} attempts: {2}",
-                            operationName, retries + 1, ex.Message);
-                    }
-                }
-            }
-
-            return false;
+            var result = ExecuteWithRetry<bool>(
+                () => { action(); return true; },
+                operationName, maxRetries, initialDelaySeconds, shouldRetry);
+            return result;
         }
 
         /// <summary>

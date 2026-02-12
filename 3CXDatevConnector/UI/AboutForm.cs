@@ -89,7 +89,7 @@ namespace DatevConnector.UI
             // Description
             var descLabel = new Label
             {
-                Text = "Integration zwischen 3CX Windows Softphone App (V20) und DATEV.",
+                Text = UIStrings.Messages.AppDescription,
                 Font = UITheme.FontBody,
                 ForeColor = UITheme.TextSecondary,
                 AutoSize = false,

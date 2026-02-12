@@ -66,7 +66,7 @@ Finished                            (direct, for NewJournal)
 Absence                             (direct, for NewJournal)
 ```
 
-All other transitions are forbidden. The bridge enforces this in `BridgeService.cs` by mapping TAPI states to DATEV states:
+All other transitions are forbidden. The bridge enforces this in `ConnectorService.cs` by mapping TAPI states to DATEV states:
 
 | TAPI State | DATEV CallState | Notification |
 |------------|----------------|--------------|
@@ -367,9 +367,9 @@ The pipe must exist before 3CX polls for it, which is why pipe creation happens 
 
 The TAPI `lineMakeCall` function can initiate calls, but the 3CX TAPI driver uses a named pipe for command dispatch. The bridge creates a pipe server matching the name 3CX expects (`3CX_tsp_server_{ext}`) and sends commands in the 3CX wire format.
 
-### Why a Single BridgeService Orchestrator?
+### Why a Single ConnectorService Orchestrator?
 
-At ~1,200 lines, `BridgeService.cs` is large but serves as the single orchestration point. The domain logic is delegated to focused managers:
+At ~1,200 lines, `ConnectorService.cs` is large but serves as the single orchestration point. The domain logic is delegated to focused managers:
 
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
@@ -377,7 +377,7 @@ At ~1,200 lines, `BridgeService.cs` is large but serves as the single orchestrat
 - `DatevContactManager` — SDD access
 - `CallStateMachine` — state validation
 
-Splitting BridgeService would mainly shuffle code and add inter-class communication without reducing complexity.
+Splitting ConnectorService would mainly shuffle code and add inter-class communication without reducing complexity.
 
 ### Why COM/ROT Instead of REST/gRPC?
 
@@ -420,8 +420,8 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
-│   ├── BridgeService.cs                Central orchestrator (1,200 lines)
-│   ├── BridgeStatus.cs                 Connection status enum
+│   ├── ConnectorService.cs                Central orchestrator (1,200 lines)
+│   ├── ConnectorStatus.cs                 Connection status enum
 │   ├── CallTracker.cs                  Active/pending call management
 │   ├── CallStateMachine.cs             TAPI state transition validation
 │   ├── CallRecord.cs                   Call data record model
@@ -534,7 +534,7 @@ background.js (MV3 service worker)
         |
         | ITelephonyProvider events (TapiCallEvent)
         v
-BridgeService -> DATEV (COM/ROT)
+ConnectorService -> DATEV (COM/ROT)
 ```
 
 The extension auto-detects the extension number from the 3CX PWA's `localStorage.wc.provision` and from protobuf `MyExtensionInfo` (MessageId 201). Provision data is persisted to `chrome.storage.local` to survive MV3 service worker restarts.
@@ -637,14 +637,14 @@ Sent for each call state change.
 
 ### Browser Extension
 
-The MV3 browser extension in `WebClient/Extension/` performs:
+The MV3 browser extension in `Extension/` performs:
 
 - `page-hook.js` — Monkey-patches `window.WebSocket` to intercept the 3CX `wss://` connection; posts binary frames (base64) and text frames to the content script
 - `content.js` — Relays page-hook signals to the service worker; reads `localStorage.wc.provision` to auto-detect extension number; detects 3CX pages via path, hash route, or localStorage presence
 - `background.js` — Connects to bridge via `ws://127.0.0.1:19800`; decodes protobuf `GenericMessage` + `MyExtensionInfo` (MessageId 201); maps `LocalConnection` deltas to bridge `CALL_EVENT` messages; persists provision to `chrome.storage.local`
 
 If 3CX changes protobuf field numbers in future builds, adjust parser mappings in
-`WebClient/Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
+`Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
 `parseLocalConnection`).
 
 ### Troubleshooting

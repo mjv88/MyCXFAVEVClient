@@ -60,7 +60,7 @@ Normalized shape handled by the mapper:
 
 1. Open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode**.
-3. Click **Load unpacked** and select `WebClient/Extension`.
+3. Click **Load unpacked** and select `Extension`.
 
 ### 2) Configure extension number (optional)
 
