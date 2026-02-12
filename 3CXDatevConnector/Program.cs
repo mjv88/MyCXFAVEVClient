@@ -63,7 +63,7 @@ namespace DatevConnector
                 // Auto-set MinCallerIdLength from extension length (desktop + TS)
                 if (!string.IsNullOrEmpty(extension))
                 {
-                    int currentMin = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 3);
+                    int currentMin = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
                     if (extension.Length > currentMin)
                     {
                         LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)", currentMin, extension.Length);

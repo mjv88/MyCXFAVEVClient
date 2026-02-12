@@ -160,7 +160,7 @@ namespace DatevConnector.Core
             
             // Read configuration
             _enableJournaling = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);
-            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 3);
+            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
 
             // UI Popup settings
             _enableJournalPopup = AppConfig.GetBool(ConfigKeys.EnableJournalPopup, true);
@@ -405,6 +405,7 @@ namespace DatevConnector.Core
                     LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)",
                         _minCallerIdLength, _extension.Length);
                     _minCallerIdLength = _extension.Length;
+                    AppConfig.SetInt(ConfigKeys.MinCallerIdLength, _extension.Length);
                 }
             }
         }
