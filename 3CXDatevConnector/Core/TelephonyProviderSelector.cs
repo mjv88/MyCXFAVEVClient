@@ -109,7 +109,7 @@ namespace DatevConnector.Core
 
         private static ProviderSelectionResult SelectExplicit_Pipe(string extension, Action<string> progressText)
         {
-            progressText?.Invoke("Modus: Named Pipe (explizit konfiguriert)");
+            progressText?.Invoke("Modus: Terminal Server (explizit konfiguriert)");
             LogManager.Debug("TelephonyProviderSelector: Explicit Pipe mode");
 
             var provider = new PipeTelephonyProvider(extension);
@@ -199,7 +199,7 @@ namespace DatevConnector.Core
             }
 
             // ── (B) Try Pipe (Terminal Server) ──
-            progressText?.Invoke("Auto-Erkennung: Prüfe Named Pipe...");
+            progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server...");
             LogManager.Debug("TelephonyProviderSelector: [B] Trying Pipe");
 
             bool isTerminalSession = SessionManager.IsTerminalSession;
@@ -285,14 +285,14 @@ namespace DatevConnector.Core
             switch (mode)
             {
                 case TelephonyMode.Tapi:
-                    return "TAPI 2.x (3CX Windows Client)";
+                    return "TAPI 2.x (3CX Windows App)";
                 case TelephonyMode.Pipe:
-                    return "Named Pipe (3CX Softphone / Terminal Server)";
+                    return "Terminal Server (3CX Softphone)";
                 case TelephonyMode.Webclient:
                     return "Webclient (Browser-Erweiterung)";
                 case TelephonyMode.Auto:
                 default:
-                    return "Automatisch (Webclient -> Pipe -> TAPI)";
+                    return "Automatisch (Webclient -> Terminal Server -> TAPI)";
             }
         }
     }

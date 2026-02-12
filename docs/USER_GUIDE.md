@@ -64,8 +64,8 @@ Select the connection mode:
 | Mode | Description |
 |------|-------------|
 | **Auto** (recommended) | Detects best provider automatically (Webclient → Pipe → TAPI) |
-| **TAPI** | 3CX Windows Client on Desktop |
-| **Pipe** | 3CX Windows Client on Terminal Server |
+| **TAPI** | 3CX Windows App on Desktop |
+| **Pipe** | 3CX Windows App on Terminal Server |
 | **Webclient** | 3CX Webclient in Browser (Chrome/Edge) |
 
 ### Step 3 — Provider Configuration

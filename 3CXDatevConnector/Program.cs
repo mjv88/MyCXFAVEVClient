@@ -14,7 +14,7 @@ namespace DatevConnector
 {
     /// <summary>
     /// 3CX - DATEV Connector - Entry Point
-    /// System tray application that bridges 3CX Windows Client with DATEV Telefonie
+    /// System tray application that bridges 3CX Windows App with DATEV Telefonie
     /// </summary>
     static class Program
     {
