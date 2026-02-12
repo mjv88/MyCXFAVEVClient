@@ -159,9 +159,9 @@
     }
   });
 
-  // Auto-dial: use tel: link to show number in webclient, then auto-click Call button
+  // Auto-dial: open dialer via tel: link, populate the number input, then click Call
   async function triggerDial(number) {
-    // Step 1: Click tel: link (triggers webclient's dial UI with number pre-filled)
+    // Step 1: Click tel: link to open the webclient's dialer UI
     try {
       const link = document.createElement("a");
       link.href = "tel:" + number;
@@ -175,40 +175,83 @@
       return;
     }
 
-    // Step 2: Wait for the webclient UI to update, then find and click the Call button
+    // Step 2: Wait for the dialer UI to render
+    await new Promise(r => setTimeout(r, 500));
+
+    // Step 3: Find the dialer input and set the correct number
+    const inputSet = await setDialerNumber(number);
+    if (!inputSet) {
+      // Diagnostic: dump what the dialer looks like
+      dumpDialerDiagnostics("after tel: link");
+      return;
+    }
+
+    // Step 4: Wait for Angular to process the input change, then click Call
+    await new Promise(r => setTimeout(r, 300));
+
     for (let attempt = 0; attempt < 5; attempt++) {
-      await new Promise(r => setTimeout(r, 400));
-
-      // Search overlays (Angular Material CDK dialogs/modals)
-      const overlays = document.querySelectorAll(".cdk-overlay-pane, .modal, [role='dialog']");
-      for (const overlay of overlays) {
-        const btn = findCallButton(overlay);
-        if (btn) {
-          btn.click();
-          post({ kind: "DIAL_AUTO_CLICKED", attempt, text: btn.textContent.trim() });
-          return;
-        }
-      }
-
-      // Search main page content
       const btn = findCallButton(document.body);
       if (btn) {
         btn.click();
-        post({ kind: "DIAL_AUTO_CLICKED", attempt, text: btn.textContent.trim() });
+        post({ kind: "DIAL_AUTO_CLICKED", attempt, number, text: btn.textContent.trim() });
         return;
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    dumpDialerDiagnostics("after input set, no Call button");
+  }
+
+  // Find the dialer's number input and populate it with the phone number
+  async function setDialerNumber(number) {
+    // Search in overlays first (Angular Material CDK), then full page
+    const containers = [
+      ...document.querySelectorAll(".cdk-overlay-pane, .modal, [role='dialog']"),
+      document.body
+    ];
+
+    for (const container of containers) {
+      // Strategy 1: Find <input> elements (type=text, type=tel, type=search, or no type)
+      const inputs = container.querySelectorAll(
+        "input[type='tel'], input[type='text'], input[type='search'], input:not([type]), input[type='number']"
+      );
+      for (const input of inputs) {
+        if (input.offsetParent === null || input.disabled || input.readOnly) continue;
+        // Skip tiny/hidden inputs
+        if (input.offsetWidth < 30) continue;
+
+        // Set the value using native setter to bypass Angular's getter/setter
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype, "value"
+        ).set;
+        nativeInputValueSetter.call(input, number);
+
+        // Dispatch events Angular listens for
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+        input.focus();
+
+        post({ kind: "DIAL_INPUT_SET", number, inputTag: input.tagName,
+               inputType: input.type, classes: input.className.substring(0, 60),
+               placeholder: input.placeholder || "" });
+        return true;
+      }
+
+      // Strategy 2: Find contenteditable elements used as inputs
+      const editables = container.querySelectorAll("[contenteditable='true']");
+      for (const el of editables) {
+        if (el.offsetParent === null) continue;
+        el.textContent = number;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        post({ kind: "DIAL_INPUT_SET", number, inputTag: el.tagName,
+               classes: el.className.substring(0, 60), note: "contenteditable" });
+        return true;
       }
     }
 
-    // Diagnostic: log what buttons exist so we can adjust selectors
-    const allBtns = [...document.querySelectorAll("button")].filter(b => b.offsetParent !== null);
-    post({
-      kind: "DIAL_NO_BUTTON_FOUND",
-      visibleButtons: allBtns.slice(0, 20).map(b => ({
-        text: b.textContent.trim().substring(0, 40),
-        classes: b.className.substring(0, 60),
-        ariaLabel: b.getAttribute("aria-label") || ""
-      }))
-    });
+    post({ kind: "DIAL_NO_INPUT_FOUND", number });
+    return false;
   }
 
   function findCallButton(container) {
@@ -225,7 +268,7 @@
         }
       }
     }
-    // Also try phone icon buttons (SVG with phone path)
+    // Also try phone icon buttons (mat-icon with phone-related content)
     const iconBtns = container.querySelectorAll("button .mat-icon, button svg, button i.icon-phone");
     for (const icon of iconBtns) {
       const btn = icon.closest("button");
@@ -238,6 +281,33 @@
       }
     }
     return null;
+  }
+
+  // Diagnostic dump of the dialer area - helps us adjust selectors
+  function dumpDialerDiagnostics(context) {
+    const inputs = [...document.querySelectorAll("input")].map(i => ({
+      type: i.type, value: i.value.substring(0, 30),
+      placeholder: i.placeholder || "", classes: i.className.substring(0, 60),
+      visible: i.offsetParent !== null, disabled: i.disabled,
+      readOnly: i.readOnly, width: i.offsetWidth
+    }));
+    const overlays = [...document.querySelectorAll(".cdk-overlay-pane")].map(o => ({
+      classes: o.className.substring(0, 80),
+      childCount: o.children.length,
+      innerHtml: o.innerHTML.substring(0, 300)
+    }));
+    const allBtns = [...document.querySelectorAll("button")].filter(b => b.offsetParent !== null);
+    post({
+      kind: "DIAL_DIAGNOSTICS",
+      context,
+      inputs: inputs.slice(0, 15),
+      overlays: overlays.slice(0, 5),
+      visibleButtons: allBtns.slice(0, 20).map(b => ({
+        text: b.textContent.trim().substring(0, 40),
+        classes: b.className.substring(0, 60),
+        ariaLabel: b.getAttribute("aria-label") || ""
+      }))
+    });
   }
 
   post({
