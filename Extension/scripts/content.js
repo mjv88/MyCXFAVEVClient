@@ -39,7 +39,7 @@
 
   const BRIDGE_CHANNEL = "__3cx_datev_connector__";
   let debugLogging = false;
-  let dialDelay = 650;
+  let dialDelay = 750;
   let pageHookInjected = false;
 
   // Known 3CX PWA hash routes that indicate a WebClient session.
@@ -79,7 +79,7 @@
   try {
     chrome.storage.local.get(["debugLogging", "dialDelay"]).then((cfg) => {
       debugLogging = !!cfg.debugLogging;
-      dialDelay = parseInt(cfg.dialDelay, 10) || 650;
+      dialDelay = parseInt(cfg.dialDelay, 10) || 750;
     }).catch(() => {});
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -88,7 +88,7 @@
         debugLogging = !!changes.debugLogging.newValue;
       }
       if (changes.dialDelay) {
-        dialDelay = parseInt(changes.dialDelay.newValue, 10) || 650;
+        dialDelay = parseInt(changes.dialDelay.newValue, 10) || 750;
       }
     });
   } catch {

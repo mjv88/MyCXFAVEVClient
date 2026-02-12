@@ -1,46 +1,24 @@
-const DEFAULTS = {
-  dialDelay: 650,
-  extensionNumber: "",
-  bridgePort: 19800,
-  debugLogging: false
-};
+const DEFAULT_DIAL_DELAY = 750;
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const fields = {
-    dialDelay: document.getElementById("dialDelay"),
-    extensionNumber: document.getElementById("extensionNumber"),
-    bridgePort: document.getElementById("bridgePort"),
-    debugLogging: document.getElementById("debugLogging")
-  };
+  const dialDelayInput = document.getElementById("dialDelay");
+  const extensionInput = document.getElementById("extensionNumber");
   const saveBtn = document.getElementById("saveBtn");
   const status = document.getElementById("status");
 
   // Load current values
-  const cfg = await chrome.storage.local.get(Object.keys(DEFAULTS));
-  fields.dialDelay.value = cfg.dialDelay ?? DEFAULTS.dialDelay;
-  fields.extensionNumber.value = cfg.extensionNumber ?? DEFAULTS.extensionNumber;
-  fields.bridgePort.value = cfg.bridgePort ?? DEFAULTS.bridgePort;
-  fields.debugLogging.checked = !!cfg.debugLogging;
+  const cfg = await chrome.storage.local.get(["dialDelay", "extensionNumber", "lastProvision"]);
+  dialDelayInput.value = cfg.dialDelay ?? DEFAULT_DIAL_DELAY;
+  extensionInput.value = cfg.extensionNumber || cfg.lastProvision?.extension || "";
 
   saveBtn.addEventListener("click", async () => {
-    const dialDelay = parseInt(fields.dialDelay.value, 10);
+    const dialDelay = parseInt(dialDelayInput.value, 10);
     if (isNaN(dialDelay) || dialDelay < 0 || dialDelay > 5000) {
       showStatus("Dial delay must be 0\u20135000 ms", true);
       return;
     }
 
-    const bridgePort = parseInt(fields.bridgePort.value, 10);
-    if (isNaN(bridgePort) || bridgePort < 1 || bridgePort > 65535) {
-      showStatus("Port must be 1\u201365535", true);
-      return;
-    }
-
-    await chrome.storage.local.set({
-      dialDelay,
-      extensionNumber: fields.extensionNumber.value.trim(),
-      bridgePort,
-      debugLogging: fields.debugLogging.checked
-    });
+    await chrome.storage.local.set({ dialDelay });
 
     showStatus("Settings saved");
   });
