@@ -35,6 +35,7 @@
     }
   ],
   "action": {
-    "default_title": "3CX DATEV Connector"
+    "default_title": "3CX DATEV Connector",
+    "default_popup": "popup.html"
   }
 }
