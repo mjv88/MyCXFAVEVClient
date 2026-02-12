@@ -238,7 +238,7 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   if (callId == null) return;
 
   const direction = conn.isIncoming ? "inbound" : "outbound";
-  const remoteNumber = conn.otherPartyDn || conn.otherPartyCallerId || "";
+  const remoteNumber = conn.otherPartyCallerId || conn.otherPartyDn || "";
   const remoteName = conn.otherPartyDisplayName || "";
 
   // ActionType: 2=Inserted, 3=Updated, 4=Deleted
