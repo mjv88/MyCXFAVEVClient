@@ -156,7 +156,7 @@ function ensureHello(sourceTabId = "") {
     v: PROTOCOL_VERSION,
     type: "HELLO",
     extension: resolveExtensionNumber(),
-    identity: "3CX DATEV Connector Extension MV3"
+    identity: "3CX DATEV Connector Extension"
   };
   if (detectedDomain) hello.domain = detectedDomain;
   if (detectedVersion) hello.webclientVersion = detectedVersion;

@@ -179,7 +179,7 @@ namespace DatevConnector.Webclient
                 _extension = ext;
                 _virtualLine.Extension = ext;
                 _virtualLine.LineName = "3CX Webclient: " + ext;
-                LogManager.Log("Auto Extension Detection: Nebenstelle: {0}", ext);
+                LogManager.Log("Auto Extension Detection: {0}", ext);
             }
 
             LogManager.Debug("WebclientTelephonyProvider: Handshake complete (extension={0})", ext);
