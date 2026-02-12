@@ -334,10 +334,11 @@ namespace DatevBridge.UI
             bool isIncoming)
         {
             // Close and dispose any existing popup first
-            if (_currentPopup != null && !_currentPopup.IsDisposed)
+            var oldPopup = _currentPopup;
+            if (oldPopup != null && !oldPopup.IsDisposed)
             {
-                _currentPopup.Close();
-                _currentPopup.Dispose();
+                oldPopup.Close();
+                oldPopup.Dispose();
             }
 
             string direction = isIncoming ? "Incoming" : "Outgoing";

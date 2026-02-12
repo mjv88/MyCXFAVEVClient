@@ -234,6 +234,13 @@ function emitCallEvent(event, sourceTabId = "") {
 }
 
 function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
+  logDebug("RAW LocalConnection:", JSON.stringify({
+    "conn.id(f2)": conn.id, "conn.callId(f3)": conn.callId,
+    action: actionType, state: conn.state, isIncoming: conn.isIncoming,
+    callerId: conn.otherPartyCallerId, dn: conn.otherPartyDn,
+    displayName: conn.otherPartyDisplayName
+  }));
+
   const callId = conn.id ?? conn.callId;
   if (callId == null) return;
 
