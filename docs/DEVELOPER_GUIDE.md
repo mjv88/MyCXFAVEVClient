@@ -552,7 +552,7 @@ Sent by the extension after connecting. Must be the first message.
   "v": 1,
   "type": "HELLO",
   "extension": "101",
-  "identity": "3CX Webclient Extension v1.0"
+  "identity": "3CX DATEV Connector Extension MV3"
 }
 ```
 

@@ -1,4 +1,4 @@
-# 3CX WebClient Browser Extension (MV3)
+# 3CX DATEV Connector — Browser Extension (MV3)
 
 This folder contains the browser extension that captures 3CX WebClient call states and forwards them to the bridge via WebSocket.
 

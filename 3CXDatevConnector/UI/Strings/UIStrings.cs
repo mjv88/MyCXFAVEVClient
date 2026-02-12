@@ -344,7 +344,7 @@ namespace DatevConnector.UI.Strings
             // Webclient problems
             public const string WebclientProblems = "Webclient-Probleme";
             public const string WebclientNoExtension = "Browser-Erweiterung nicht verbunden";
-            public const string WebclientNoExtensionDesc = "Installieren Sie die 3CX-DATEV Browser-Erweiterung und stellen Sie sicher, dass Native Messaging aktiviert ist.";
+            public const string WebclientNoExtensionDesc = "Installieren Sie die 3CX DATEV Connector Browser-Erweiterung und stellen Sie sicher, dass Native Messaging aktiviert ist.";
             public const string WebclientTimeout = "Verbindungs-Timeout";
             public const string WebclientTimeoutDesc = "Erhöhen Sie Webclient.ConnectTimeoutSec in 3CXDATEVConnector.ini.";
 

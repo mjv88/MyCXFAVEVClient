@@ -53,7 +53,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 - .NET Framework 4.8
 - DATEV Arbeitsplatz with Telefonie component
 - **Desktop mode:** 3CX Windows Softphone App (V20) or later + 3CX Multi-Line TAPI driver
-- **Webclient mode:** Chrome or Edge browser with 3CX - DATEV Connector Connector extension
+- **Webclient mode:** Chrome or Edge browser with 3CX DATEV Connector extension
 - DATEV DLLs found in GAC:
   - `DATEV.Interop.DatevCtiBuddy.dll`
   - `Datev.Sdd.Data.ClientInterfaces.dll`
