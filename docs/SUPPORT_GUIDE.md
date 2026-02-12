@@ -1,4 +1,4 @@
-# 3CX-DATEV Bridge — Support Guide
+# 3CX - DATEV Connector — Support Guide
 
 ## Architecture Overview
 
@@ -105,7 +105,7 @@ If DATEV is not available:
 ### Log Location
 
 ```
-%AppData%\3CXDATEVBridge\3CXDatevBridge.log
+%AppData%\3CXDATEVConnector\3CXDatevConnector.log
 ```
 
 ### Log Format
@@ -137,7 +137,7 @@ Each line follows this format:
 
 - **Trigger:** When log file exceeds `LogMaxSizeMB` (default: 10 MB)
 - **Retention:** Keeps `LogMaxFiles` (default: 5) rotated files
-- **Naming:** `3CXDatevBridge.log` → `3CXDatevBridge.1.log` → `3CXDatevBridge.2.log` → ...
+- **Naming:** `3CXDatevConnector.log` → `3CXDatevConnector.1.log` → `3CXDatevConnector.2.log` → ...
 - **Oldest deleted:** When file count exceeds `LogMaxFiles`
 
 ### Enabling Debug Logging
@@ -159,7 +159,7 @@ VerboseLogging=true
 **Method 3 — Command line (one-time):**
 
 ```
-3cxDatevBridge.exe /verbose
+3cxDatevConnector.exe /verbose
 ```
 
 ### Log Prefixes
@@ -220,7 +220,7 @@ Messages are prefixed for structured filtering:
 ```
 [INFO] Loading contacts from DATEV SDD...
 [INFO] Loaded 19421 contacts from DATEV SDD
-[INFO] 3CXDatevBridge: Contact lookup dictionary built with 24251 unique phone number keys
+[INFO] 3CXDatevConnector: Contact lookup dictionary built with 24251 unique phone number keys
 ```
 
 ### Issue: Calls Detected but No DATEV Notification
@@ -299,7 +299,7 @@ The `SessionManager` logs session details at startup:
 ```
 [INFO] IsTerminalSession=True, SessionName=RDP-Tcp#0, Session: Id=2
 [INFO] ========================================
-[INFO] 3CX DATEV Bridge starting (Extension=161)
+[INFO] 3CX - DATEV Connector starting (Extension=161)
 [INFO] Mode: Terminal Server (Named Pipe)
 ```
 
@@ -375,7 +375,7 @@ AddressatContacts=true
 InstitutionContacts=true
 ```
 
-Files are written to `%AppData%\3CXDATEVBridge\`:
+Files are written to `%AppData%\3CXDATEVConnector\`:
 - `contacts.txt` — All contacts with normalized phone numbers
 - `addressat_contacts.txt` — DATEV Recipients only
 - `institution_contacts.txt` — DATEV Institutions only
@@ -389,7 +389,7 @@ Files are written to `%AppData%\3CXDATEVBridge\`:
 ```
 [INFO] IsTerminalSession=False, SessionName=Console, Session: Id=1
 [INFO] ========================================
-[INFO] 3CX DATEV Bridge starting (Extension=161)
+[INFO] 3CX - DATEV Connector starting (Extension=161)
 [INFO] === DATEV Connection Test ===
 [INFO]   DATEV Telefonie (ROT): Available
 [INFO]   DATEV SDD (Kontakte): Available
@@ -399,7 +399,7 @@ Files are written to `%AppData%\3CXDATEVBridge\`:
 [INFO] Extension auto-detected from 3CX TAPI: 161
 [INFO] Loading contacts from DATEV SDD...
 [INFO] Loaded 19421 contacts from DATEV SDD
-[INFO] 3CXDatevBridge: Contact lookup dictionary built with 24251 unique phone number keys
+[INFO] 3CXDatevConnector: Contact lookup dictionary built with 24251 unique phone number keys
 ```
 
 ### Incoming Call (Full Lifecycle)
