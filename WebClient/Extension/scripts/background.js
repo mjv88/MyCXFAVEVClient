@@ -25,6 +25,7 @@ let bridgePort = DEFAULT_BRIDGE_PORT;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
 const calls = new Map();
+let webclientTabId = null; // Tab ID of the active 3CX webclient
 
 // Deduplication: field 3 (callId) groups all legs of one logical call
 const logicalCallConns = new Map(); // callId(f3) -> Set of active conn.id(f2)
@@ -92,7 +93,10 @@ function connectBridge() {
         clearHelloRetry();
         logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
       }
-      // Future: handle COMMAND messages (DIAL, DROP) from bridge
+
+      if (msg && msg.type === "COMMAND") {
+        handleBridgeCommand(msg);
+      }
     } catch (err) {
       console.warn("[3CX-DATEV][bg] Failed to parse bridge message", err);
     }
@@ -236,6 +240,52 @@ function emitCallEvent(event, sourceTabId = "") {
   ensureHello(sourceTabId);
   sendBridge(event);
 }
+
+// ===== Bridge COMMAND handling (DIAL, DROP) =====
+
+function handleBridgeCommand(msg) {
+  if (msg.cmd === "DIAL" && msg.number) {
+    logDebug("DIAL command from bridge", { number: msg.number });
+    forwardDialToTab(msg.number);
+  } else if (msg.cmd === "DROP") {
+    logDebug("DROP command from bridge (not yet implemented)");
+  } else {
+    logDebug("Unknown bridge command", msg);
+  }
+}
+
+async function forwardDialToTab(number) {
+  // Try known webclient tab first
+  if (webclientTabId != null) {
+    try {
+      await chrome.tabs.sendMessage(webclientTabId, { type: "DIAL", number });
+      logDebug("DIAL forwarded to known tab", webclientTabId);
+      return;
+    } catch {
+      webclientTabId = null;
+    }
+  }
+
+  // Fallback: find any 3CX webclient tab
+  try {
+    const tabs = await chrome.tabs.query({ url: ["https://*/", "https://*/webclient/*"] });
+    for (const tab of tabs) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: "DIAL", number });
+        webclientTabId = tab.id;
+        logDebug("DIAL forwarded to discovered tab", tab.id);
+        return;
+      } catch {
+        continue;
+      }
+    }
+  } catch (err) {
+    logDebug("DIAL failed - no 3CX tab found", err);
+  }
+
+  console.warn("[3CX-DATEV][bg] DIAL failed: no webclient tab available");
+}
+
 
 function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   logDebug("RAW LocalConnection:", JSON.stringify({
@@ -648,6 +698,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (!msg || msg.type !== "3CX_RAW_SIGNAL") return;
 
   const sourceTabId = sender?.tab?.id ?? "";
+  if (sourceTabId) webclientTabId = sourceTabId; // track active 3CX tab
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
 
   ensureHello(sourceTabId);

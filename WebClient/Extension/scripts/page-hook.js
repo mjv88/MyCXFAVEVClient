@@ -20,6 +20,8 @@
     return btoa(binary);
   };
 
+  let webclientSocket = null; // Reference to the active 3CX WebSocket
+
   const NativeWebSocket = window.WebSocket;
   const patchedWebSocket = function patchedWebSocket(url, protocols) {
     const socket = protocols ? new NativeWebSocket(url, protocols) : new NativeWebSocket(url);
@@ -29,6 +31,7 @@
       return socket;
     }
 
+    webclientSocket = socket; // Store reference for DIAL commands
     post({ kind: "WS_OPEN", url });
 
     socket.addEventListener("message", (evt) => {
@@ -116,6 +119,31 @@
   });
 
   window.WebSocket = patchedWebSocket;
+
+  // Listen for commands from content script (DIAL, DROP)
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || !event.data) return;
+    const msg = event.data;
+    if (msg.channel !== channel || msg.source !== "3cx-datev-content") return;
+
+    if (msg.payload?.kind === "DIAL" && msg.payload?.number) {
+      const number = msg.payload.number;
+      post({ kind: "DIAL_RECEIVED", number });
+
+      // Try tel: link (works if 3CX PWA registered as protocol handler)
+      try {
+        const link = document.createElement("a");
+        link.href = "tel:" + number;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        post({ kind: "DIAL_ATTEMPTED", method: "tel-link", number });
+      } catch (err) {
+        post({ kind: "DIAL_ERROR", method: "tel-link", error: String(err) });
+      }
+    }
+  });
 
   post({
     kind: "HOOK_READY",
