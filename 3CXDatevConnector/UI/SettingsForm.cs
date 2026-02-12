@@ -843,9 +843,8 @@ namespace DatevConnector.UI
             {
                 // Prompt user to verify Windows notifications are enabled
                 var result = MessageBox.Show(
-                    "Für Balloon-Benachrichtigungen müssen Windows-Benachrichtigungen aktiviert sein.\n\n" +
-                    "Möchten Sie die Windows-Benachrichtigungseinstellungen öffnen, um dies zu überprüfen?",
-                    "Benachrichtigungseinstellungen",
+                    UIStrings.Messages.BalloonNotificationHint,
+                    UIStrings.Messages.BalloonNotificationTitle,
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
 
@@ -871,9 +870,8 @@ namespace DatevConnector.UI
             {
                 LogManager.Log("Settings: Failed to open Windows notification settings - {0}", ex.Message);
                 MessageBox.Show(
-                    "Windows-Einstellungen konnten nicht geöffnet werden.\n\n" +
-                    "Bitte öffnen Sie manuell: Einstellungen → System → Benachrichtigungen",
-                    "Fehler",
+                    UIStrings.Messages.WindowsSettingsOpenFailed,
+                    UIStrings.Errors.GenericError,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
