@@ -26,7 +26,7 @@
 
   // Guard against double injection (manifest content_scripts + chrome.scripting.executeScript
   // share the same isolated world). Re-injection just re-sends provision data.
-  if (window.__3cx_datev_content_active) {
+  if (window.__3cx_datev_connector_active) {
     try {
       const prov = readProvision();
       if (prov) {
@@ -35,9 +35,9 @@
     } catch {}
     return;
   }
-  window.__3cx_datev_content_active = true;
+  window.__3cx_datev_connector_active = true;
 
-  const BRIDGE_CHANNEL = "__3cx_datev_bridge__";
+  const BRIDGE_CHANNEL = "__3cx_datev_connector__";
   let debugLogging = false;
   let pageHookInjected = false;
 
@@ -72,7 +72,7 @@
 
   const logDebug = (...args) => {
     if (!debugLogging) return;
-    console.log("[3CX-DATEV][content]", ...args);
+    console.log("[3CX-DATEV-C][content]", ...args);
   };
 
   try {
@@ -142,7 +142,7 @@
         contextInvalidated = true;
         logDebug("Extension context invalidated — content script is stale, stopping");
       } else {
-        console.warn("[3CX-DATEV][content] sendMessage failed", err);
+        console.warn("[3CX-DATEV-C][content] sendMessage failed", err);
       }
     }
   }
@@ -174,7 +174,7 @@
       logDebug("DIAL received from background, forwarding to page", message.number);
       window.postMessage({
         channel: BRIDGE_CHANNEL,
-        source: "3cx-datev-content",
+        source: "3cx-datev-connector",
         payload: { kind: "DIAL", number: message.number }
       }, "*");
     }

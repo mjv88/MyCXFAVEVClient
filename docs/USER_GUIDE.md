@@ -1,8 +1,8 @@
-# 3CX-DATEV Bridge — User Guide
+# 3CX - DATEV Connector — User Guide
 
 ## Overview
 
-The 3CX-DATEV Bridge connects the **3CX Windows Softphone App (V20)** with **DATEV Arbeitsplatz**. It runs as a lightweight Windows system tray application and provides:
+The 3CX - DATEV Connector connects the **3CX Windows Softphone App (V20)** with **DATEV Arbeitsplatz**. It runs as a lightweight Windows system tray application and provides:
 
 - Incoming and outgoing call notifications to DATEV
 - Click-to-Dial from DATEV applications
@@ -31,10 +31,10 @@ The 3CX-DATEV Bridge connects the **3CX Windows Softphone App (V20)** with **DAT
 
 ### Option A: Portable Mode
 
-1. Copy `3cxDatevBridge.exe` to any folder on the user's machine
+1. Copy `3cxDatevConnector.exe` to any folder on the user's machine
 2. Run the executable — configuration is created automatically at:
    ```
-   %AppData%\3CXDATEVBridge\3CXDATEVBridge.ini
+   %AppData%\3CXDATEVConnector\3CXDATEVConnector.ini
    ```
 3. On first run, the application prompts you to launch the **Setup Wizard** for initial configuration
 
@@ -42,10 +42,10 @@ The 3CX-DATEV Bridge connects the **3CX Windows Softphone App (V20)** with **DAT
 
 Deploy via GPO, SCCM, or Microsoft Intune as a **per-user installation**:
 
-1. The MSI installs `3cxDatevBridge.exe` to `%LocalAppData%\Programs\3CXDATEVBridge\`
-2. Configuration directory is created at `%AppData%\3CXDATEVBridge\`
+1. The MSI installs `3cxDatevConnector.exe` to `%LocalAppData%\Programs\3CXDATEVConnector\`
+2. Configuration directory is created at `%AppData%\3CXDATEVConnector\`
 3. Optionally pre-seed the INI configuration during deployment (see [Pre-Seeding Configuration](#pre-seeding-configuration))
-4. Log files are written to `%AppData%\3CXDATEVBridge\3CXDatevBridge.log`
+4. Log files are written to `%AppData%\3CXDATEVConnector\3CXDatevConnector.log`
 
 ---
 
@@ -257,19 +257,19 @@ Open Settings via tray menu → **Einstellungen**.
 All settings are stored in:
 
 ```
-%AppData%\3CXDATEVBridge\3CXDATEVBridge.ini
+%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini
 ```
 
 The file is **hot-reloaded** — changes take effect immediately without restarting the application.
 
 ### Pre-Seeding Configuration
 
-For enterprise deployment, distribute a prepared INI file to each user's `%AppData%\3CXDATEVBridge\` folder via Intune, SCCM, or GPO logon script.
+For enterprise deployment, distribute a prepared INI file to each user's `%AppData%\3CXDATEVConnector\` folder via Intune, SCCM, or GPO logon script.
 
 ### Default INI
 
 ```ini
-; 3CX-DATEV Bridge Configuration
+; 3CX - DATEV Connector Configuration
 ; Edit values below. Delete a line to restore its default.
 
 [Settings]
@@ -323,7 +323,7 @@ The application registers itself at:
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 
-Value: `"<path>\3cxDatevBridge.exe" /minimized /silent`
+Value: `"<path>\3cxDatevConnector.exe" /minimized /silent`
 
 Toggle via tray menu → **Autostart** or during the Setup Wizard.
 
@@ -332,7 +332,7 @@ Toggle via tray menu → **Autostart** or during the Setup Wizard.
 Create a per-user logon task with a 30–60 second delay (useful when DATEV needs time to start):
 
 ```
-3cxDatevBridge.exe /minimized /silent
+3cxDatevConnector.exe /minimized /silent
 ```
 
 ---
@@ -340,7 +340,7 @@ Create a per-user logon task with a 30–60 second delay (useful when DATEV need
 ## Command Line Options
 
 ```
-3cxDatevBridge.exe [Options]
+3cxDatevConnector.exe [Options]
 
   /minimized    Start without showing status window
   /silent       Start without tray balloon notification
