@@ -187,23 +187,111 @@
     }
   });
 
-  // Auto-dial: try multiple approaches to initiate a call
-  // Discovery: 3CX webclient has #/call and #/dialer hash routes (from service worker)
-  async function triggerDial(number) {
-    post({ kind: "DIAL_STARTING", number });
+  // ===== Protobuf encoding helpers =====
 
-    // Approach 1: Navigate to #/call or #/dialer hash route
-    // The 3CX webclient's Angular router handles these routes for click-to-call
-    const hashOk = await tryHashRouteDial(number);
+  function encodeVarint(value) {
+    const bytes = [];
+    value = value >>> 0; // ensure unsigned 32-bit
+    while (value > 0x7F) {
+      bytes.push((value & 0x7F) | 0x80);
+      value >>>= 7;
+    }
+    bytes.push(value & 0x7F);
+    return bytes;
+  }
+
+  function encodeTag(fieldNumber, wireType) {
+    return encodeVarint((fieldNumber << 3) | wireType);
+  }
+
+  function encodeString(fieldNumber, str) {
+    const encoded = new TextEncoder().encode(str);
+    return [
+      ...encodeTag(fieldNumber, 2), // wire type 2 = length-delimited
+      ...encodeVarint(encoded.length),
+      ...encoded
+    ];
+  }
+
+  function encodeBool(fieldNumber, value) {
+    return [...encodeTag(fieldNumber, 0), value ? 1 : 0];
+  }
+
+  function encodeLengthDelimited(fieldNumber, payload) {
+    return [
+      ...encodeTag(fieldNumber, 2),
+      ...encodeVarint(payload.length),
+      ...payload
+    ];
+  }
+
+  // Build a GenericMessage wrapping RequestMakeCall (MessageId 119)
+  // GenericMessage: field 1 = MessageId (varint), field N = payload (N = MessageId)
+  // RequestMakeCall: field 1 = Destination (string), field 3 = EnableCallControl (bool)
+  function buildRequestMakeCall(destination) {
+    // Inner RequestMakeCall payload
+    const innerPayload = [
+      ...encodeString(1, destination),    // Destination
+      ...encodeBool(3, true)              // EnableCallControl = true
+    ];
+
+    // GenericMessage wrapper
+    const message = [
+      ...encodeTag(1, 0),                         // field 1 (MessageId), wire type 0 (varint)
+      ...encodeVarint(119),                        // MessageId = 119
+      ...encodeLengthDelimited(119, innerPayload)  // field 119 = RequestMakeCall payload
+    ];
+
+    return new Uint8Array(message);
+  }
+
+  // Send RequestMakeCall via the existing 3CX WebSocket connection
+  function trySendMakeCallViaWebSocket(destination) {
+    if (!webclientSocket || webclientSocket.readyState !== WebSocket.OPEN) {
+      post({ kind: "DIAL_WS_NO_SOCKET", readyState: webclientSocket?.readyState });
+      return false;
+    }
+
+    const message = buildRequestMakeCall(destination);
+    post({ kind: "DIAL_WS_SENDING", destination, messageSize: message.length,
+           base64: toBase64(message.buffer) });
+
+    try {
+      webclientSocket.send(message.buffer);
+      post({ kind: "DIAL_WS_SENT", destination });
+      return true;
+    } catch (err) {
+      post({ kind: "DIAL_WS_ERROR", error: String(err) });
+      return false;
+    }
+  }
+
+  // Auto-dial: try multiple approaches to initiate a call
+  async function triggerDial(number) {
+    const cleanNumber = number.replace(/\s/g, "");
+    post({ kind: "DIAL_STARTING", number: cleanNumber });
+
+    // Approach 1: Inject RequestMakeCall protobuf into the 3CX WebSocket
+    // This is the most direct method - it uses the PBX's own command protocol
+    const wsSent = trySendMakeCallViaWebSocket(cleanNumber);
+    if (wsSent) {
+      // MakeCall sent - if the PBX accepts it, a call will start and
+      // background.js will detect it via LocalConnection Inserted.
+      // Don't fall through to other approaches which would interfere.
+      return;
+    }
+
+    // Approach 2: Navigate to #/call or #/dialer hash route
+    const hashOk = await tryHashRouteDial(cleanNumber);
     if (hashOk) return;
 
-    // Approach 2: DOM-based - find dialer input, set number, click Call
-    let inputSet = await setDialerNumber(number);
+    // Approach 3: DOM-based - find dialer input, set number, click Call
+    let inputSet = await setDialerNumber(cleanNumber);
     if (!inputSet) {
       const opened = await openDialerPanel();
       if (opened) {
         await new Promise(r => setTimeout(r, 500));
-        inputSet = await setDialerNumber(number);
+        inputSet = await setDialerNumber(cleanNumber);
       }
     }
     if (inputSet) {
@@ -212,7 +300,7 @@
         const btn = findCallButton(document.body);
         if (btn) {
           btn.click();
-          post({ kind: "DIAL_AUTO_CLICKED", attempt, number, text: btn.textContent.trim() });
+          post({ kind: "DIAL_AUTO_CLICKED", attempt, number: cleanNumber, text: btn.textContent.trim() });
           return;
         }
         await new Promise(r => setTimeout(r, 300));
@@ -220,7 +308,7 @@
     }
 
     // All approaches failed - dump diagnostics
-    dumpDialerDiagnostics(number);
+    dumpDialerDiagnostics(cleanNumber);
   }
 
   // Navigate to #/call or #/dialer hash route to initiate a call
