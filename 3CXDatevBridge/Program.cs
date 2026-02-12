@@ -66,7 +66,7 @@ namespace DatevBridge
                     int currentMin = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
                     if (extension.Length > currentMin)
                     {
-                        LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (extension length)", currentMin, extension.Length);
+                        LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)", currentMin, extension.Length);
                         AppConfig.SetInt(ConfigKeys.MinCallerIdLength, extension.Length);
                     }
                 }

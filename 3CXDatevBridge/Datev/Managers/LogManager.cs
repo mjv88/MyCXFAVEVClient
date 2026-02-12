@@ -88,7 +88,7 @@ namespace DatevBridge.Datev.Managers
             }
 
             // Log startup synchronously (before async writer starts to avoid race condition)
-            Log(LogLevel.Info, "3CX-DATEV Bridge - LogManager initialized");
+            Log(LogLevel.Debug, "LogManager initialized");
 
             // Setup async logging after init message is written synchronously
             _asyncLogging = asyncEnabled;

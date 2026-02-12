@@ -116,7 +116,7 @@ namespace DatevBridge.Datev
         public static bool CheckAndLogDatevStatus(Action<string> progressText)
         {
             LogManager.Log("========================================");
-            LogManager.Log("DATEV Connection Test");
+            LogManager.Log("DATEV Konnektivitätstest");
             LogManager.Log("========================================");
 
             if (SessionManager.IsTerminalSession)
@@ -127,7 +127,7 @@ namespace DatevBridge.Datev
             // Check DATEV Telefonie in ROT (COM integration for call notifications)
             progressText?.Invoke("Suche DATEV Arbeitsplatz...");
             bool rotAvailable = CheckDatevAvailability();
-            LogManager.Log("DATEV Telefonie (ROT): {0}", rotAvailable ? "Available" : "NOT AVAILABLE");
+            LogManager.Log("DATEV Telefonie (ROT): {0}", rotAvailable ? "Verfügbar" : "NICHT VERFÜGBAR");
 
             if (rotAvailable)
                 progressText?.Invoke("DATEV Arbeitsplatz gefunden");
@@ -137,7 +137,7 @@ namespace DatevBridge.Datev
             // Check SDD availability (contact data via IPC - independent of ROT)
             progressText?.Invoke("Suche DATEV Stammdatendienst...");
             bool sddAvailable = CheckSddAvailability();
-            LogManager.Log("DATEV SDD (Kontakte): {0}", sddAvailable ? "Available" : "NOT AVAILABLE");
+            LogManager.Log("DATEV SDD (Kontakte): {0}", sddAvailable ? "Verfügbar" : "NICHT VERFÜGBAR");
 
             if (sddAvailable)
                 progressText?.Invoke("DATEV Stammdatendienst gefunden");
@@ -146,7 +146,7 @@ namespace DatevBridge.Datev
 
             if (rotAvailable && sddAvailable)
             {
-                LogManager.Log("DATEV available - all components detected");
+                LogManager.Log("DATEV available - Alle Komponenten Verfügbar");
                 progressText?.Invoke("DATEV verfügbar");
             }
             else if (sddAvailable)

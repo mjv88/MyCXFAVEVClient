@@ -405,9 +405,10 @@ namespace DatevBridge.Webclient
                 _domain = msg.Domain;
                 _webclientVersion = msg.WebclientVersion;
                 _helloReceived = true;
-                LogManager.Log("WebSocketBridgeServer: HELLO from extension={0}, identity={1}, domain={2}, version={3}",
+                LogManager.Log("WebClient: HELLO von extension={0}, identity={1}, FQDN={2}",
                     _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
-                    _domain ?? "(none)", _webclientVersion ?? "(none)");
+                    _domain ?? "(none)");
+                LogManager.Debug("WebSocketBridgeServer: version={0}", _webclientVersion ?? "(none)");
                 HelloReceived?.Invoke(_extensionNumber);
             }
             else if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))

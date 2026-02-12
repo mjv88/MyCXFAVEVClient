@@ -68,7 +68,7 @@ namespace DatevBridge.Core
             int totalTimeoutSec = AppConfig.GetInt(ConfigKeys.AutoDetectionTimeoutSec, 10);
             string lineFilter = AppConfig.GetString(ConfigKeys.TapiLineFilter, "");
 
-            LogManager.Log("TelephonyProviderSelector: Mode={0}, Extension={1}, Timeout={2}s",
+            LogManager.Debug("TelephonyProviderSelector: Mode={0}, Extension={1}, Timeout={2}s",
                 mode, extension, totalTimeoutSec);
 
             switch (mode)
@@ -93,7 +93,7 @@ namespace DatevBridge.Core
         private static ProviderSelectionResult SelectExplicit_Tapi(string extension, string lineFilter, Action<string> progressText)
         {
             progressText?.Invoke("Modus: TAPI (explizit konfiguriert)");
-            LogManager.Log("TelephonyProviderSelector: Explicit TAPI mode");
+            LogManager.Debug("TelephonyProviderSelector: Explicit TAPI mode");
 
             var provider = new TapiLineMonitor(lineFilter, extension);
             return new ProviderSelectionResult
@@ -110,7 +110,7 @@ namespace DatevBridge.Core
         private static ProviderSelectionResult SelectExplicit_Pipe(string extension, Action<string> progressText)
         {
             progressText?.Invoke("Modus: Named Pipe (explizit konfiguriert)");
-            LogManager.Log("TelephonyProviderSelector: Explicit Pipe mode");
+            LogManager.Debug("TelephonyProviderSelector: Explicit Pipe mode");
 
             var provider = new PipeTelephonyProvider(extension);
             return new ProviderSelectionResult
@@ -128,7 +128,7 @@ namespace DatevBridge.Core
             string extension, CancellationToken cancellationToken, Action<string> progressText)
         {
             progressText?.Invoke("Modus: Webclient (explizit konfiguriert)");
-            LogManager.Log("TelephonyProviderSelector: Explicit Webclient mode");
+            LogManager.Debug("TelephonyProviderSelector: Explicit Webclient mode");
 
             var provider = new WebclientTelephonyProvider(extension);
             return Task.FromResult(new ProviderSelectionResult
@@ -146,7 +146,7 @@ namespace DatevBridge.Core
             string extension, string lineFilter, int totalTimeoutSec,
             CancellationToken cancellationToken, Action<string> progressText)
         {
-            LogManager.Log("TelephonyProviderSelector: Auto-detection starting (timeout={0}s)", totalTimeoutSec);
+            LogManager.Debug("TelephonyProviderSelector: Auto-detection starting (timeout={0}s)", totalTimeoutSec);
             var diagnostics = new StringBuilder();
             diagnostics.AppendLine("Auto-Detection Results:");
 
@@ -157,7 +157,8 @@ namespace DatevBridge.Core
             if (webclientEnabled)
             {
                 progressText?.Invoke("Auto-Erkennung: Prüfe Webclient...");
-                LogManager.Log("TelephonyProviderSelector: [A] Trying Webclient (timeout={0}s)", webclientTimeoutSec);
+                LogManager.Log("WebClient = Auto-Detect");
+                LogManager.Debug("TelephonyProviderSelector: [A] Trying Webclient (timeout={0}s)", webclientTimeoutSec);
 
                 try
                 {
@@ -168,7 +169,7 @@ namespace DatevBridge.Core
                     if (connected)
                     {
                         string reason = "Extension connected via Webclient (browser extension)";
-                        LogManager.Log("TelephonyProviderSelector: Webclient detected - {0}", reason);
+                        LogManager.Debug("TelephonyProviderSelector: Webclient detected - {0}", reason);
                         diagnostics.AppendLine("  [A] Webclient: DETECTED (extension connected)");
 
                         return new ProviderSelectionResult
@@ -182,24 +183,24 @@ namespace DatevBridge.Core
 
                     webclientProvider.Dispose();
                     diagnostics.AppendLine("  [A] Webclient: Not detected (no extension connected within timeout)");
-                    LogManager.Log("TelephonyProviderSelector: [A] Webclient not detected");
-                    LogManager.Log("TelephonyProviderSelector: [A] Hint: Webclient detection requires browser extension connected via WebSocket (port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
+                    LogManager.Debug("TelephonyProviderSelector: [A] Webclient not detected");
+                    LogManager.Debug("TelephonyProviderSelector: [A] Hint: Webclient detection requires browser extension connected via WebSocket (port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
                 }
                 catch (Exception ex)
                 {
                     diagnostics.AppendLine("  [A] Webclient: Error - " + ex.Message);
-                    LogManager.Log("TelephonyProviderSelector: [A] Webclient error - {0}", ex.Message);
+                    LogManager.Debug("TelephonyProviderSelector: [A] Webclient error - {0}", ex.Message);
                 }
             }
             else
             {
                 diagnostics.AppendLine("  [A] Webclient: Disabled (Webclient.Enabled=false)");
-                LogManager.Log("TelephonyProviderSelector: [A] Webclient disabled");
+                LogManager.Debug("TelephonyProviderSelector: [A] Webclient disabled");
             }
 
             // ── (B) Try Pipe (Terminal Server) ──
             progressText?.Invoke("Auto-Erkennung: Prüfe Named Pipe...");
-            LogManager.Log("TelephonyProviderSelector: [B] Trying Pipe");
+            LogManager.Debug("TelephonyProviderSelector: [B] Trying Pipe");
 
             bool isTerminalSession = SessionManager.IsTerminalSession;
             bool pipeAvailable = SessionManager.Is3CXPipeAvailable(extension);
@@ -215,7 +216,7 @@ namespace DatevBridge.Core
                 {
                     // Terminal server — Pipe is the preferred mode
                     string reason = "Terminal server session detected - using Named Pipe";
-                    LogManager.Log("TelephonyProviderSelector: Pipe selected - {0}", reason);
+                    LogManager.Debug("TelephonyProviderSelector: Pipe selected - {0}", reason);
                     diagnostics.AppendLine("  [B] Pipe: SELECTED (terminal server session)");
 
                     return new ProviderSelectionResult
@@ -230,22 +231,22 @@ namespace DatevBridge.Core
             else
             {
                 diagnostics.AppendLine("  [B] Pipe: Not applicable (not terminal server, no pipe found)");
-                LogManager.Log("TelephonyProviderSelector: [B] Pipe not applicable");
+                LogManager.Debug("TelephonyProviderSelector: [B] Pipe not applicable");
             }
 
             // ── (C) Try TAPI ──
             progressText?.Invoke("Auto-Erkennung: Prüfe TAPI...");
-            LogManager.Log("TelephonyProviderSelector: [C] Trying TAPI");
+            LogManager.Debug("TelephonyProviderSelector: [C] Trying TAPI");
 
             try
             {
                 // On desktop environments, TAPI is the standard choice
                 var tapiProvider = new TapiLineMonitor(lineFilter, extension);
                 string reason = "Desktop environment - using TAPI";
-                LogManager.Log("TelephonyProviderSelector: TAPI selected - {0}", reason);
+                LogManager.Debug("TelephonyProviderSelector: TAPI selected - {0}", reason);
                 if (webclientEnabled)
                 {
-                    LogManager.Log("TelephonyProviderSelector: TAPI fallback active. If Webclient is expected, set TelephonyMode=Webclient and verify browser extension is installed");
+                    LogManager.Debug("TelephonyProviderSelector: TAPI fallback active. If Webclient is expected, set TelephonyMode=Webclient and verify browser extension is installed");
                 }
                 diagnostics.AppendLine("  [C] TAPI: SELECTED (desktop environment)");
 
@@ -260,11 +261,11 @@ namespace DatevBridge.Core
             catch (Exception ex)
             {
                 diagnostics.AppendLine("  [C] TAPI: Error - " + ex.Message);
-                LogManager.Log("TelephonyProviderSelector: [C] TAPI error - {0}", ex.Message);
+                LogManager.Debug("TelephonyProviderSelector: [C] TAPI error - {0}", ex.Message);
             }
 
             // ── (D) None detected ──
-            LogManager.Log("TelephonyProviderSelector: No provider detected");
+            LogManager.Debug("TelephonyProviderSelector: No provider detected");
             diagnostics.AppendLine("  Result: No provider available");
 
             return new ProviderSelectionResult

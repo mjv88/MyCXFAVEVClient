@@ -89,7 +89,7 @@ namespace DatevBridge.Core
         /// </summary>
         internal static void LogSessionInfo()
         {
-            LogManager.Log("IsTerminalSession={0}, SessionName={1}, Session: Id={2}",
+            LogManager.Log("Terminal Server = {0}, SessionName={1}, Session: Id={2}",
                 IsTerminalSession,
                 Environment.GetEnvironmentVariable("SESSIONNAME") ?? "(null)",
                 SessionId);

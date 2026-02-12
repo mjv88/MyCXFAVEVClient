@@ -79,8 +79,7 @@ namespace DatevBridge.Webclient
 
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
-            LogManager.Log("WebclientTelephonyProvider: Starting for extension {0} (WebSocket:{1})",
-                _extension, _wsPort);
+            LogManager.Log("WebClient: Starting for extension {0}", _extension);
             progressText?.Invoke("Webclient-Modus: Warte auf Browser-Erweiterung...");
 
             InitVirtualLine();
@@ -103,7 +102,7 @@ namespace DatevBridge.Webclient
             // before entering the accept loop (avoids port conflict)
             if (_wsServer != null && _wsServer.IsConnected)
             {
-                LogManager.Log("WebclientTelephonyProvider: Continuing existing WebSocket connection");
+                LogManager.Debug("WebclientTelephonyProvider: Continuing existing WebSocket connection");
                 var disconnectTcs = new TaskCompletionSource<bool>();
                 _wsServer.Disconnected += () => disconnectTcs.TrySetResult(true);
 
@@ -180,10 +179,10 @@ namespace DatevBridge.Webclient
                 _extension = ext;
                 _virtualLine.Extension = ext;
                 _virtualLine.LineName = "3CX Webclient: " + ext;
-                LogManager.Log("WebclientTelephonyProvider: Extension adopted from browser HELLO: {0}", ext);
+                LogManager.Log("Auto Extension Detection: Nebenstelle: {0}", ext);
             }
 
-            LogManager.Log("WebclientTelephonyProvider: Handshake complete (extension={0})", ext);
+            LogManager.Debug("WebclientTelephonyProvider: Handshake complete (extension={0})", ext);
             progressText?.Invoke("Webclient: Verbunden (" + (ext ?? _extension) + ")");
 
             LineConnected?.Invoke(_virtualLine);

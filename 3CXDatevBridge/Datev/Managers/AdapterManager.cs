@@ -24,7 +24,7 @@ namespace DatevBridge.Datev.Managers
 
                 _adapter = adapter;
 
-                LogManager.Log("DatevAdapter registered in ROT");
+                LogManager.Log("DatevBridgeAdapter registriert in ROT");
             }
             catch (Exception e)
             {

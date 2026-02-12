@@ -173,12 +173,12 @@ namespace DatevBridge.Datev
                     GC.WaitForPendingFinalizers();
                 }
 
-                LogManager.Log("Loading contacts from DATEV SDD...");
+                LogManager.Log("Kontakte werden von DATEV Stamm Daten Dienst (SDD) geladen...");
 
                 _datevContacts = DatevContactManager.GetContacts(10, 90, progress, progressText);
                 contactListUpdated = true;
 
-                LogManager.Log("Loaded {0} contacts from DATEV SDD", _datevContacts.Count);
+                LogManager.Debug("Loaded {0} contacts from DATEV SDD", _datevContacts.Count);
 
                 // Debug logging of all contacts
                 if (_debugLogging)
@@ -192,7 +192,7 @@ namespace DatevBridge.Datev
             {
                 _maxCompareLength = configMaxCompareLength;
 
-                LogManager.Log("Building contact lookup dictionary...");
+                LogManager.Log("Kontaktverzeichnis wird erstellt...");
 
                 progressText?.Invoke("Erstelle Telefonverzeichnis...");
                 BuildLookupDictionary();
@@ -283,7 +283,7 @@ namespace DatevBridge.Datev
 
             _datevContactsSDict = sorted;
 
-            LogManager.Log("3CXDatevBridge: Contact lookup dictionary built with {0} unique phone number keys", _datevContactsSDict.Count);
+            LogManager.Log("Kontaktsuchverzeichnis mit {0} einmaligen Telefonnummern erstellt", _datevContactsSDict.Count);
         }
 
         /// <summary>
