@@ -82,7 +82,7 @@ namespace DatevConnector.Webclient
                     catch (OperationCanceledException) { break; }
                     catch (Exception ex)
                     {
-                        LogManager.Log("WebSocketBridgeServer: Error - {0}", ex.Message);
+                        LogManager.Log("WebClient Connector: Error - {0}", ex.Message);
                     }
                     finally
                     {
@@ -106,8 +106,7 @@ namespace DatevConnector.Webclient
         public async Task<bool> TryAcceptAsync(CancellationToken ct, int timeoutSec)
         {
             StartListener();
-            LogManager.Log("WebSocketBridgeServer: TryAccept on ws://127.0.0.1:{0} (timeout={1}s)",
-                _port, timeoutSec);
+            LogManager.Log("WebClient Connector: TryAccept");
 
             using (var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
@@ -137,12 +136,12 @@ namespace DatevConnector.Webclient
 
                     if (helloWait == helloTcs.Task && helloTcs.Task.Result)
                     {
-                        LogManager.Log("WebSocketBridgeServer: TryAccept succeeded");
+                        LogManager.Log("WebClient Connector: TryAccept succeeded");
                         StopListener(); // Release port — client connection stays alive
                         return true;
                     }
 
-                    LogManager.Log("WebSocketBridgeServer: TryAccept failed (no HELLO)");
+                    LogManager.Log("WebClient Connector: TryAccept failed (no HELLO)");
                     DisconnectClient(client);
                     return false;
                 }
@@ -153,7 +152,7 @@ namespace DatevConnector.Webclient
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("WebSocketBridgeServer: TryAccept error - {0}", ex.Message);
+                    LogManager.Log("WebClient Connector: TryAccept error - {0}", ex.Message);
                     if (client != null) DisconnectClient(client);
                     return false;
                 }
@@ -187,12 +186,12 @@ namespace DatevConnector.Webclient
                 {
                     WriteTextFrame(_currentStream, json);
                 }
-                LogManager.Debug("WebSocketBridgeServer: Sent -> {0}", json);
+                LogManager.Debug("WebClient Connector: Sent -> {0}", json);
                 return true;
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebSocketBridgeServer: Send failed - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: Send failed - {0}", ex.Message);
                 return false;
             }
         }
@@ -242,7 +241,7 @@ namespace DatevConnector.Webclient
 
         private async Task ReadLoopAsync(NetworkStream stream, CancellationToken ct)
         {
-            LogManager.Log("WebSocketBridgeServer: Read loop started");
+            LogManager.Log("WebClient Connector Server: Read loop started");
             try
             {
                 while (!ct.IsCancellationRequested && !_disposed && _clientConnected)
@@ -256,7 +255,7 @@ namespace DatevConnector.Webclient
                             ProcessMessage(Encoding.UTF8.GetString(frame.Payload));
                             break;
                         case 0x8: // Close
-                            LogManager.Log("WebSocketBridgeServer: Close frame received");
+                            LogManager.Log("WebClient Connector: Close frame received");
                             try { WriteFrame(stream, 0x8, new byte[0]); } catch { }
                             return;
                         case 0x9: // Ping
@@ -268,17 +267,17 @@ namespace DatevConnector.Webclient
             catch (OperationCanceledException) { }
             catch (IOException ex)
             {
-                LogManager.Log("WebSocketBridgeServer: IO error - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: IO error - {0}", ex.Message);
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebSocketBridgeServer: Read error - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: Read error - {0}", ex.Message);
             }
             finally
             {
                 bool wasConnected = _clientConnected;
                 _clientConnected = false;
-                LogManager.Log("WebSocketBridgeServer: Read loop ended");
+                LogManager.Log("WebClient Connector Server: Read loop ended");
                 if (wasConnected)
                 {
                     try { Disconnected?.Invoke(); } catch { }
@@ -383,18 +382,18 @@ namespace DatevConnector.Webclient
 
         private void ProcessMessage(string json)
         {
-            LogManager.Debug("WebSocketBridgeServer: Received <- {0}", json);
+            LogManager.Debug("WebClient Connector: Received <- {0}", json);
 
             var msg = ExtensionMessage.Parse(json);
             if (msg == null)
             {
-                LogManager.Log("WebSocketBridgeServer: Failed to parse message");
+                LogManager.Log("WebClient Connector: Failed to parse message");
                 return;
             }
 
             if (msg.Version != Protocol.Version)
             {
-                LogManager.Warning("WebSocketBridgeServer: Unsupported protocol version {0} (expected {1})",
+                LogManager.Warning("WebClient Connector: Unsupported protocol version {0} (expected {1})",
                     msg.Version, Protocol.Version);
             }
 
@@ -408,27 +407,27 @@ namespace DatevConnector.Webclient
                 LogManager.Log("WebClient: HELLO von extension={0}, identity={1}, FQDN={2}",
                     _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
                     _domain ?? "(none)");
-                LogManager.Debug("WebSocketBridgeServer: version={0}", _webclientVersion ?? "(none)");
+                LogManager.Debug("WebClient Connector: version={0}", _webclientVersion ?? "(none)");
                 HelloReceived?.Invoke(_extensionNumber);
             }
             else if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))
             {
                 if (!_helloReceived)
                 {
-                    LogManager.Warning("WebSocketBridgeServer: CALL_EVENT before HELLO, ignoring");
+                    LogManager.Warning("WebClient Connector: CALL_EVENT before HELLO, ignoring");
                     return;
                 }
-                LogManager.Log("WebSocketBridgeServer: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
+                LogManager.Log("WebClient Connector: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
                     msg.CallId, msg.State, msg.Direction, LogManager.Mask(msg.RemoteNumber));
                 try { CallEventReceived?.Invoke(msg); }
                 catch (Exception ex)
                 {
-                    LogManager.Log("WebSocketBridgeServer: Error in handler - {0}", ex.Message);
+                    LogManager.Log("WebClient Connector: Error in handler - {0}", ex.Message);
                 }
             }
             else
             {
-                LogManager.Log("WebSocketBridgeServer: Unknown message type '{0}'", msg.Type);
+                LogManager.Log("WebClient Connector: Unknown message type '{0}'", msg.Type);
             }
         }
 
@@ -439,7 +438,7 @@ namespace DatevConnector.Webclient
             if (_listener != null) return;
             _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
-            LogManager.Log("WebSocketBridgeServer: Listening on ws://127.0.0.1:{0}", _port);
+            LogManager.Log("WebClient Connector: Listening");
         }
 
         private void StopListener()
@@ -461,7 +460,7 @@ namespace DatevConnector.Webclient
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
             {
-                LogManager.Log("WebSocketBridgeServer: Handshake failed");
+                LogManager.Log("WebClient Connector: Handshake failed");
                 client.Close();
                 return false;
             }
@@ -478,7 +477,7 @@ namespace DatevConnector.Webclient
 
             string remote = "(unknown)";
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
-            LogManager.Log("WebSocketBridgeServer: Client connected from {0}", remote);
+            LogManager.Log("WebClient Connector: Client connected from {0}", remote);
 
             await ReadLoopAsync(_currentStream, ct);
             return true;
@@ -495,7 +494,7 @@ namespace DatevConnector.Webclient
             if (client != null) try { client.Close(); } catch { }
             if (wasConnected)
             {
-                LogManager.Log("WebSocketBridgeServer: Client disconnected");
+                LogManager.Log("WebClient Connector: Client disconnected");
                 Disconnected?.Invoke();
             }
         }

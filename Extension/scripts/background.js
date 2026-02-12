@@ -156,7 +156,7 @@ function ensureHello(sourceTabId = "") {
     v: PROTOCOL_VERSION,
     type: "HELLO",
     extension: resolveExtensionNumber(),
-    identity: "3CX DATEV Connector Extension MV3"
+    identity: "3CX DATEV Connector Extension"
   };
   if (detectedDomain) hello.domain = detectedDomain;
   if (detectedVersion) hello.webclientVersion = detectedVersion;
@@ -736,13 +736,13 @@ async function injectExistingTabs() {
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
   await injectExistingTabs();
-  scheduleHelloBootstrap();
+  // Bridge connection is lazy: starts when a 3CX webclient tab sends provision/signal data
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
   await injectExistingTabs();
-  scheduleHelloBootstrap();
+  // Bridge connection is lazy: starts when a 3CX webclient tab sends provision/signal data
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -768,4 +768,4 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 loadConfig().catch((err) => {
   console.warn("[3CX-DATEV-C][bg] Initial config load failed", err);
 });
-scheduleHelloBootstrap(500);
+// No eager WebSocket connect — connection starts lazily when a 3CX webclient tab is detected

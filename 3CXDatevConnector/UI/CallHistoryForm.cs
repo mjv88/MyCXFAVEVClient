@@ -11,7 +11,7 @@ namespace DatevConnector.UI
 {
     /// <summary>
     /// Displays recent call history with ability to re-send journal entries.
-    /// Modern dark theme with auto-refresh.
+    /// Modern dark theme with auto-refresh. Resizable form with hardcoded column widths.
     /// </summary>
     public class CallHistoryForm : Form
     {
@@ -31,6 +31,16 @@ namespace DatevConnector.UI
 
         private readonly CallHistoryStore _store;
         private readonly Action<CallHistoryEntry, string> _onJournalSubmit;
+        private readonly bool _showInbound;
+        private readonly bool _showOutbound;
+
+        // Layout constants
+        private const int FormPadding = 24; // LayoutConstants.SpaceLG
+        private const int LabelHeight = 22;
+        private const int SectionSpacing = 16; // LayoutConstants.SpaceMD
+        private const int BtnWidth = 95;
+        private const int BtnSpacing = 8; // LayoutConstants.SpaceSM
+        private const int JournalBtnWidth = 120;
 
         /// <summary>
         /// The action requested by the user (check after ShowDialog returns).
@@ -41,6 +51,8 @@ namespace DatevConnector.UI
         {
             _store = store;
             _onJournalSubmit = onJournalSubmit;
+            _showInbound = _store.TrackInbound;
+            _showOutbound = _store.TrackOutbound;
             RequestedAction = Action.None;
             InitializeComponent();
             LoadHistory();
@@ -66,84 +78,59 @@ namespace DatevConnector.UI
             Text = UIStrings.FormTitles.AppTitle;
             BackColor = UITheme.FormBackground;
             ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
+            FormBorderStyle = FormBorderStyle.Sizable;
             StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = false;
+            MaximizeBox = true;
             MinimizeBox = false;
             Font = UITheme.FontBody;
             var appIcon = UITheme.GetFormIcon();
             if (appIcon != null) { Icon = appIcon; ShowIcon = true; }
             else ShowIcon = false;
 
-            // Layout dimensions
-            int formPadding = LayoutConstants.SpaceLG;
-            int listWidth = 436;
-            int listHeight = 135;
-            int labelHeight = 22;
-            int sectionSpacing = LayoutConstants.SpaceMD;
-            int btnWidth = 95;
-            int btnSpacing = LayoutConstants.SpaceSM;
+            // Initial size and minimum
+            ClientSize = new Size(468, 400);
+            MinimumSize = new Size(484, 280);
 
-            bool showInbound = _store.TrackInbound;
-            bool showOutbound = _store.TrackOutbound;
-
-            int y = formPadding;
+            SuspendLayout();
 
             // Inbound section — only shown when tracking is enabled
-            if (showInbound)
+            if (_showInbound)
             {
                 _lblInbound = new Label
                 {
                     Text = UIStrings.CallHistory.Inbound,
                     Font = UITheme.FontLabel,
                     ForeColor = UITheme.AccentIncoming,
-                    AutoSize = true,
-                    Location = new Point(formPadding, y)
+                    AutoSize = true
                 };
                 Controls.Add(_lblInbound);
-                y += labelHeight;
 
                 _lstInbound = CreateListView();
-                _lstInbound.Location = new Point(formPadding, y);
-                _lstInbound.Size = new Size(listWidth, listHeight);
                 Controls.Add(_lstInbound);
-                y += listHeight;
-
-                if (showOutbound)
-                    y += sectionSpacing;
             }
 
             // Outbound section — only shown when tracking is enabled
-            if (showOutbound)
+            if (_showOutbound)
             {
                 _lblOutbound = new Label
                 {
                     Text = UIStrings.CallHistory.Outbound,
                     Font = UITheme.FontLabel,
                     ForeColor = UITheme.AccentOutgoing,
-                    AutoSize = true,
-                    Location = new Point(formPadding, y)
+                    AutoSize = true
                 };
                 Controls.Add(_lblOutbound);
-                y += labelHeight;
 
                 _lstOutbound = CreateListView();
-                _lstOutbound.Location = new Point(formPadding, y);
-                _lstOutbound.Size = new Size(listWidth, listHeight);
                 Controls.Add(_lstOutbound);
-                y += listHeight;
             }
 
-            y += formPadding;
-
-            // Buttons row: [Aktualisieren] [Zurück]        [Journal senden]
-            _btnRefresh = UITheme.CreateSecondaryButton(UIStrings.Labels.Refresh, btnWidth);
-            _btnRefresh.Location = new Point(formPadding, y);
+            // Buttons
+            _btnRefresh = UITheme.CreateSecondaryButton(UIStrings.Labels.Refresh, BtnWidth);
             _btnRefresh.Click += (s, e) => LoadHistory();
             Controls.Add(_btnRefresh);
 
-            _btnBack = UITheme.CreateSecondaryButton(UIStrings.Labels.Status, btnWidth);
-            _btnBack.Location = new Point(formPadding + btnWidth + btnSpacing, y);
+            _btnBack = UITheme.CreateSecondaryButton(UIStrings.Labels.Status, BtnWidth);
             _btnBack.Click += (s, e) =>
             {
                 RequestedAction = Action.Back;
@@ -151,8 +138,7 @@ namespace DatevConnector.UI
             };
             Controls.Add(_btnBack);
 
-            _btnJournal = UITheme.CreatePrimaryButton(UIStrings.CallHistory.Journal, btnWidth + 25);
-            _btnJournal.Location = new Point(formPadding + listWidth - (btnWidth + 25), y);
+            _btnJournal = UITheme.CreatePrimaryButton(UIStrings.CallHistory.Journal, JournalBtnWidth);
             _btnJournal.Enabled = false;
             _btnJournal.Click += BtnJournal_Click;
             Controls.Add(_btnJournal);
@@ -174,8 +160,77 @@ namespace DatevConnector.UI
                 _lstOutbound.Click += (s, e) => _lstInbound.SelectedItems.Clear();
             }
 
-            // Size the form to fit the visible content
-            ClientSize = new Size(468, y + LayoutConstants.ButtonHeight + 6);
+            ResumeLayout(false);
+            LayoutControls();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (IsHandleCreated)
+                LayoutControls();
+        }
+
+        /// <summary>
+        /// Position and size all controls based on current ClientSize.
+        /// Column widths remain hardcoded; ListViews fill available space.
+        /// </summary>
+        private void LayoutControls()
+        {
+            int cw = ClientSize.Width;
+            int ch = ClientSize.Height;
+            int listWidth = cw - (FormPadding * 2);
+            if (listWidth < 100) listWidth = 100;
+
+            // Fixed vertical space consumed by labels, spacing, padding, and buttons
+            int listCount = (_showInbound ? 1 : 0) + (_showOutbound ? 1 : 0);
+            if (listCount == 0) return;
+
+            int fixedHeight = FormPadding                                    // top padding
+                + (listCount * LabelHeight)                                  // section labels
+                + (_showInbound && _showOutbound ? SectionSpacing : 0)       // spacing between sections
+                + FormPadding                                                // padding before buttons
+                + LayoutConstants.ButtonHeight                               // button row
+                + 6;                                                         // bottom padding
+
+            int availableForLists = ch - fixedHeight;
+            if (availableForLists < 60) availableForLists = 60;
+
+            int listHeight = availableForLists / listCount;
+
+            int y = FormPadding;
+
+            // Inbound
+            if (_showInbound)
+            {
+                _lblInbound.Location = new Point(FormPadding, y);
+                y += LabelHeight;
+
+                _lstInbound.Location = new Point(FormPadding, y);
+                _lstInbound.Size = new Size(listWidth, listHeight);
+                y += listHeight;
+
+                if (_showOutbound)
+                    y += SectionSpacing;
+            }
+
+            // Outbound
+            if (_showOutbound)
+            {
+                _lblOutbound.Location = new Point(FormPadding, y);
+                y += LabelHeight;
+
+                _lstOutbound.Location = new Point(FormPadding, y);
+                _lstOutbound.Size = new Size(listWidth, listHeight);
+                y += listHeight;
+            }
+
+            y += FormPadding;
+
+            // Buttons
+            _btnRefresh.Location = new Point(FormPadding, y);
+            _btnBack.Location = new Point(FormPadding + BtnWidth + BtnSpacing, y);
+            _btnJournal.Location = new Point(cw - FormPadding - JournalBtnWidth, y);
         }
 
         private ListView CreateListView()
