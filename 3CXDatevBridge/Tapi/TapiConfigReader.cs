@@ -143,7 +143,7 @@ namespace DatevBridge.Tapi
         {
             if (!IsTapiInstalled())
             {
-                LogManager.Log("3CXTAPI.ini not found - extension auto-detect unavailable");
+                LogManager.Log("Desktop = 3CXTAPI.ini nicht gefunden");
                 return null;
             }
 

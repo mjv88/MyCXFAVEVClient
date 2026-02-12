@@ -191,19 +191,13 @@ namespace DatevBridge.Core
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // ── Step 1: Log startup info ─────────────────────────────────
-            LogManager.Log("========================================");
-            LogManager.Log("3CX-DATEV Bridge");
-            LogManager.Log("========================================");
             SessionManager.LogSessionInfo();
 
             _configuredTelephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-            LogManager.Log("TelephonyMode: {0} (configured)", _configuredTelephonyMode);
-            LogManager.Log("Extension: {0}", _extension);
+            LogManager.Log("3CX Telefonie Modus: {0} (configured)", _configuredTelephonyMode);
 
             // ── Step 2: Provider selection / auto-detection ──────────────
-            LogManager.Log("========================================");
-            LogManager.Log("Telephony Provider Selection");
-            LogManager.Log("========================================");
+            LogManager.Log("3CX Telefonie Modus Initialisierung...");
 
             var selectionResult = await TelephonyProviderSelector.SelectProviderAsync(
                 _extension, _cts.Token);
@@ -211,8 +205,8 @@ namespace DatevBridge.Core
             _selectedMode = selectionResult.SelectedMode;
             _detectionDiagnostics = selectionResult.DiagnosticSummary;
 
-            LogManager.Log("TelephonyMode chosen: {0} (reason: {1})",
-                _selectedMode, selectionResult.Reason);
+            LogManager.Log("Telefonie Modus: {0}", _selectedMode);
+            LogManager.Debug("Telefonie Modus Grund: {0}", selectionResult.Reason);
 
             // For Pipe mode on Terminal Server, start the pipe FIRST before DATEV init
             // so the 3CX Softphone can find it while we load contacts
@@ -230,7 +224,6 @@ namespace DatevBridge.Core
             try
             {
                 AdapterManager.Register(_datevAdapter);
-                LogManager.Log("DatevBridgeAdapter registered");
             }
             catch (Exception ex)
             {
@@ -271,7 +264,7 @@ namespace DatevBridge.Core
             else
             {
                 LogManager.Log("========================================");
-                LogManager.Log("3CX Telephony Connection ({0})", _selectedMode);
+                LogManager.Log("3CX Telefonie Modus ({0})", _selectedMode);
                 LogManager.Log("========================================");
                 await ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
             }
@@ -285,11 +278,9 @@ namespace DatevBridge.Core
             try
             {
                 LogManager.Log("========================================");
-                LogManager.Log("DATEV Contact Retrieval Initiated");
+                LogManager.Log("DATEV Kontaktsyncronisation");
                 LogManager.Log("========================================");
                 await DatevCache.StartLoadAsync();
-                LogManager.Log("Contacts loaded: {0} contacts, {1} phone number keys",
-                    DatevCache.ContactCount, DatevCache.PhoneNumberKeyCount);
             }
             catch (Exception ex)
             {
@@ -324,7 +315,7 @@ namespace DatevBridge.Core
             const int ShortInterval = 5000;   // 5s when unavailable
             const int LongInterval = 60000;   // 60s when available
 
-            LogManager.Log("Starting DATEV auto-detect...");
+            LogManager.Log("Beginn der DATEV-Erkennungsdienst...");
 
             Task.Run(async () =>
             {
@@ -405,13 +396,13 @@ namespace DatevBridge.Core
             var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
             if (firstLine != null && firstLine.Extension != _extension)
             {
-                LogManager.Log("Extension auto-detected from {0}: {1}", source, firstLine.Extension);
+                LogManager.Debug("Extension auto-detected from {0}: {1}", source, firstLine.Extension);
                 _extension = firstLine.Extension;
                 CallIdGenerator.Initialize(_extension);
 
                 if (_extension.Length > _minCallerIdLength)
                 {
-                    LogManager.Log("MinCallerIdLength auto-adjusted: {0} -> {1} (based on extension length)",
+                    LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)",
                         _minCallerIdLength, _extension.Length);
                     _minCallerIdLength = _extension.Length;
                 }

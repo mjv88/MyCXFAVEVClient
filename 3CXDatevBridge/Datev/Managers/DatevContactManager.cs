@@ -165,7 +165,7 @@ namespace DatevBridge.Datev.Managers
 
             var allContacts = recipients.Union(institutions).ToList();
             int totalComms = allContacts.Sum(c => c.Communications?.Length ?? 0);
-            LogManager.Log("SDD: {0} contacts with {1} phone communications loaded", allContacts.Count, totalComms);
+            LogManager.Log("SDD: {0} Kontakte mit {1} Rufnummnern syncronisiert.", allContacts.Count, totalComms);
 
             progressText?.Invoke($"{allContacts.Count} Kontakte geladen");
 
@@ -192,12 +192,12 @@ namespace DatevBridge.Datev.Managers
                 if (FilterActiveContactsOnly)
                 {
                     contacts = contacts.Where(c => c.Status != 0).ToArray();
-                    LogManager.Log("SDD: Loaded {0} recipients (active only, filtered from {1})",
+                    LogManager.Log("SDD: {0} Addressaten (aktiv, gefiltert von {1})",
                         contacts.Length, contactList.ContactDetails.Length);
                 }
                 else
                 {
-                    LogManager.Log("SDD: Loaded {0} recipients", contacts.Length);
+                    LogManager.Log("SDD: {0} Addressaten", contacts.Length);
                 }
 
                 return contacts;
@@ -220,7 +220,7 @@ namespace DatevBridge.Datev.Managers
 
             if (contactList?.ContactDetails != null)
             {
-                LogManager.Log("SDD: Loaded {0} institutions", contactList.ContactDetails.Length);
+                LogManager.Log("SDD: {0} Institutionen", contactList.ContactDetails.Length);
                 return contactList.ContactDetails;
             }
 
