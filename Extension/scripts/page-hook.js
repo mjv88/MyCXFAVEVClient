@@ -133,7 +133,7 @@
     post({ kind: "DIAL_TEL_LINK_CLICKED", number: cleanNumber });
 
     // Wait for the PWA to open the dialer / call confirmation dialog
-    await new Promise(r => setTimeout(r, 650));
+    await new Promise(r => setTimeout(r, 750));
 
     // Simulate Enter keypress to confirm the call
     const enterEvent = new KeyboardEvent("keydown", {
