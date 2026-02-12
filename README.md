@@ -135,7 +135,7 @@ The file is **hot-reloaded** — changes to `3CXDATEVConnector.ini` take effect 
 
 ### INI Structure
 
-The default INI file generated on first run contains only the `[Settings]` section. The `[Connection]`, `[Logging]`, and `[Debug]` sections are not included by default — admins and resellers can add them manually when needed.
+The default INI file generated on first run contains the `[Settings]` and `[Connection]` sections. The `[Logging]` and `[Debug]` sections are not included by default — admins and resellers can add them manually when needed.
 
 **Default INI (generated on first run):**
 
@@ -171,12 +171,25 @@ CallHistoryMaxEntries=5
 
 ; DATEV Contacts
 ActiveContactsOnly=false
+
+[Connection]
+; TelephonyMode: Auto, Tapi, Pipe, Webclient
+; Auto = detect best provider at startup (Webclient -> Pipe -> TAPI)
+TelephonyMode=Auto
+; Auto-detection timeout in seconds
+AutoDetectionTimeoutSec=10
+; Webclient extension connect timeout in seconds
+WebclientConnectTimeoutSec=8
+; Enable Webclient mode (browser extension via WebSocket)
+WebclientEnabled=true
+; WebSocket port for browser extension connection
+WebclientWebSocketPort=19800
 ```
 
 **Additional sections (admin/reseller — add manually when needed):**
 
 ```ini
-[Connection]
+; Extra [Connection] settings (not included in default INI)
 ReconnectIntervalSeconds=5
 ConnectionTimeoutSeconds=30
 ReadTimeoutSeconds=60
@@ -221,6 +234,11 @@ LogAsync=true
 | `CallHistoryOutbound` | false | [Settings] | Track outbound calls for re-journaling |
 | `CallHistoryMaxEntries` | 5 | [Settings] | Maximum entries per direction (circular buffer) |
 | `ActiveContactsOnly` | false | [Settings] | Only load contacts with Status ≠ 0 (inactive contacts excluded) |
+| `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Tapi`, `Pipe`, or `Webclient` |
+| `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
+| `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
+| `WebclientEnabled` | true | [Connection] | Enable/disable Webclient detection in Auto mode |
+| `WebclientWebSocketPort` | 19800 | [Connection] | WebSocket port for browser extension connection |
 | `ReconnectIntervalSeconds` | 5 | [Connection] | Seconds between 3CX reconnection attempts |
 | `ConnectionTimeoutSeconds` | 30 | [Connection] | Connection timeout for named pipes |
 | `ReadTimeoutSeconds` | 60 | [Connection] | Read timeout for pipe operations |
@@ -525,8 +543,8 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |      DarkMenuRenderer.cs         - Dark theme for context menus      |
 +----------------------------------------------------------------------+
 |  Core/                                                               |
-|    ConnectorService.cs              - Main orchestrator                 |
-|    ConnectorStatus.cs               - Connection status enum            |
+|    ConnectorService.cs          - Main orchestrator                 |
+|    ConnectorStatus.cs           - Connection status enum            |
 |    CallTracker.cs                - Active call management            |
 |    CallStateMachine.cs           - State transition validation       |
 |    CallRecord.cs                 - Call data record model            |
@@ -543,6 +561,8 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    AutoStartManager.cs           - Windows autostart (HKCU Run)     |
 |    CommandLineOptions.cs         - Command line argument parser      |
 |    LogPrefixes.cs                - Structured log message prefixes   |
+|    TelephonyMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/Webclient) |
+|    TelephonyProviderSelector.cs - Auto-detection logic              |
 |    Config/                                                           |
 |      AppConfig.cs                - Configuration defaults & access   |
 |      IniConfig.cs                - INI file reader (Windows API)     |
