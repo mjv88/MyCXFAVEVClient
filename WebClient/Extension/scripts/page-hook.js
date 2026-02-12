@@ -20,30 +20,58 @@
     return btoa(binary);
   };
 
-  // TEMP: Intercept XHR + fetch to capture SOAP MakeCall format from manual dials
+  // TEMP: Intercept XHR to capture MakeCall protobuf format (binary as base64)
+  let lastMakeCallBody = null; // Store last MakeCall binary for replay
+  let lastMakeCallContentType = null;
+
   const NativeXHROpen = XMLHttpRequest.prototype.open;
   const NativeXHRSend = XMLHttpRequest.prototype.send;
+  const NativeSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
   XMLHttpRequest.prototype.open = function(method, url, ...args) {
     this.__3cxUrl = url;
     this.__3cxMethod = method;
     return NativeXHROpen.call(this, method, url, ...args);
   };
+  XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+    if (this.__3cxUrl && String(this.__3cxUrl).includes("MPWebService")) {
+      if (name.toLowerCase() === "content-type") this.__3cxCT = value;
+    }
+    return NativeSetRequestHeader.call(this, name, value);
+  };
   XMLHttpRequest.prototype.send = function(body) {
     if (this.__3cxUrl && String(this.__3cxUrl).includes("MPWebService")) {
-      post({ kind: "XHR_SOAP_OUT", method: this.__3cxMethod, url: this.__3cxUrl, body: String(body).substring(0, 2000) });
+      const captureBody = (ab) => {
+        const b64 = toBase64(ab);
+        post({ kind: "XHR_MAKECALL_OUT", method: this.__3cxMethod,
+               url: this.__3cxUrl, base64: b64, size: ab.byteLength,
+               contentType: this.__3cxCT || "" });
+        lastMakeCallBody = new Uint8Array(ab);
+        lastMakeCallContentType = this.__3cxCT || "";
+      };
+      if (body instanceof ArrayBuffer) {
+        captureBody(body);
+      } else if (body instanceof Uint8Array) {
+        captureBody(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+      } else if (body instanceof Blob) {
+        body.arrayBuffer().then(captureBody);
+      } else if (body != null) {
+        // Text body (shouldn't happen for protobuf, but capture anyway)
+        post({ kind: "XHR_MAKECALL_OUT_TEXT", url: this.__3cxUrl,
+               body: String(body).substring(0, 500) });
+      }
+      // Capture response
+      this.addEventListener("load", function() {
+        try {
+          const resp = this.response;
+          if (resp instanceof ArrayBuffer) {
+            post({ kind: "XHR_MAKECALL_IN", url: this.__3cxUrl,
+                   status: this.status, base64: toBase64(resp), size: resp.byteLength });
+          }
+        } catch {}
+      });
     }
     return NativeXHRSend.call(this, body);
-  };
-
-  const NativeFetch = window.fetch;
-  window.fetch = function(input, init) {
-    const url = typeof input === "string" ? input : input?.url || "";
-    if (url.includes("MPWebService") || url.includes("MyPhone")) {
-      const body = init?.body ? String(init.body).substring(0, 2000) : "(no body)";
-      const headers = init?.headers || {};
-      post({ kind: "FETCH_SOAP_OUT", url, method: init?.method || "GET", headers: JSON.stringify(headers), body });
-    }
-    return NativeFetch.apply(this, arguments);
   };
 
   let webclientSocket = null; // Reference to the active 3CX WebSocket
@@ -159,25 +187,33 @@
     }
   });
 
-  // Auto-dial: find dialer input, set number, click Call
+  // Auto-dial: try multiple approaches to initiate a call
   // NOTE: Do NOT use tel: link - it immediately calls the WRONG number (last dialed)
   async function triggerDial(number) {
     post({ kind: "DIAL_STARTING", number });
 
-    // Approach 1: Check if a number input is already visible on the page
-    let inputSet = await setDialerNumber(number);
+    // Get extension from localStorage
+    let extension = "";
+    try {
+      const prov = JSON.parse(localStorage.getItem("wc.provision"));
+      extension = prov?.username || "";
+    } catch {}
 
+    // Approach 1: Build protobuf MakeCall and POST to MPWebService.asmx
+    // This is the same mechanism the webclient uses for manual dials
+    const protobufOk = await tryProtobufMakeCall(extension, number);
+    if (protobufOk) return;
+
+    // Approach 2: DOM-based - find dialer input, set number, click Call
+    let inputSet = await setDialerNumber(number);
     if (!inputSet) {
-      // Approach 2: Try to open the dialer panel first
       const opened = await openDialerPanel();
       if (opened) {
         await new Promise(r => setTimeout(r, 500));
         inputSet = await setDialerNumber(number);
       }
     }
-
     if (inputSet) {
-      // Wait for Angular to process the value change, then click Call
       await new Promise(r => setTimeout(r, 300));
       for (let attempt = 0; attempt < 5; attempt++) {
         const btn = findCallButton(document.body);
@@ -190,8 +226,166 @@
       }
     }
 
-    // All approaches failed - dump comprehensive diagnostics
+    // All approaches failed - dump diagnostics
     dumpDialerDiagnostics(number);
+  }
+
+  // Construct and send a MakeCall protobuf to MPWebService.asmx
+  // Based on captured traffic: POST with binary protobuf body containing extension + number
+  async function tryProtobufMakeCall(extension, number) {
+    // Build the protobuf binary
+    // From traffic analysis: the request uses a nested message structure
+    // We try the captured template first, then construct our own
+    const dialString = number.startsWith("+") ? number : "+" + number;
+
+    if (lastMakeCallBody) {
+      // Replay approach: replace the number in the captured template
+      const modified = replaceNumberInProtobuf(lastMakeCallBody, dialString);
+      if (modified) {
+        post({ kind: "DIAL_PROTOBUF_REPLAY", number: dialString, size: modified.byteLength });
+        try {
+          const resp = await NativeFetch.call(window, "/MyPhone/MPWebService.asmx", {
+            method: "POST",
+            body: modified,
+            credentials: "include",
+            headers: lastMakeCallContentType
+              ? { "Content-Type": lastMakeCallContentType }
+              : {}
+          });
+          if (resp.ok) {
+            post({ kind: "DIAL_PROTOBUF_OK", status: resp.status, approach: "replay" });
+            return true;
+          }
+          post({ kind: "DIAL_PROTOBUF_FAIL", status: resp.status, approach: "replay" });
+        } catch (err) {
+          post({ kind: "DIAL_PROTOBUF_ERROR", error: String(err), approach: "replay" });
+        }
+      }
+    }
+
+    // Construct approach: build protobuf from scratch
+    // Encoding: field 13 (LEN) wrapping inner message with extension + dial string
+    const innerFields = [
+      encodeProtobufString(1, extension),   // field 1: extension "000"
+      encodeProtobufVarint(2, 1),           // field 2: call type (1 = outgoing?)
+      encodeProtobufString(5, dialString),  // field 5: destination number
+    ];
+    const inner = concatBytes(innerFields);
+    const outer = encodeProtobufBytes(13, inner); // field 13: wrapper
+
+    post({ kind: "DIAL_PROTOBUF_CONSTRUCT", number: dialString,
+           size: outer.byteLength, hex: bytesToHex(outer) });
+
+    try {
+      const resp = await NativeFetch.call(window, "/MyPhone/MPWebService.asmx", {
+        method: "POST",
+        body: outer,
+        credentials: "include",
+        headers: { "Content-Type": "application/octet-stream" }
+      });
+      const respBody = await resp.arrayBuffer();
+      post({ kind: "DIAL_PROTOBUF_RESULT", status: resp.status, ok: resp.ok,
+             responseBase64: toBase64(respBody), responseSize: respBody.byteLength });
+      if (resp.ok) return true;
+    } catch (err) {
+      post({ kind: "DIAL_PROTOBUF_ERROR", error: String(err), approach: "construct" });
+    }
+
+    return false;
+  }
+
+  // Protobuf encoding helpers
+  function encodeVarint(value) {
+    const bytes = [];
+    while (value > 0x7F) {
+      bytes.push((value & 0x7F) | 0x80);
+      value >>>= 7;
+    }
+    bytes.push(value & 0x7F);
+    return new Uint8Array(bytes);
+  }
+
+  function encodeProtobufString(fieldNum, str) {
+    const tag = encodeVarint((fieldNum << 3) | 2); // wire type 2 = LEN
+    const data = new TextEncoder().encode(str);
+    const len = encodeVarint(data.length);
+    return concatBytes([tag, len, data]);
+  }
+
+  function encodeProtobufVarint(fieldNum, value) {
+    const tag = encodeVarint((fieldNum << 3) | 0); // wire type 0 = VARINT
+    const val = encodeVarint(value);
+    return concatBytes([tag, val]);
+  }
+
+  function encodeProtobufBytes(fieldNum, data) {
+    const tag = encodeVarint((fieldNum << 3) | 2); // wire type 2 = LEN
+    const len = encodeVarint(data.length);
+    return concatBytes([tag, len, data]);
+  }
+
+  function concatBytes(arrays) {
+    const total = arrays.reduce((sum, a) => sum + a.byteLength, 0);
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (const a of arrays) {
+      result.set(new Uint8Array(a.buffer || a, a.byteOffset || 0, a.byteLength), offset);
+      offset += a.byteLength;
+    }
+    return result;
+  }
+
+  function bytesToHex(bytes) {
+    return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Replace a phone number in captured protobuf binary
+  // Searches for known number patterns and substitutes
+  function replaceNumberInProtobuf(originalBody, newNumber) {
+    // Find phone number patterns in the binary (UTF-8 encoded)
+    // Look for strings starting with + or * followed by digits
+    const bytes = new Uint8Array(originalBody);
+    const str = new TextDecoder().decode(bytes);
+
+    // Find phone numbers: +DIGITS or *+DIGITS or *DIGITS (at least 5 digits)
+    const phonePattern = /[\*\+]?\+?\d{5,}/g;
+    const matches = [...str.matchAll(phonePattern)];
+
+    if (matches.length === 0) {
+      post({ kind: "DIAL_REPLAY_NO_NUMBER", bodyHex: bytesToHex(bytes) });
+      return null;
+    }
+
+    // Find the longest match (most likely the dial number)
+    const best = matches.reduce((a, b) => a[0].length >= b[0].length ? a : b);
+    const oldNumber = best[0];
+    const oldBytes = new TextEncoder().encode(oldNumber);
+    const newBytes = new TextEncoder().encode(newNumber);
+
+    post({ kind: "DIAL_REPLAY_REPLACING", oldNumber, newNumber,
+           sameLength: oldBytes.length === newBytes.length });
+
+    if (oldBytes.length === newBytes.length) {
+      // Same length: simple byte replacement (no length field changes needed)
+      const result = new Uint8Array(bytes);
+      const idx = bytes.indexOf(oldBytes[0]);
+      // Find exact match position
+      for (let i = 0; i <= bytes.length - oldBytes.length; i++) {
+        let match = true;
+        for (let j = 0; j < oldBytes.length; j++) {
+          if (bytes[i + j] !== oldBytes[j]) { match = false; break; }
+        }
+        if (match) {
+          result.set(newBytes, i);
+          // Don't break - replace all occurrences
+        }
+      }
+      return result;
+    }
+
+    // Different length: too complex for simple replay, skip
+    post({ kind: "DIAL_REPLAY_LENGTH_MISMATCH" });
+    return null;
   }
 
   // Try to open the dialer/keypad panel in the webclient
