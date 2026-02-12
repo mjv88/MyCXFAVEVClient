@@ -271,19 +271,15 @@
     const cleanNumber = number.replace(/\s/g, "");
     post({ kind: "DIAL_STARTING", number: cleanNumber });
 
-    // Approach 1: Inject RequestMakeCall protobuf into the 3CX WebSocket
-    // This is the most direct method - it uses the PBX's own command protocol
-    const wsSent = trySendMakeCallViaWebSocket(cleanNumber);
-    if (wsSent) {
-      // MakeCall sent - if the PBX accepts it, a call will start and
-      // background.js will detect it via LocalConnection Inserted.
-      // Don't fall through to other approaches which would interfere.
-      return;
-    }
+    // Approach 1: tel: link + Enter keypress
+    // The 3CX PWA handles tel: protocol - it opens the dialer with the number.
+    // After a short delay, simulate Enter to confirm the call.
+    const telOk = await tryTelLinkDial(cleanNumber);
+    if (telOk) return;
 
-    // Approach 2: Navigate to #/call or #/dialer hash route
-    const hashOk = await tryHashRouteDial(cleanNumber);
-    if (hashOk) return;
+    // Approach 2: Inject RequestMakeCall protobuf into the 3CX WebSocket
+    const wsSent = trySendMakeCallViaWebSocket(cleanNumber);
+    if (wsSent) return;
 
     // Approach 3: DOM-based - find dialer input, set number, click Call
     let inputSet = await setDialerNumber(cleanNumber);
@@ -309,6 +305,38 @@
 
     // All approaches failed - dump diagnostics
     dumpDialerDiagnostics(cleanNumber);
+  }
+
+  // Navigate to tel: URI to let the PWA open the dialer, then press Enter to confirm
+  async function tryTelLinkDial(number) {
+    post({ kind: "DIAL_TEL_STARTING", number });
+
+    // Create and click an <a href="tel:..."> element
+    const a = document.createElement("a");
+    a.href = `tel:${number}`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    post({ kind: "DIAL_TEL_LINK_CLICKED", number });
+
+    // Wait for the PWA to open the dialer / call confirmation dialog
+    await new Promise(r => setTimeout(r, 250));
+
+    // Simulate Enter keypress to confirm the call
+    const enterEvent = new KeyboardEvent("keydown", {
+      key: "Enter", code: "Enter", keyCode: 13, which: 13,
+      bubbles: true, cancelable: true
+    });
+    document.activeElement?.dispatchEvent(enterEvent);
+    document.dispatchEvent(enterEvent);
+
+    post({ kind: "DIAL_TEL_ENTER_SENT", number,
+           activeElement: document.activeElement?.tagName || "none",
+           activeClasses: (document.activeElement?.className || "").substring(0, 60) });
+
+    return true;
   }
 
   // Navigate to #/call or #/dialer hash route to initiate a call
