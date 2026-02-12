@@ -24,7 +24,6 @@ let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevHelloBootstrapTimer";
 
-const calls = new Map();
 let webclientTabId = null; // Tab ID of the active 3CX webclient
 
 // Deduplication: field 3 (callId) groups all legs of one logical call
@@ -325,7 +324,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
       }
     }
 
-    calls.delete(callId);
     const evt = toCallEvent({
       callId, direction, remoteNumber, remoteName,
       state: "ended", reason: "unknown", tabId: sourceTabId
@@ -365,13 +363,6 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   if (!state) {
     return;
   }
-
-  calls.set(callId, {
-    direction,
-    remoteNumber,
-    remoteName,
-    state
-  });
 
   const evt = toCallEvent({
     callId, direction, remoteNumber, remoteName, state,
