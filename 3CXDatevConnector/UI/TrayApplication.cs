@@ -57,7 +57,7 @@ namespace DatevConnector.UI
             _notifyIcon = new NotifyIcon
             {
                 Icon = _iconDisconnected,
-                Text = "3CX - DATEV Connector - Getrennt",
+                Text = UIStrings.Status.TrayDisconnected,
                 ContextMenuStrip = _contextMenu,
                 Visible = true
             };
@@ -313,8 +313,8 @@ namespace DatevConnector.UI
 
                 case BridgeStatus.Connecting:
                     _notifyIcon.Icon = _iconConnecting;
-                    _notifyIcon.Text = "3CX - DATEV Connector - Verbinde...";
-                    UpdateStatusMenuItem("Verbinde...");
+                    _notifyIcon.Text = UIStrings.Status.TrayConnecting;
+                    UpdateStatusMenuItem(UIStrings.Status.Connecting);
                     _lastNotifiedStatus = status;
                     return; // Don't run combined status update
 
@@ -348,21 +348,21 @@ namespace DatevConnector.UI
             if (tapiOk && datevOk)
             {
                 _notifyIcon.Icon = _iconConnected;
-                _notifyIcon.Text = $"3CX - DATEV Connector - Betriebsbereit (Nst: {_bridgeService.Extension})";
-                UpdateStatusMenuItem("Betriebsbereit");
+                _notifyIcon.Text = string.Format(UIStrings.Status.TrayReadyFormat, _bridgeService.Extension);
+                UpdateStatusMenuItem(UIStrings.Status.Ready);
             }
             else if (tapiOk || datevOk)
             {
                 _notifyIcon.Icon = _iconConnecting;
-                string missing = !tapiOk ? "TAPI getrennt" : "DATEV nicht verfügbar";
-                _notifyIcon.Text = $"3CX - DATEV Connector - Teilweise ({missing})";
-                UpdateStatusMenuItem($"Teilweise - {missing}");
+                string missing = !tapiOk ? UIStrings.Status.TapiDisconnectedShort : UIStrings.Status.DatevUnavailableShort;
+                _notifyIcon.Text = string.Format(UIStrings.Status.TrayPartialFormat, missing);
+                UpdateStatusMenuItem($"{UIStrings.Status.Partial} - {missing}");
             }
             else
             {
                 _notifyIcon.Icon = _iconDisconnected;
-                _notifyIcon.Text = "3CX - DATEV Connector - Getrennt";
-                UpdateStatusMenuItem("Getrennt");
+                _notifyIcon.Text = UIStrings.Status.TrayDisconnected;
+                UpdateStatusMenuItem(UIStrings.Status.Disconnected);
             }
         }
 
@@ -496,15 +496,15 @@ namespace DatevConnector.UI
         {
             try
             {
-                ShowBalloon("Neu laden", "Kontakte werden aus DATEV geladen...", ToolTipIcon.Info);
+                ShowBalloon(UIStrings.Notifications.ReloadTitle, UIStrings.Notifications.ContactsReloading, ToolTipIcon.Info);
                 await _bridgeService.ReloadContactsAsync();
-                ShowBalloon("Kontakte geladen", $"{_bridgeService.ContactCount} Kontakte geladen", ToolTipIcon.Info);
-                UpdateStatusMenuItem("Betriebsbereit");
+                ShowBalloon(UIStrings.Notifications.ContactsReloadedTitle, string.Format(UIStrings.Notifications.ContactsReloadedFormat, _bridgeService.ContactCount), ToolTipIcon.Info);
+                UpdateStatusMenuItem(UIStrings.Status.Ready);
             }
             catch (Exception ex)
             {
                 LogManager.Log("Error reloading contacts: {0}", ex);
-                ShowBalloon("Fehler", $"Kontakte konnten nicht geladen werden: {ex.Message}", ToolTipIcon.Error);
+                ShowBalloon(UIStrings.Errors.GenericError, string.Format(UIStrings.Notifications.ContactsReloadFailed, ex.Message), ToolTipIcon.Error);
             }
         }
 
@@ -528,8 +528,8 @@ namespace DatevConnector.UI
                 else
                 {
                     MessageBox.Show(
-                        $"Protokolldatei nicht gefunden:\n{logPath}",
-                        "Protokolldatei",
+                        string.Format(UIStrings.Notifications.LogFileNotFoundFormat, logPath),
+                        UIStrings.Notifications.LogFileTitle,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                 }
@@ -537,8 +537,8 @@ namespace DatevConnector.UI
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Fehler beim Öffnen der Protokolldatei: {ex.Message}",
-                    "Fehler",
+                    string.Format(UIStrings.Notifications.LogFileOpenFailed, ex.Message),
+                    UIStrings.Errors.GenericError,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -686,9 +686,9 @@ namespace DatevConnector.UI
             try
             {
                 LogManager.Log("Manual bridge restart requested");
-                UpdateStatusMenuItem("Neustart...");
+                UpdateStatusMenuItem(UIStrings.Notifications.Restarting);
                 _notifyIcon.Icon = _iconConnecting;
-                _notifyIcon.Text = "3CX - DATEV Connector - Neustart...";
+                _notifyIcon.Text = UIStrings.Status.TrayRestarting;
 
                 await _bridgeService.ReconnectTapiAsync();
                 await _bridgeService.ReloadContactsAsync();
@@ -698,7 +698,7 @@ namespace DatevConnector.UI
             catch (Exception ex)
             {
                 LogManager.Log("Bridge restart error: {0}", ex.Message);
-                ShowBalloon("Fehler", $"Neustart fehlgeschlagen: {ex.Message}", ToolTipIcon.Error);
+                ShowBalloon(UIStrings.Errors.GenericError, string.Format(UIStrings.Notifications.RestartFailed, ex.Message), ToolTipIcon.Error);
             }
         }
 

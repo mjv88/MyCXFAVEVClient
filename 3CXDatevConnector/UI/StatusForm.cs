@@ -200,8 +200,8 @@ namespace DatevConnector.UI
             // Contact sync time
             var syncTs = DatevContactManager.LastSyncTimestamp;
             string syncText = syncTs.HasValue
-                ? string.Format("Letzte Synchronisierung: {0:HH:mm:ss}", syncTs.Value)
-                : "Letzte Synchronisierung: \u2014";
+                ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
+                : UIStrings.Status.LastSyncNone;
             _lblSyncTime = new Label
             {
                 Text = syncText,
@@ -860,8 +860,8 @@ namespace DatevConnector.UI
 
             var syncTs = DatevContactManager.LastSyncTimestamp;
             _lblSyncTime.Text = syncTs.HasValue
-                ? string.Format("Letzte Synchronisierung: {0:HH:mm:ss}", syncTs.Value)
-                : "Letzte Synchronisierung: \u2014";
+                ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
+                : UIStrings.Status.LastSyncNone;
         }
 
         private void UpdateBridgeStatus()

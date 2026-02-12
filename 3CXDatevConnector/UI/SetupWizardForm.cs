@@ -117,7 +117,7 @@ namespace DatevConnector.UI
 
             // Update button states
             _btnBack.Visible = step > 1;
-            _btnNext.Text = step == TOTAL_STEPS ? UIStrings.Wizard.Complete : UIStrings.Wizard.Next;
+            _btnNext.Text = step == TOTAL_STEPS ? UIStrings.Wizard.Finish : UIStrings.Wizard.Next;
 
             switch (step)
             {
