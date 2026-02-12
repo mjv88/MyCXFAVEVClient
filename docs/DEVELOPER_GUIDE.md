@@ -369,7 +369,7 @@ The TAPI `lineMakeCall` function can initiate calls, but the 3CX TAPI driver use
 
 ### Why a Single ConnectorService Orchestrator?
 
-At ~1,200 lines, `ConnectorService.cs` is large but serves as the single orchestration point. The domain logic is delegated to focused managers:
+At ~1,300 lines, `ConnectorService.cs` is large but serves as the single orchestration point. The domain logic is delegated to focused managers:
 
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
@@ -420,7 +420,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
-│   ├── ConnectorService.cs                Central orchestrator (1,200 lines)
+│   ├── ConnectorService.cs                Central orchestrator (~1,300 lines)
 │   ├── ConnectorStatus.cs                 Connection status enum
 │   ├── CallTracker.cs                  Active/pending call management
 │   ├── CallStateMachine.cs             TAPI state transition validation
@@ -438,6 +438,8 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── AutoStartManager.cs             HKCU Run key management
 │   ├── CommandLineOptions.cs           CLI argument parser
 │   ├── LogPrefixes.cs                  Structured log prefixes
+│   ├── TelephonyMode.cs               Telephony mode enum
+│   ├── TelephonyProviderSelector.cs   Auto-detection logic
 │   ├── Config/
 │   │   ├── AppConfig.cs                Configuration defaults & typed access
 │   │   └── IniConfig.cs                INI file reader (Windows API)
@@ -447,7 +449,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │       ├── TapiException.cs            TAPI error with category
 │       └── DatevException.cs           DATEV error with category
 ├── Tapi/
-│   ├── ITelephonyProvider.cs           Provider interface (2 implementations)
+│   ├── ITelephonyProvider.cs           Provider interface (3 implementations)
 │   ├── TapiLineMonitor.cs             TAPI 2.x implementation
 │   ├── PipeTelephonyProvider.cs        Named pipe implementation
 │   ├── TapiPipeServer.cs              Low-level pipe I/O
@@ -474,6 +476,10 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   │   └── NotificationManager.cs      DATEV notifications (with circuit breaker)
 │   ├── DatevData/                      XML deserialization models
 │   └── PluginData/                     Contact models
+├── Webclient/
+│   ├── Protocol.cs                    JSON protocol (v1) types & parser
+│   ├── WebSocketBridgeServer.cs       WebSocket server (port 19800)
+│   └── WebclientTelephonyProvider.cs  ITelephonyProvider for Webclient
 ├── Interop/
 │   ├── Rot.cs                          Running Object Table P/Invoke
 │   └── TapiInterop.cs                 TAPI 2.x P/Invoke
