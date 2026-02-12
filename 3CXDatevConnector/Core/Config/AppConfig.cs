@@ -195,31 +195,33 @@ namespace DatevConnector.Core.Config
         }
 
         /// <summary>
+        /// Parse a string as a boolean, accepting true/1/yes and false/0/no.
+        /// Returns null if the value is not a recognized boolean string.
+        /// </summary>
+        private static bool? ParseBool(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return null;
+
+            var lower = value.ToLowerInvariant();
+            if (lower == "true" || lower == "1" || lower == "yes") return true;
+            if (lower == "false" || lower == "0" || lower == "no") return false;
+            return null;
+        }
+
+        /// <summary>
         /// Get a boolean value. Falls back to hardcoded default.
         /// </summary>
         public static bool GetBool(string key, bool defaultValue = false)
         {
-            string strDefault = GetDefault(key);
-            bool fallback = defaultValue;
-            if (strDefault != null)
-            {
-                var lower = strDefault.ToLowerInvariant();
-                if (lower == "true" || lower == "1" || lower == "yes") fallback = true;
-                else if (lower == "false" || lower == "0" || lower == "no") fallback = false;
-            }
+            bool fallback = ParseBool(GetDefault(key)) ?? defaultValue;
 
             if (string.IsNullOrEmpty(_iniPath))
                 return fallback;
 
             string section = GetSection(key);
             string value = IniConfig.GetString(section, key, "");
-            if (string.IsNullOrEmpty(value))
-                return fallback;
-
-            var lv = value.ToLowerInvariant();
-            if (lv == "true" || lv == "1" || lv == "yes") return true;
-            if (lv == "false" || lv == "0" || lv == "no") return false;
-            return fallback;
+            return ParseBool(value) ?? fallback;
         }
 
         /// <summary>
@@ -289,7 +291,18 @@ namespace DatevConnector.Core.Config
         }
 
         /// <summary>
-        /// Generate the default INI config file with all settings and documentation
+        /// Write "Key=DefaultValue" for the given config key.
+        /// </summary>
+        private static string DefaultLine(string key)
+        {
+            string value;
+            Defaults.TryGetValue(key, out value);
+            return string.Format("{0}={1}", key, value ?? "");
+        }
+
+        /// <summary>
+        /// Generate the default INI config file with all settings and documentation.
+        /// Values are pulled from the Defaults dictionary to avoid duplication.
         /// </summary>
         private static void GenerateDefaultConfig()
         {
@@ -303,46 +316,46 @@ namespace DatevConnector.Core.Config
 
                     writer.WriteLine("[Settings]");
                     writer.WriteLine("; Extension number (auto-detected from TAPI if empty)");
-                    writer.WriteLine("ExtensionNumber=");
+                    writer.WriteLine(DefaultLine(ConfigKeys.ExtensionNumber));
                     writer.WriteLine();
                     writer.WriteLine("; Journaling");
-                    writer.WriteLine("EnableJournaling=true");
-                    writer.WriteLine("EnableJournalPopup=true");
-                    writer.WriteLine("EnableJournalPopupOutbound=false");
+                    writer.WriteLine(DefaultLine(ConfigKeys.EnableJournaling));
+                    writer.WriteLine(DefaultLine(ConfigKeys.EnableJournalPopup));
+                    writer.WriteLine(DefaultLine(ConfigKeys.EnableJournalPopupOutbound));
                     writer.WriteLine();
                     writer.WriteLine("; Call Pop-Up");
-                    writer.WriteLine("EnableCallerPopup=true");
-                    writer.WriteLine("EnableCallerPopupOutbound=false");
+                    writer.WriteLine(DefaultLine(ConfigKeys.EnableCallerPopup));
+                    writer.WriteLine(DefaultLine(ConfigKeys.EnableCallerPopupOutbound));
                     writer.WriteLine("; CallerPopupMode: Both, Form, Balloon");
-                    writer.WriteLine("CallerPopupMode=Form");
+                    writer.WriteLine(DefaultLine(ConfigKeys.CallerPopupMode));
                     writer.WriteLine();
                     writer.WriteLine("; Contact matching");
-                    writer.WriteLine("MinCallerIdLength=2");
-                    writer.WriteLine("MaxCompareLength=10");
-                    writer.WriteLine("ContactReshowDelaySeconds=3");
-                    writer.WriteLine("LastContactRoutingMinutes=60");
+                    writer.WriteLine(DefaultLine(ConfigKeys.MinCallerIdLength));
+                    writer.WriteLine(DefaultLine(ConfigKeys.MaxCompareLength));
+                    writer.WriteLine(DefaultLine(ConfigKeys.ContactReshowDelaySeconds));
+                    writer.WriteLine(DefaultLine(ConfigKeys.LastContactRoutingMinutes));
                     writer.WriteLine();
                     writer.WriteLine("; Call History");
-                    writer.WriteLine("CallHistoryInbound=true");
-                    writer.WriteLine("CallHistoryOutbound=false");
-                    writer.WriteLine("CallHistoryMaxEntries=5");
+                    writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryInbound));
+                    writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryOutbound));
+                    writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryMaxEntries));
                     writer.WriteLine();
                     writer.WriteLine("; DATEV Contacts");
-                    writer.WriteLine("ActiveContactsOnly=false");
+                    writer.WriteLine(DefaultLine(ConfigKeys.ActiveContactsOnly));
                     writer.WriteLine();
 
                     writer.WriteLine("[Connection]");
                     writer.WriteLine("; TelephonyMode: Auto, Tapi, Pipe, Webclient");
                     writer.WriteLine("; Auto = detect best provider at startup (Webclient -> Pipe -> TAPI)");
-                    writer.WriteLine("TelephonyMode=Auto");
+                    writer.WriteLine(DefaultLine(ConfigKeys.TelephonyMode));
                     writer.WriteLine("; Auto-detection timeout in seconds");
-                    writer.WriteLine("Auto.DetectionTimeoutSec=10");
+                    writer.WriteLine(DefaultLine(ConfigKeys.AutoDetectionTimeoutSec));
                     writer.WriteLine("; Webclient extension connect timeout in seconds");
-                    writer.WriteLine("Webclient.ConnectTimeoutSec=8");
+                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientConnectTimeoutSec));
                     writer.WriteLine("; Enable Webclient mode (browser extension via WebSocket)");
-                    writer.WriteLine("Webclient.Enabled=true");
+                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientEnabled));
                     writer.WriteLine("; WebSocket port for browser extension connection");
-                    writer.WriteLine("Webclient.WebSocketPort=19800");
+                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientWebSocketPort));
                 }
             }
             catch

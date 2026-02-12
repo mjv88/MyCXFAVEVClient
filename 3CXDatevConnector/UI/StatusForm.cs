@@ -24,10 +24,10 @@ namespace DatevConnector.UI
         /// </summary>
         public enum Action { None, CallHistory, Settings }
 
-        private readonly BridgeService _bridgeService;
+        private readonly ConnectorService _bridgeService;
         private Label _lblDatevStatus;
         private Label _lblTapiStatus;
-        private Label _lblBridgeStatus;
+        private Label _lblConnectorStatus;
         private Label _lblContacts;
         private Label _lblSyncTime;
         private Label _lblDatevProgress;
@@ -51,7 +51,7 @@ namespace DatevConnector.UI
         /// </summary>
         public Action RequestedAction { get; private set; }
 
-        public StatusForm(BridgeService bridgeService)
+        public StatusForm(ConnectorService bridgeService)
         {
             _bridgeService = bridgeService;
             RequestedAction = Action.None;
@@ -64,14 +64,14 @@ namespace DatevConnector.UI
             // Subscribe to status changes for real-time updates
             if (_bridgeService != null)
             {
-                _bridgeService.StatusChanged += OnBridgeStatusChanged;
+                _bridgeService.StatusChanged += OnConnectorStatusChanged;
             }
 
             Disposed += (s, e) =>
             {
                 if (_bridgeService != null)
                 {
-                    _bridgeService.StatusChanged -= OnBridgeStatusChanged;
+                    _bridgeService.StatusChanged -= OnConnectorStatusChanged;
                 }
             };
         }
@@ -105,14 +105,14 @@ namespace DatevConnector.UI
             }
         }
 
-        private void OnBridgeStatusChanged(BridgeStatus status)
+        private void OnConnectorStatusChanged(ConnectorStatus status)
         {
             if (IsDisposed || !IsHandleCreated) return;
 
             // Marshal to UI thread
             if (InvokeRequired)
             {
-                BeginInvoke(new System.Action(() => OnBridgeStatusChanged(status)));
+                BeginInvoke(new System.Action(() => OnConnectorStatusChanged(status)));
                 return;
             }
 
@@ -139,7 +139,7 @@ namespace DatevConnector.UI
                 _btnReconnectAll.Enabled = true;
             }
 
-            UpdateBridgeStatus();
+            UpdateConnectorStatus();
         }
 
         private void InitializeComponent()
@@ -200,8 +200,8 @@ namespace DatevConnector.UI
             // Contact sync time
             var syncTs = DatevContactManager.LastSyncTimestamp;
             string syncText = syncTs.HasValue
-                ? string.Format("Letzte Synchronisierung: {0:HH:mm:ss}", syncTs.Value)
-                : "Letzte Synchronisierung: \u2014";
+                ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
+                : UIStrings.Status.LastSyncNone;
             _lblSyncTime = new Label
             {
                 Text = syncText,
@@ -359,7 +359,7 @@ namespace DatevConnector.UI
             Controls.Add(bridgeCard);
 
             string bridgeText = operational ? UIStrings.Status.Ready : (partial ? UIStrings.Status.Partial : UIStrings.Status.Unavailable);
-            _lblBridgeStatus = new Label
+            _lblConnectorStatus = new Label
             {
                 Text = bridgeText,
                 ForeColor = statusColor,
@@ -367,7 +367,7 @@ namespace DatevConnector.UI
                 Location = new Point(12, 28),
                 AutoSize = true
             };
-            bridgeCard.Controls.Add(_lblBridgeStatus);
+            bridgeCard.Controls.Add(_lblConnectorStatus);
 
             // Progress label with styled background (hidden by default)
             _lblBridgeProgress = UITheme.CreateProgressLabel(cardWidth - 24);
@@ -507,7 +507,7 @@ namespace DatevConnector.UI
             _btnReloadContacts.Enabled = true;
             HideProgressLabel(_lblDatevProgress);
 
-            UpdateBridgeStatus();
+            UpdateConnectorStatus();
         }
 
         private async void BtnReloadContacts_Click(object sender, EventArgs e)
@@ -566,7 +566,7 @@ namespace DatevConnector.UI
             _btnReconnectTapi.Enabled = !isConnected;
             if (_lblTapiProgress != null) HideProgressLabel(_lblTapiProgress);
 
-            UpdateBridgeStatus();
+            UpdateConnectorStatus();
         }
 
         private async void BtnReconnectTapi_Click(object sender, EventArgs e)
@@ -594,7 +594,7 @@ namespace DatevConnector.UI
                 _lblTapiStatus.ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad;
                 _btnReconnectTapi.Text = UIStrings.Labels.Connect;
                 _btnReconnectTapi.Enabled = !tapiOk;
-                UpdateBridgeStatus();
+                UpdateConnectorStatus();
             }
             if (_lblTapiProgress != null) HideProgressLabel(_lblTapiProgress);
         }
@@ -638,7 +638,7 @@ namespace DatevConnector.UI
             UpdateTapiLineStatuses();
             _btnReconnectTapi.Text = UIStrings.Labels.ReconnectShort;
             _btnReconnectTapi.Enabled = true;
-            UpdateBridgeStatus();
+            UpdateConnectorStatus();
 
             // Hide all per-line progress labels
             foreach (var lbl in _lineProgressLabels.Values)
@@ -722,7 +722,7 @@ namespace DatevConnector.UI
 
             UpdateTapiLineStatuses();
             btn.Text = UIStrings.Labels.ConnectShort;
-            UpdateBridgeStatus();
+            UpdateConnectorStatus();
             if (progressLabel != null) HideProgressLabel(progressLabel);
         }
 
@@ -837,7 +837,7 @@ namespace DatevConnector.UI
 
                 bool operational = datevOk && tapiOk;
                 _lblBridgeProgress.Text = operational ? UIStrings.Status.AllSystemsReady : UIStrings.Status.PartiallyReady;
-                UpdateBridgeStatus();
+                UpdateConnectorStatus();
 
                 // Hide progress labels after a short delay
                 await Task.Delay(2000);
@@ -860,18 +860,18 @@ namespace DatevConnector.UI
 
             var syncTs = DatevContactManager.LastSyncTimestamp;
             _lblSyncTime.Text = syncTs.HasValue
-                ? string.Format("Letzte Synchronisierung: {0:HH:mm:ss}", syncTs.Value)
-                : "Letzte Synchronisierung: \u2014";
+                ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
+                : UIStrings.Status.LastSyncNone;
         }
 
-        private void UpdateBridgeStatus()
+        private void UpdateConnectorStatus()
         {
             if (IsDisposed || !IsHandleCreated) return;
 
             // Marshal to UI thread if needed
             if (InvokeRequired)
             {
-                BeginInvoke(new System.Action(UpdateBridgeStatus));
+                BeginInvoke(new System.Action(UpdateConnectorStatus));
                 return;
             }
 
@@ -883,8 +883,8 @@ namespace DatevConnector.UI
             string bridgeText = operational ? UIStrings.Status.Ready : (partial ? UIStrings.Status.Partial : UIStrings.Status.Unavailable);
             Color bridgeColor = operational ? UITheme.StatusOk : (partial ? UITheme.StatusWarn : UITheme.StatusBad);
 
-            _lblBridgeStatus.Text = bridgeText;
-            _lblBridgeStatus.ForeColor = bridgeColor;
+            _lblConnectorStatus.Text = bridgeText;
+            _lblConnectorStatus.ForeColor = bridgeColor;
         }
     }
 }

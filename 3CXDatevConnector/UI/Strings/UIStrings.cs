@@ -14,13 +14,11 @@ namespace DatevConnector.UI.Strings
             public const string Save = "Speichern";
             public const string Cancel = "Abbrechen";
             public const string Close = "Schließen";
-            public const string Back = "Zurück";
             public const string Status = "Status";
             public const string Refresh = "Aktualisieren";
             public const string Settings = "Einstellungen";
             public const string SendJournal = "Gesprächsnotiz senden";
             public const string ConnectAll = "Alle verbinden";
-            public const string CallHistory = "Anrufliste";
             public const string OK = "OK";
             public const string Reconnect = "Neu verbinden";
             public const string ReconnectShort = "Neuverbinden";
@@ -34,6 +32,14 @@ namespace DatevConnector.UI.Strings
             public const string Select = "Auswählen";
             public const string Search = "Suchen";
             public const string Contacts = "Kontakte";
+            public const string CallHistory = "Anrufliste";
+
+            // Shared labels used across multiple forms
+            public const string Unknown = "Unbekannt";
+            public const string Inbound = "Eingehend";
+            public const string Outbound = "Ausgehend";
+            public const string Contact = "Kontakt";
+            public const string SourceFormat = "Quelle: {0}";
         }
 
         // ===== STATUS TEXT =====
@@ -45,8 +51,8 @@ namespace DatevConnector.UI.Strings
             public const string Connecting = "Verbinde...";
             public const string Partial = "Teilweise";
             public const string PartialConnected = "Teilweise verbunden";
-            public const string TestSuccess = "✓";
-            public const string TestFailed = "✗";
+            public const string TestSuccess = "\u2713";
+            public const string TestFailed = "\u2717";
             public const string TestPending = "...";
             public const string Available = "Verfügbar";
             public const string Unavailable = "Nicht verfügbar";
@@ -58,6 +64,17 @@ namespace DatevConnector.UI.Strings
             public const string ConnectedExt = "Verbunden (Nst: {0})";
             public const string LinesConnected = "{0}/{1} Leitungen verbunden";
             public const string LineStatus = "Nst {0}: {1}";
+
+            // Tray icon tooltip formats
+            public const string TrayConnecting = "3CX - DATEV Connector - Verbinde...";
+            public const string TrayReadyFormat = "3CX - DATEV Connector - Betriebsbereit (Nst: {0})";
+            public const string TrayPartialFormat = "3CX - DATEV Connector - Teilweise ({0})";
+            public const string TrayDisconnected = "3CX - DATEV Connector - Getrennt";
+            public const string TrayRestarting = "3CX - DATEV Connector - Neustart...";
+            public const string TapiDisconnectedShort = "TAPI getrennt";
+            public const string DatevUnavailableShort = "DATEV nicht verfügbar";
+            public const string LastSyncFormat = "Letzte Synchronisierung: {0:HH:mm:ss}";
+            public const string LastSyncNone = "Letzte Synchronisierung: \u2014";
         }
 
         // ===== USER MESSAGES =====
@@ -66,16 +83,19 @@ namespace DatevConnector.UI.Strings
             public const string DatevUnavailable = "DATEV ist nicht verfügbar";
             public const string TapiUnavailable = "TAPI-Verbindung nicht verfügbar";
             public const string ContactsLoaded = "{0} Kontakte geladen";
-            public const string ContactsLoadFailed = "Kontakte konnten nicht geladen werden";
             public const string SettingsSaved = "Einstellungen gespeichert";
             public const string JournalSent = "Gesprächsnotiz an DATEV gesendet";
             public const string NoCallsFound = "Keine Anrufe vorhanden";
             public const string LoadingContacts = "Kontakte werden geladen...";
             public const string RestartRequired = "Bitte Anwendung neu starten.";
-            public const string SavedWithCheck = "✓ Gespeichert";
+            public const string SavedWithCheck = "\u2713 Gespeichert";
             public const string CheckingDatev = "Prüfe DATEV...";
             public const string ConnectingTapi = "Verbinde 3CX TAPI...";
             public const string ContactsFormat = "Kontakte: {0}";
+            public const string AppDescription = "Integration zwischen 3CX Windows Softphone App (V20) und DATEV.";
+            public const string BalloonNotificationHint = "Für Balloon-Benachrichtigungen müssen Windows-Benachrichtigungen aktiviert sein.\n\nMöchten Sie die Windows-Benachrichtigungseinstellungen öffnen, um dies zu überprüfen?";
+            public const string BalloonNotificationTitle = "Benachrichtigungseinstellungen";
+            public const string WindowsSettingsOpenFailed = "Windows-Einstellungen konnten nicht geöffnet werden.\n\nBitte öffnen Sie manuell: Einstellungen \u2192 System \u2192 Benachrichtigungen";
         }
 
         // ===== ERROR MESSAGES =====
@@ -83,7 +103,6 @@ namespace DatevConnector.UI.Strings
         {
             public const string DatevDisconnected = "DATEV nicht erreichbar";
             public const string TapiDisconnected = "TAPI-Verbindung getrennt";
-            public const string SddTimeout = "Kontakte konnten nicht geladen werden";
             public const string CircuitBreakerOpen = "DATEV-Verbindung pausiert (zu viele Fehler)";
             public const string NoTapiLines = "Keine TAPI-Leitungen gefunden";
             public const string CheckTapi = "3CX TAPI prüfen";
@@ -110,8 +129,8 @@ namespace DatevConnector.UI.Strings
         // ===== MENU ITEMS =====
         public static class MenuItems
         {
-            public const string AppTitle = "3CX - DATEV Connector";
-            public const string Status = "Status";
+            public const string AppTitle = FormTitles.AppTitle;
+            public const string Status = Labels.Status;
             public const string ReloadContacts = "\U0001F504 Kontakte neu laden";
             public const string CallHistory = "\U0001F4DE Anrufliste";
             public const string OpenLog = "\U0001F4DD Log-Datei öffnen";
@@ -160,8 +179,8 @@ namespace DatevConnector.UI.Strings
         public static class ContactSelection
         {
             public const string MultipleContactsFound = "Mehrere Kontakte gefunden. Bitte wählen Sie aus.";
-            public const string Contact = "Kontakt";
-            public const string Source = "Quelle: {0}";
+            public const string Contact = Labels.Contact;
+            public const string Source = Labels.SourceFormat;
             public const string SourceDatev = "DATEV";
             public const string UnknownName = "(unbekannt)";
         }
@@ -194,7 +213,6 @@ namespace DatevConnector.UI.Strings
             public const string AutoStart = "3CX - DATEV Connector beim Windows-Start ausführen";
             public const string Back = "Zurück";
             public const string Next = "Weiter";
-            public const string Complete = "Fertig";
             public const string StepOf = "Schritt {0} von {1}";
 
             // Feature list items
@@ -219,7 +237,7 @@ namespace DatevConnector.UI.Strings
             public const string PipeExtension = "Nebenstelle: {0}";
             public const string PipeName = "Pipe: \\\\.\\pipe\\3CX_tsp_server_{0}";
             public const string Softphone3CXRunning = "3CX Softphone läuft in dieser Sitzung";
-            public const string Softphone3CXNotRunning = "3CX Softphone nicht erkannt — bitte starten";
+            public const string Softphone3CXNotRunning = "3CX Softphone nicht erkannt \u2014 bitte starten";
 
             // Webclient mode
             public const string WebclientConfig = "Webclient (Browser-Erweiterung)";
@@ -248,10 +266,20 @@ namespace DatevConnector.UI.Strings
             public const string TapiDisconnected = "3CX TAPI-Verbindung getrennt";
             public const string PipeConnected = "3CX Softphone verbunden (Nebenstelle {0})";
             public const string PipeDisconnected = "3CX Softphone-Verbindung getrennt";
-            public const string DatevFound = "DATEV erkannt — Kontakte werden geladen";
+            public const string DatevFound = "DATEV erkannt \u2014 Kontakte werden geladen";
             public const string DatevLost = "DATEV Arbeitsplatz nicht gefunden.\nBitte DATEV starten.";
             public const string WebclientConnected = "Webclient verbunden (Nebenstelle {0})";
             public const string WebclientDisconnected = "Browser-Erweiterung getrennt";
+            public const string ReloadTitle = "Neu laden";
+            public const string ContactsReloading = "Kontakte werden aus DATEV geladen...";
+            public const string ContactsReloadedTitle = "Kontakte geladen";
+            public const string ContactsReloadedFormat = "{0} Kontakte geladen";
+            public const string ContactsReloadFailed = "Kontakte konnten nicht geladen werden: {0}";
+            public const string LogFileNotFoundFormat = "Protokolldatei nicht gefunden:\n{0}";
+            public const string LogFileTitle = "Protokolldatei";
+            public const string LogFileOpenFailed = "Fehler beim Öffnen der Protokolldatei: {0}";
+            public const string Restarting = "Neustart...";
+            public const string RestartFailed = "Neustart fehlgeschlagen: {0}";
         }
 
         // ===== KEYBOARD SHORTCUTS =====
@@ -259,8 +287,6 @@ namespace DatevConnector.UI.Strings
         {
             public const string TestAll = "Alle Verbindungen testen";
             public const string ReloadContacts = "Kontakte neu laden";
-            public const string OpenLog = "Log-Datei öffnen";
-            public const string CallHistory = "Anrufliste";
             public const string CloseWindow = "Fenster schließen";
             public const string KeyboardShortcuts = "Tastenkürzel";
             public const string SaveSettings = "Einstellungen speichern";
@@ -269,19 +295,19 @@ namespace DatevConnector.UI.Strings
         // ===== CALL HISTORY =====
         public static class CallHistory
         {
-            public const string Inbound = "Eingehend";
-            public const string Outbound = "Ausgehend";
+            public const string Inbound = Labels.Inbound;
+            public const string Outbound = Labels.Outbound;
             public const string InboundDisabled = "Eingehend (deaktiviert)";
             public const string OutboundDisabled = "Ausgehend (deaktiviert)";
             public const string Time = "Zeit";
             public const string Number = "Nummer";
-            public const string Contact = "Kontakt";
+            public const string Contact = Labels.Contact;
             public const string Duration = "Dauer";
             public const string Journal = "Notiz";
-            public const string JournalSent = "✓ Ja";
+            public const string JournalSent = "\u2713 Ja";
             public const string JournalPending = "Offen";
-            public const string JournalNone = "—";
-            public const string Unknown = "Unbekannt";
+            public const string JournalNone = "\u2014";
+            public const string Unknown = Labels.Unknown;
         }
 
         // ===== JOURNAL FORM =====
@@ -296,8 +322,8 @@ namespace DatevConnector.UI.Strings
             public const string NotePlaceholder = "Notizen zum Gespräch...";
             public const string CharacterCount = "{0}/{1}";
             public const string Send = "An DATEV senden";
-            public const string Source = "Quelle: {0}";
-            public const string UnknownContact = "Unbekannt";
+            public const string Source = Labels.SourceFormat;
+            public const string UnknownContact = Labels.Unknown;
             public const string DefaultSource = "3CX";
         }
 
@@ -386,8 +412,8 @@ namespace DatevConnector.UI.Strings
             public const string Disabled = "0 = deaktiviert";
             public const string MinLength = "Mindestlänge:";
             public const string MaxCompare = "Maximallänge:";
-            public const string InboundCalls = "Eingehend";
-            public const string OutboundCalls = "Ausgehend";
+            public const string InboundCalls = Labels.Inbound;
+            public const string OutboundCalls = Labels.Outbound;
             public const string Count = "Anzahl:";
             public const string ActiveContacts = "Aktive Kontakte";
             public const string Contacts = "Kontakte: {0}";

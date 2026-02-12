@@ -1,9 +1,9 @@
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Bridge connection status
+    /// Connector connection status
     /// </summary>
-    public enum BridgeStatus
+    public enum ConnectorStatus
     {
         /// <summary>
         /// Not connected to 3CX

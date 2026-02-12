@@ -18,16 +18,16 @@ using DatevConnector.Webclient;
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Main orchestrator - bridges 3CX TAPI and DATEV Telefonie
+    /// Main orchestrator - connects 3CX TAPI and DATEV Telefonie
     /// </summary>
-    public class BridgeService : IDisposable
+    public class ConnectorService : IDisposable
     {
         private string _extension;
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly DatevAdapter _datevAdapter;
         private readonly object _statusLock = new object();
-        private BridgeStatus _status = BridgeStatus.Disconnected;
+        private ConnectorStatus _status = ConnectorStatus.Disconnected;
 
         // Thread-safe mutable state (volatile ensures visibility across threads)
         private volatile ITelephonyProvider _tapiMonitor;
@@ -35,16 +35,16 @@ namespace DatevConnector.Core
         private volatile bool _disposed;
         private Task _pipeServerTask;
 
-        // Settings (volatile for thread-safe reads after ApplySettings)
-        private volatile bool _enableJournaling;
-        private volatile bool _enableJournalPopup;
-        private volatile bool _enableJournalPopupOutbound;
-        private volatile bool _enableCallerPopup;
-        private volatile bool _enableCallerPopupOutbound;
-        private volatile CallerPopupMode _callerPopupMode;
-        private volatile int _minCallerIdLength;
-        private volatile int _contactReshowDelaySeconds;
-        private volatile bool _isMuted;
+        // Settings (written only during constructor and ApplySettings on UI thread)
+        private bool _enableJournaling;
+        private bool _enableJournalPopup;
+        private bool _enableJournalPopupOutbound;
+        private bool _enableCallerPopup;
+        private bool _enableCallerPopupOutbound;
+        private CallerPopupMode _callerPopupMode;
+        private int _minCallerIdLength;
+        private int _contactReshowDelaySeconds;
+        private bool _isMuted;
 
         // Call history
         private readonly CallHistoryStore _callHistory;
@@ -57,12 +57,12 @@ namespace DatevConnector.Core
         /// <summary>
         /// Event fired when connection status changes
         /// </summary>
-        public event Action<BridgeStatus> StatusChanged;
+        public event Action<ConnectorStatus> StatusChanged;
 
         /// <summary>
         /// Current connection status (thread-safe)
         /// </summary>
-        public BridgeStatus Status
+        public ConnectorStatus Status
         {
             get
             {
@@ -73,7 +73,7 @@ namespace DatevConnector.Core
             }
             private set
             {
-                Action<BridgeStatus> handler = null;
+                Action<ConnectorStatus> handler = null;
                 lock (_statusLock)
                 {
                     if (_status != value)
@@ -110,7 +110,7 @@ namespace DatevConnector.Core
         /// <summary>
         /// Whether TAPI is currently connected (at least one line)
         /// </summary>
-        public bool TapiConnected => Status == BridgeStatus.Connected;
+        public bool TapiConnected => Status == ConnectorStatus.Connected;
 
         /// <summary>
         /// When true, all popups and notifications are suppressed (silent mode).
@@ -147,7 +147,7 @@ namespace DatevConnector.Core
         /// </summary>
         public List<DatevContactInfo> GetCachedContacts() => DatevCache.GetAllContacts();
 
-        public BridgeService(string extension)
+        public ConnectorService(string extension)
         {
             _extension = extension;
             _callTracker = new CallTracker();
@@ -252,7 +252,7 @@ namespace DatevConnector.Core
                 LogManager.Warning("No telephony provider detected!");
                 LogManager.Warning("========================================");
                 LogManager.Warning(selectionResult.DiagnosticSummary ?? "No diagnostics available");
-                Status = BridgeStatus.Disconnected;
+                Status = ConnectorStatus.Disconnected;
                 return;
             }
 
@@ -463,7 +463,7 @@ namespace DatevConnector.Core
                             else
                             {
                                 LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
-                                Status = BridgeStatus.Disconnected;
+                                Status = ConnectorStatus.Disconnected;
                                 await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                                 continue;
                             }
@@ -477,7 +477,7 @@ namespace DatevConnector.Core
                         }
                     }
 
-                    Status = BridgeStatus.Connecting;
+                    Status = ConnectorStatus.Connecting;
 
                     _tapiMonitor?.Dispose();
                     _tapiMonitor = providerToUse;
@@ -494,11 +494,11 @@ namespace DatevConnector.Core
                     _tapiMonitor.Connected += () =>
                     {
                         AdoptExtensionFromProvider("connected line");
-                        Status = BridgeStatus.Connected;
+                        Status = ConnectorStatus.Connected;
                     };
                     _tapiMonitor.Disconnected += () =>
                     {
-                        Status = BridgeStatus.Disconnected;
+                        Status = ConnectorStatus.Disconnected;
                         LogManager.Log("Telephony provider disconnected (all lines)");
                     };
 
@@ -506,7 +506,7 @@ namespace DatevConnector.Core
                     if (_tapiMonitor.IsMonitoring)
                     {
                         AdoptExtensionFromProvider("initial provider");
-                        Status = BridgeStatus.Connected;
+                        Status = ConnectorStatus.Connected;
                     }
 
                     // StartAsync blocks until cancelled or line closed
@@ -673,6 +673,31 @@ namespace DatevConnector.Core
 
         #endregion
 
+        /// <summary>
+        /// Look up a DATEV contact by phone number, apply routing, fill CallData, and record usage.
+        /// Returns the matched contact (or null).
+        /// </summary>
+        private DatevContactInfo LookupAndFillContact(CallRecord record, CallData callData, string remoteNumber)
+        {
+            DatevContactInfo contact = null;
+            if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
+            {
+                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
+                if (contacts.Count > 1)
+                    contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
+                if (contacts.Count > 0)
+                    contact = contacts[0];
+            }
+
+            CallDataManager.Fill(callData, remoteNumber, contact);
+            record.CallData = callData;
+
+            if (contact?.DatevContact?.Id != null)
+                ContactRoutingCache.RecordUsage(remoteNumber, contact.DatevContact.Id);
+
+            return contact;
+        }
+
         #region TAPI Event Handlers
 
         /// <summary>
@@ -755,29 +780,7 @@ namespace DatevConnector.Core
                 End = record.StartTime
             };
 
-            // Look up contact (apply last-agent routing if multiple matches)
-            DatevContactInfo contact = null;
-            if (!string.IsNullOrEmpty(callerNumber) && callerNumber.Length >= _minCallerIdLength)
-            {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(callerNumber);
-                if (contacts.Count > 0)
-                {
-                    if (contacts.Count > 1)
-                    {
-                        contacts = ContactRoutingCache.ApplyRouting(callerNumber, contacts);
-                        LogManager.Log("Bridge: Multiple contacts ({0}) found for {1}, using first (reshow on connect)",
-                            contacts.Count, LogManager.Mask(callerNumber));
-                    }
-                    contact = contacts[0];
-                }
-            }
-
-            CallDataManager.Fill(callData, callerNumber, contact);
-            record.CallData = callData;
-
-            // Record contact usage for last-agent routing
-            if (contact?.DatevContact?.Id != null)
-                ContactRoutingCache.RecordUsage(callerNumber, contact.DatevContact.Id);
+            var contact = LookupAndFillContact(record, callData, callerNumber);
 
             if (_enableCallerPopup && !_isMuted)
             {
@@ -855,29 +858,7 @@ namespace DatevConnector.Core
                 End = record.StartTime
             };
 
-            // Look up contact (apply last-agent routing if multiple matches)
-            DatevContactInfo contact = null;
-            if (!string.IsNullOrEmpty(calledNumber) && calledNumber.Length >= _minCallerIdLength)
-            {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(calledNumber);
-                if (contacts.Count > 0)
-                {
-                    if (contacts.Count > 1)
-                    {
-                        contacts = ContactRoutingCache.ApplyRouting(calledNumber, contacts);
-                        LogManager.Log("Bridge: Multiple contacts ({0}) found for {1}, using first (reshow on connect)",
-                            contacts.Count, LogManager.Mask(calledNumber));
-                    }
-                    contact = contacts[0];
-                }
-            }
-
-            CallDataManager.Fill(callData, calledNumber, contact);
-            record.CallData = callData;
-
-            // Record contact usage for last-agent routing
-            if (contact?.DatevContact?.Id != null)
-                ContactRoutingCache.RecordUsage(calledNumber, contact.DatevContact.Id);
+            var contact = LookupAndFillContact(record, callData, calledNumber);
 
             if (_enableCallerPopupOutbound && !_isMuted)
             {
@@ -923,21 +904,7 @@ namespace DatevConnector.Core
                     End = record.StartTime
                 };
 
-                DatevContactInfo contact = null;
-                if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
-                {
-                    List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
-                    if (contacts.Count > 1)
-                        contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
-                    if (contacts.Count > 0)
-                        contact = contacts[0];
-                }
-
-                CallDataManager.Fill(callData, remoteNumber, contact);
-                record.CallData = callData;
-
-                if (contact?.DatevContact?.Id != null)
-                    ContactRoutingCache.RecordUsage(remoteNumber, contact.DatevContact.Id);
+                LookupAndFillContact(record, callData, remoteNumber);
 
                 _notificationManager.NewCall(callData);
             }
