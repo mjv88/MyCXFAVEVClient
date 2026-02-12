@@ -46,6 +46,9 @@ The bridge is a .NET Framework 4.8 WinForms system tray application (x86) that a
 | **CallDataManager** | `Datev/Managers/CallDataManager.cs` | Call data handling and SyncID management |
 | **DatevCache** | `Datev/DatevCache.cs` | Contact cache with phone number lookup |
 | **DatevContactManager** | `Datev/Managers/DatevContactManager.cs` | SDD contact loading |
+| **WebclientTelephonyProvider** | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider for browser extension |
+| **WebSocketBridgeServer** | `Webclient/WebSocketBridgeServer.cs` | WebSocket server for extension (port 19800) |
+| **TelephonyProviderSelector** | `Core/TelephonyProviderSelector.cs` | Auto-detection of telephony mode |
 | **CallTracker** | `Core/CallTracker.cs` | Active and pending call tracking |
 | **LogManager** | `Datev/Managers/LogManager.cs` | Structured logging with rotation |
 
@@ -56,12 +59,17 @@ The bridge is a .NET Framework 4.8 WinForms system tray application (x86) that a
 The bridge performs these steps on startup in order:
 
 ```
-1. Detect environment (Desktop vs Terminal Server)
+1. Detect environment and select telephony mode
    ├── Log session info (Session ID, IsTerminalSession, SessionName)
-   └── Determine mode: Named Pipe (TS) or TAPI (Desktop)
+   └── TelephonyProviderSelector: Auto, Tapi, Pipe, or Webclient
+       ├── Auto: Webclient → Pipe → TAPI (priority order)
+       ├── Explicit mode: use configured provider only
+       └── Log selected mode and reason
 
-2. Create Named Pipe server (if Terminal Server)
-   └── Pipe: \\.\pipe\3CX_tsp_server_{extension}
+2. Initialize telephony provider
+   ├── TAPI: Connect line monitor
+   ├── Pipe: Create Named Pipe server (\\.\pipe\3CX_tsp_server_{extension})
+   └── Webclient: Start WebSocket server (port 19800)
 
 3. Initialize DATEV
    ├── Register COM adapter in ROT (AdapterManager)
@@ -72,9 +80,10 @@ The bridge performs these steps on startup in order:
    ├── Load contacts from SDD (async)
    └── Start config file watcher (hot-reload)
 
-4. Connect telephony
-   ├── Desktop: Connect TAPI line monitor
-   └── TS: Await Named Pipe client connection
+4. Await telephony connection
+   ├── TAPI: Line monitor already connected
+   ├── Pipe: Await Named Pipe client connection
+   └── Webclient: Await browser extension HELLO
 ```
 
 ### DATEV Connection Test Output

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The 3CX - DATEV Connector connects the **3CX Windows Softphone App (V20)** with **DATEV Arbeitsplatz**. It runs as a lightweight Windows system tray application and provides:
+The 3CX - DATEV Connector connects **3CX** (Desktop App or WebClient) with **DATEV Arbeitsplatz**. It runs as a lightweight Windows system tray application and provides:
 
 - Incoming and outgoing call notifications to DATEV
 - Click-to-Dial from DATEV applications
@@ -20,8 +20,8 @@ The 3CX - DATEV Connector connects the **3CX Windows Softphone App (V20)** with 
 |-----------|-------------|
 | Operating System | Windows 10 or Windows 11 (x86 or x64) |
 | Runtime | .NET Framework 4.8 (included in Windows 10 1903+) |
-| 3CX | 3CX Windows Softphone App V20 or later |
-| 3CX TAPI | 3CX Multi-Line TAPI driver installed and configured |
+| 3CX (Desktop mode) | 3CX Windows Softphone App V20 or later + 3CX Multi-Line TAPI driver |
+| 3CX (Webclient mode) | Chrome or Edge with 3CX DATEV Connector browser extension |
 | DATEV | DATEV Arbeitsplatz with Telefonie component |
 | DATEV DLLs | `DATEV.Interop.DatevCtiBuddy.dll`, `Datev.Sdd.Data.ClientInterfaces.dll`, `Datev.Sdd.Data.ClientPlugIn.Base.dll` (installed via GAC by DATEV) |
 
@@ -51,28 +51,44 @@ Deploy via GPO, SCCM, or Microsoft Intune as a **per-user installation**:
 
 ## First-Run Setup Wizard
 
-On first launch (when no INI file exists), the application creates a default configuration and asks if you would like to run the Setup Wizard. The wizard has 4 steps:
+On first launch (when no INI file exists), the application creates a default configuration and asks if you would like to run the Setup Wizard. The wizard has 5 steps:
 
 ### Step 1 — Welcome
 
 Overview of the bridge features: TAPI monitoring, DATEV integration, and autostart configuration.
 
-### Step 2 — 3CX Connection
+### Step 2 — Telephony Mode
 
-The wizard adapts to the detected environment:
+Select the connection mode:
 
-**Desktop (TAPI mode):**
+| Mode | Description |
+|------|-------------|
+| **Auto** (recommended) | Detects best provider automatically (Webclient → Pipe → TAPI) |
+| **TAPI** | 3CX Windows Client on Desktop |
+| **Pipe** | 3CX Windows Client on Terminal Server |
+| **Webclient** | 3CX Webclient in Browser (Chrome/Edge) |
+
+### Step 3 — Provider Configuration
+
+The wizard adapts to the selected telephony mode:
+
+**TAPI mode:**
 The wizard detects all available 3CX TAPI lines and displays them in a dropdown.
 - Format: `122 - Max Mustermann (Verbunden)`
 - The extension number is auto-detected from the TAPI line name
 
-**Terminal Server (Named Pipe mode):**
+**Pipe mode (Terminal Server):**
 The wizard shows the Named Pipe server status:
 - Extension number and pipe path (`\\.\pipe\3CX_tsp_server_{ext}`)
 - Whether the 3CX Softphone is connected via pipe
 - Whether the 3CX Softphone process is running in the current RDP session
 
-### Step 3 — DATEV Connection Test
+**Webclient mode:**
+The wizard shows the browser extension connection status:
+- Whether the extension is connected via WebSocket (port 19800)
+- Installation instructions for Chrome/Edge
+
+### Step 4 — DATEV Connection Test
 
 The wizard tests connectivity to DATEV:
 
@@ -80,7 +96,7 @@ The wizard tests connectivity to DATEV:
 - Displays contact count on success (if contacts were already loaded)
 - Shows troubleshooting hints on failure
 
-### Step 4 — Finish
+### Step 5 — Finish
 
 Summary of detected configuration and an option to enable Windows autostart.
 
@@ -250,6 +266,15 @@ Open Settings via tray menu → **Einstellungen**.
 | Anrufliste Anzahl | 5 | Maximum entries per direction |
 | Aktive Kontakte | Disabled | Only load active contacts (Status ≠ 0) from DATEV |
 
+### Telephony Mode
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Modus | Auto | Connection mode: Auto, TAPI, Pipe, or Webclient |
+| Aktiver Modus | (read-only) | Shows currently active telephony provider |
+
+> **Note:** Changing the telephony mode requires an application restart.
+
 ---
 
 ## Configuration File
@@ -288,6 +313,13 @@ CallHistoryInbound=true
 CallHistoryOutbound=false
 CallHistoryMaxEntries=5
 ActiveContactsOnly=false
+
+[Connection]
+TelephonyMode=Auto
+AutoDetectionTimeoutSec=10
+WebclientConnectTimeoutSec=8
+WebclientEnabled=true
+WebclientWebSocketPort=19800
 ```
 
 ### Additional Sections (Optional)
@@ -295,7 +327,7 @@ ActiveContactsOnly=false
 Add these sections manually for advanced tuning:
 
 ```ini
-[Connection]
+; Extra [Connection] settings (not included in default INI)
 ReconnectIntervalSeconds=5
 ConnectionTimeoutSeconds=30
 DatevCircuitBreakerThreshold=3
