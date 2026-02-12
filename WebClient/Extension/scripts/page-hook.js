@@ -188,21 +188,14 @@
   });
 
   // Auto-dial: try multiple approaches to initiate a call
-  // NOTE: Do NOT use tel: link - it immediately calls the WRONG number (last dialed)
+  // Discovery: 3CX webclient has #/call and #/dialer hash routes (from service worker)
   async function triggerDial(number) {
     post({ kind: "DIAL_STARTING", number });
 
-    // Get extension from localStorage
-    let extension = "";
-    try {
-      const prov = JSON.parse(localStorage.getItem("wc.provision"));
-      extension = prov?.username || "";
-    } catch {}
-
-    // Approach 1: Build protobuf MakeCall and POST to MPWebService.asmx
-    // This is the same mechanism the webclient uses for manual dials
-    const protobufOk = await tryProtobufMakeCall(extension, number);
-    if (protobufOk) return;
+    // Approach 1: Navigate to #/call or #/dialer hash route
+    // The 3CX webclient's Angular router handles these routes for click-to-call
+    const hashOk = await tryHashRouteDial(number);
+    if (hashOk) return;
 
     // Approach 2: DOM-based - find dialer input, set number, click Call
     let inputSet = await setDialerNumber(number);
@@ -230,165 +223,77 @@
     dumpDialerDiagnostics(number);
   }
 
-  // Construct and send a MakeCall protobuf to MPWebService.asmx
-  // Based on captured traffic: POST with binary protobuf body containing extension + number
-  async function tryProtobufMakeCall(extension, number) {
-    // Build the protobuf binary
-    // From traffic analysis: the request uses a nested message structure
-    // We try the captured template first, then construct our own
-    const dialString = number.startsWith("+") ? number : "+" + number;
+  // Navigate to #/call or #/dialer hash route to initiate a call
+  // The 3CX webclient service worker shows these routes exist:
+  //   #/call, #/dialer (excluded from client matching = popup/standalone views)
+  async function tryHashRouteDial(number) {
+    const originalHash = window.location.hash;
+    const cleanNumber = number.replace(/\s/g, "");
 
-    if (lastMakeCallBody) {
-      // Replay approach: replace the number in the captured template
-      const modified = replaceNumberInProtobuf(lastMakeCallBody, dialString);
-      if (modified) {
-        post({ kind: "DIAL_PROTOBUF_REPLAY", number: dialString, size: modified.byteLength });
-        try {
-          const resp = await NativeFetch.call(window, "/MyPhone/MPWebService.asmx", {
-            method: "POST",
-            body: modified,
-            credentials: "include",
-            headers: lastMakeCallContentType
-              ? { "Content-Type": lastMakeCallContentType }
-              : {}
-          });
-          if (resp.ok) {
-            post({ kind: "DIAL_PROTOBUF_OK", status: resp.status, approach: "replay" });
-            return true;
-          }
-          post({ kind: "DIAL_PROTOBUF_FAIL", status: resp.status, approach: "replay" });
-        } catch (err) {
-          post({ kind: "DIAL_PROTOBUF_ERROR", error: String(err), approach: "replay" });
+    // Try multiple URL patterns that 3CX webclient might accept
+    const patterns = [
+      `#/call?phone=${encodeURIComponent(cleanNumber)}`,
+      `#/call?dest=${encodeURIComponent(cleanNumber)}`,
+      `#/call?number=${encodeURIComponent(cleanNumber)}`,
+      `#/call/${encodeURIComponent(cleanNumber)}`,
+      `#/dialer?phone=${encodeURIComponent(cleanNumber)}`,
+      `#/dialer?number=${encodeURIComponent(cleanNumber)}`,
+      `#/dialer/${encodeURIComponent(cleanNumber)}`,
+    ];
+
+    for (const pattern of patterns) {
+      post({ kind: "DIAL_HASH_TRYING", pattern });
+      window.location.hash = pattern.substring(1); // Remove leading #
+
+      // Wait for Angular router to process
+      await new Promise(r => setTimeout(r, 800));
+
+      // Check if the route was accepted (Angular didn't redirect back)
+      const currentHash = window.location.hash;
+      if (currentHash !== originalHash && !currentHash.includes("/login")) {
+        post({ kind: "DIAL_HASH_ACCEPTED", pattern, currentHash });
+
+        // Wait a bit more for the view to fully render
+        await new Promise(r => setTimeout(r, 500));
+
+        // Try to find and set the number input (in case it wasn't auto-filled)
+        await setDialerNumber(cleanNumber);
+        await new Promise(r => setTimeout(r, 200));
+
+        // Try to find and click the Call button
+        const btn = findCallButton(document.body);
+        if (btn) {
+          btn.click();
+          post({ kind: "DIAL_HASH_CALL_CLICKED", pattern, text: btn.textContent.trim() });
+        } else {
+          post({ kind: "DIAL_HASH_NO_CALL_BUTTON", pattern,
+                 currentHash: window.location.hash });
         }
+
+        // Navigate back to original view after a short delay
+        setTimeout(() => {
+          if (window.location.hash !== originalHash) {
+            window.location.hash = originalHash.substring(1) || "/";
+          }
+        }, 2000);
+
+        return true;
       }
     }
 
-    // Construct approach: build protobuf from scratch
-    // Encoding: field 13 (LEN) wrapping inner message with extension + dial string
-    const innerFields = [
-      encodeProtobufString(1, extension),   // field 1: extension "000"
-      encodeProtobufVarint(2, 1),           // field 2: call type (1 = outgoing?)
-      encodeProtobufString(5, dialString),  // field 5: destination number
-    ];
-    const inner = concatBytes(innerFields);
-    const outer = encodeProtobufBytes(13, inner); // field 13: wrapper
+    // None of the hash routes worked
+    post({ kind: "DIAL_HASH_NONE_ACCEPTED", triedCount: patterns.length,
+           currentHash: window.location.hash, originalHash });
 
-    post({ kind: "DIAL_PROTOBUF_CONSTRUCT", number: dialString,
-           size: outer.byteLength, hex: bytesToHex(outer) });
-
-    try {
-      const resp = await NativeFetch.call(window, "/MyPhone/MPWebService.asmx", {
-        method: "POST",
-        body: outer,
-        credentials: "include",
-        headers: { "Content-Type": "application/octet-stream" }
-      });
-      const respBody = await resp.arrayBuffer();
-      post({ kind: "DIAL_PROTOBUF_RESULT", status: resp.status, ok: resp.ok,
-             responseBase64: toBase64(respBody), responseSize: respBody.byteLength });
-      if (resp.ok) return true;
-    } catch (err) {
-      post({ kind: "DIAL_PROTOBUF_ERROR", error: String(err), approach: "construct" });
+    // Restore original hash if it changed
+    if (window.location.hash !== originalHash) {
+      window.location.hash = originalHash.substring(1) || "/";
     }
 
     return false;
   }
 
-  // Protobuf encoding helpers
-  function encodeVarint(value) {
-    const bytes = [];
-    while (value > 0x7F) {
-      bytes.push((value & 0x7F) | 0x80);
-      value >>>= 7;
-    }
-    bytes.push(value & 0x7F);
-    return new Uint8Array(bytes);
-  }
-
-  function encodeProtobufString(fieldNum, str) {
-    const tag = encodeVarint((fieldNum << 3) | 2); // wire type 2 = LEN
-    const data = new TextEncoder().encode(str);
-    const len = encodeVarint(data.length);
-    return concatBytes([tag, len, data]);
-  }
-
-  function encodeProtobufVarint(fieldNum, value) {
-    const tag = encodeVarint((fieldNum << 3) | 0); // wire type 0 = VARINT
-    const val = encodeVarint(value);
-    return concatBytes([tag, val]);
-  }
-
-  function encodeProtobufBytes(fieldNum, data) {
-    const tag = encodeVarint((fieldNum << 3) | 2); // wire type 2 = LEN
-    const len = encodeVarint(data.length);
-    return concatBytes([tag, len, data]);
-  }
-
-  function concatBytes(arrays) {
-    const total = arrays.reduce((sum, a) => sum + a.byteLength, 0);
-    const result = new Uint8Array(total);
-    let offset = 0;
-    for (const a of arrays) {
-      result.set(new Uint8Array(a.buffer || a, a.byteOffset || 0, a.byteLength), offset);
-      offset += a.byteLength;
-    }
-    return result;
-  }
-
-  function bytesToHex(bytes) {
-    return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, "0")).join("");
-  }
-
-  // Replace a phone number in captured protobuf binary
-  // Searches for known number patterns and substitutes
-  function replaceNumberInProtobuf(originalBody, newNumber) {
-    // Find phone number patterns in the binary (UTF-8 encoded)
-    // Look for strings starting with + or * followed by digits
-    const bytes = new Uint8Array(originalBody);
-    const str = new TextDecoder().decode(bytes);
-
-    // Find phone numbers: +DIGITS or *+DIGITS or *DIGITS (at least 5 digits)
-    const phonePattern = /[\*\+]?\+?\d{5,}/g;
-    const matches = [...str.matchAll(phonePattern)];
-
-    if (matches.length === 0) {
-      post({ kind: "DIAL_REPLAY_NO_NUMBER", bodyHex: bytesToHex(bytes) });
-      return null;
-    }
-
-    // Find the longest match (most likely the dial number)
-    const best = matches.reduce((a, b) => a[0].length >= b[0].length ? a : b);
-    const oldNumber = best[0];
-    const oldBytes = new TextEncoder().encode(oldNumber);
-    const newBytes = new TextEncoder().encode(newNumber);
-
-    post({ kind: "DIAL_REPLAY_REPLACING", oldNumber, newNumber,
-           sameLength: oldBytes.length === newBytes.length });
-
-    if (oldBytes.length === newBytes.length) {
-      // Same length: simple byte replacement (no length field changes needed)
-      const result = new Uint8Array(bytes);
-      const idx = bytes.indexOf(oldBytes[0]);
-      // Find exact match position
-      for (let i = 0; i <= bytes.length - oldBytes.length; i++) {
-        let match = true;
-        for (let j = 0; j < oldBytes.length; j++) {
-          if (bytes[i + j] !== oldBytes[j]) { match = false; break; }
-        }
-        if (match) {
-          result.set(newBytes, i);
-          // Don't break - replace all occurrences
-        }
-      }
-      return result;
-    }
-
-    // Different length: too complex for simple replay, skip
-    post({ kind: "DIAL_REPLAY_LENGTH_MISMATCH" });
-    return null;
-  }
-
-  // Try to open the dialer/keypad panel in the webclient
+  // Try to open the dialer/keypad panel in the webclient (fallback)
   async function openDialerPanel() {
     // Strategy 1: Find a navigation link/button that opens the dialer
     // 3CX webclient v20 uses Angular Material with mat-icons
