@@ -401,43 +401,33 @@ namespace DatevConnector.Datev.Managers
         public static bool IsDebugEnabled => _minLogLevel <= LogLevel.Debug;
 
         /// <summary>
-        /// Mask a phone number for log output.
-        /// Visible digits are controlled by INI key LogMaskDigits (default 5).
+        /// Mask a value for log output.
+        /// Visible characters are controlled by INI key LogMaskDigits (default 5).
         /// Set to 0 to disable masking entirely.
         /// Example (5): "+4951147402435" -> "*********02435"
         /// </summary>
-        public static string Mask(string number)
+        private static string MaskValue(string value)
         {
-            if (string.IsNullOrEmpty(number))
-                return number;
+            if (string.IsNullOrEmpty(value))
+                return value;
 
             int visible = AppConfig.GetInt(ConfigKeys.LogMaskDigits, 5);
 
-            // 0 = masking disabled, show full number
-            if (visible <= 0 || number.Length <= visible)
-                return number;
+            if (visible <= 0 || value.Length <= visible)
+                return value;
 
-            return new string('*', number.Length - visible) + number.Substring(number.Length - visible);
+            return new string('*', value.Length - visible) + value.Substring(value.Length - visible);
         }
 
         /// <summary>
-        /// Mask a contact name for log output.
-        /// Shows only the last 5 characters, masks the rest with asterisks.
-        /// Example: "Institutionen Zentrale" -> "****************trale"
+        /// Mask a phone number for log output.
         /// </summary>
-        public static string MaskName(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return name;
+        public static string Mask(string number) => MaskValue(number);
 
-            int visible = AppConfig.GetInt(ConfigKeys.LogMaskDigits, 5);
-
-            // 0 = masking disabled, show full name
-            if (visible <= 0 || name.Length <= visible)
-                return name;
-
-            return new string('*', name.Length - visible) + name.Substring(name.Length - visible);
-        }
+        /// <summary>
+        /// Mask a contact name for log output.
+        /// </summary>
+        public static string MaskName(string name) => MaskValue(name);
 
         /// <summary>
         /// Enable or disable verbose (debug) logging at runtime.

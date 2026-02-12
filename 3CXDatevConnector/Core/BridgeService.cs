@@ -35,16 +35,16 @@ namespace DatevConnector.Core
         private volatile bool _disposed;
         private Task _pipeServerTask;
 
-        // Settings (volatile for thread-safe reads after ApplySettings)
-        private volatile bool _enableJournaling;
-        private volatile bool _enableJournalPopup;
-        private volatile bool _enableJournalPopupOutbound;
-        private volatile bool _enableCallerPopup;
-        private volatile bool _enableCallerPopupOutbound;
-        private volatile CallerPopupMode _callerPopupMode;
-        private volatile int _minCallerIdLength;
-        private volatile int _contactReshowDelaySeconds;
-        private volatile bool _isMuted;
+        // Settings (written only during constructor and ApplySettings on UI thread)
+        private bool _enableJournaling;
+        private bool _enableJournalPopup;
+        private bool _enableJournalPopupOutbound;
+        private bool _enableCallerPopup;
+        private bool _enableCallerPopupOutbound;
+        private CallerPopupMode _callerPopupMode;
+        private int _minCallerIdLength;
+        private int _contactReshowDelaySeconds;
+        private bool _isMuted;
 
         // Call history
         private readonly CallHistoryStore _callHistory;
@@ -673,6 +673,31 @@ namespace DatevConnector.Core
 
         #endregion
 
+        /// <summary>
+        /// Look up a DATEV contact by phone number, apply routing, fill CallData, and record usage.
+        /// Returns the matched contact (or null).
+        /// </summary>
+        private DatevContactInfo LookupAndFillContact(CallRecord record, CallData callData, string remoteNumber)
+        {
+            DatevContactInfo contact = null;
+            if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
+            {
+                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
+                if (contacts.Count > 1)
+                    contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
+                if (contacts.Count > 0)
+                    contact = contacts[0];
+            }
+
+            CallDataManager.Fill(callData, remoteNumber, contact);
+            record.CallData = callData;
+
+            if (contact?.DatevContact?.Id != null)
+                ContactRoutingCache.RecordUsage(remoteNumber, contact.DatevContact.Id);
+
+            return contact;
+        }
+
         #region TAPI Event Handlers
 
         /// <summary>
@@ -755,29 +780,7 @@ namespace DatevConnector.Core
                 End = record.StartTime
             };
 
-            // Look up contact (apply last-agent routing if multiple matches)
-            DatevContactInfo contact = null;
-            if (!string.IsNullOrEmpty(callerNumber) && callerNumber.Length >= _minCallerIdLength)
-            {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(callerNumber);
-                if (contacts.Count > 0)
-                {
-                    if (contacts.Count > 1)
-                    {
-                        contacts = ContactRoutingCache.ApplyRouting(callerNumber, contacts);
-                        LogManager.Log("Bridge: Multiple contacts ({0}) found for {1}, using first (reshow on connect)",
-                            contacts.Count, LogManager.Mask(callerNumber));
-                    }
-                    contact = contacts[0];
-                }
-            }
-
-            CallDataManager.Fill(callData, callerNumber, contact);
-            record.CallData = callData;
-
-            // Record contact usage for last-agent routing
-            if (contact?.DatevContact?.Id != null)
-                ContactRoutingCache.RecordUsage(callerNumber, contact.DatevContact.Id);
+            var contact = LookupAndFillContact(record, callData, callerNumber);
 
             if (_enableCallerPopup && !_isMuted)
             {
@@ -855,29 +858,7 @@ namespace DatevConnector.Core
                 End = record.StartTime
             };
 
-            // Look up contact (apply last-agent routing if multiple matches)
-            DatevContactInfo contact = null;
-            if (!string.IsNullOrEmpty(calledNumber) && calledNumber.Length >= _minCallerIdLength)
-            {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(calledNumber);
-                if (contacts.Count > 0)
-                {
-                    if (contacts.Count > 1)
-                    {
-                        contacts = ContactRoutingCache.ApplyRouting(calledNumber, contacts);
-                        LogManager.Log("Bridge: Multiple contacts ({0}) found for {1}, using first (reshow on connect)",
-                            contacts.Count, LogManager.Mask(calledNumber));
-                    }
-                    contact = contacts[0];
-                }
-            }
-
-            CallDataManager.Fill(callData, calledNumber, contact);
-            record.CallData = callData;
-
-            // Record contact usage for last-agent routing
-            if (contact?.DatevContact?.Id != null)
-                ContactRoutingCache.RecordUsage(calledNumber, contact.DatevContact.Id);
+            var contact = LookupAndFillContact(record, callData, calledNumber);
 
             if (_enableCallerPopupOutbound && !_isMuted)
             {
@@ -923,21 +904,7 @@ namespace DatevConnector.Core
                     End = record.StartTime
                 };
 
-                DatevContactInfo contact = null;
-                if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
-                {
-                    List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
-                    if (contacts.Count > 1)
-                        contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
-                    if (contacts.Count > 0)
-                        contact = contacts[0];
-                }
-
-                CallDataManager.Fill(callData, remoteNumber, contact);
-                record.CallData = callData;
-
-                if (contact?.DatevContact?.Id != null)
-                    ContactRoutingCache.RecordUsage(remoteNumber, contact.DatevContact.Id);
+                LookupAndFillContact(record, callData, remoteNumber);
 
                 _notificationManager.NewCall(callData);
             }
