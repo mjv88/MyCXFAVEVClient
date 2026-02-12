@@ -930,11 +930,12 @@ namespace DatevConnector.Core
                 LogManager.Log("Bridge: Call {0}", callId);
                 _notificationManager.CallStateChanged(record.CallData);
 
-                // Schedule contact reshow if enabled (independent of initial contact selection)
+                // Schedule contact reshow if enabled — skip for DATEV-initiated calls
+                // (DATEV already specified the contact in the dial command)
                 int reshowDelay = DebugConfigWatcher.GetInt(
                     DebugConfigWatcher.Instance?.ContactReshowDelaySeconds,
                     "ContactReshowDelaySeconds", _contactReshowDelaySeconds);
-                if (reshowDelay > 0)
+                if (reshowDelay > 0 && string.IsNullOrEmpty(record.CallData.SyncID))
                 {
                     ScheduleContactReshow(record, reshowDelay);
                 }
