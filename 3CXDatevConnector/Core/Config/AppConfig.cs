@@ -195,19 +195,9 @@ namespace DatevConnector.Core.Config
         }
 
         /// <summary>
-        /// Parse a string as a boolean, accepting true/1/yes and false/0/no.
-        /// Returns null if the value is not a recognized boolean string.
+        /// Parse a string as a boolean. Delegates to shared ConfigParser.
         /// </summary>
-        private static bool? ParseBool(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-                return null;
-
-            var lower = value.ToLowerInvariant();
-            if (lower == "true" || lower == "1" || lower == "yes") return true;
-            if (lower == "false" || lower == "0" || lower == "no") return false;
-            return null;
-        }
+        private static bool? ParseBool(string value) => ConfigParser.ParseBool(value);
 
         /// <summary>
         /// Get a boolean value. Falls back to hardcoded default.

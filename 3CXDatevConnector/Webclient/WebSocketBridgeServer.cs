@@ -25,16 +25,41 @@ namespace DatevConnector.Webclient
 
         private readonly int _port;
         private TcpListener _listener;
-        private TcpClient _currentClient;
-        private NetworkStream _currentStream;
         private readonly object _writeLock = new object();
         private volatile bool _disposed;
-        private volatile bool _clientConnected;
-        private volatile bool _helloReceived;
-        private string _extensionNumber;
-        private string _webclientIdentity;
-        private string _domain;
-        private string _webclientVersion;
+
+        /// <summary>
+        /// Groups all per-connection mutable state into a single object.
+        /// Simplifies state management, makes transitions explicit, and reduces
+        /// the number of fields that must be reset on disconnect from 7 to 1.
+        /// </summary>
+        private class ClientConnection
+        {
+            public TcpClient Client;
+            public NetworkStream Stream;
+            public volatile bool Connected;
+            public volatile bool HelloReceived;
+            public string ExtensionNumber;
+            public string WebclientIdentity;
+            public string Domain;
+            public string WebclientVersion;
+
+            public bool IsFullyConnected => Connected && HelloReceived;
+
+            public void Reset()
+            {
+                Connected = false;
+                HelloReceived = false;
+                ExtensionNumber = null;
+                WebclientIdentity = null;
+                Domain = null;
+                WebclientVersion = null;
+                Client = null;
+                Stream = null;
+            }
+        }
+
+        private readonly ClientConnection _conn = new ClientConnection();
 
         /// <summary>Fired when a CALL_EVENT message is received.</summary>
         public event Action<ExtensionMessage> CallEventReceived;
@@ -45,11 +70,11 @@ namespace DatevConnector.Webclient
         /// <summary>Fired when the client disconnects.</summary>
         public event Action Disconnected;
 
-        public bool IsConnected => _clientConnected && _helloReceived && !_disposed;
-        public string ExtensionNumber => _extensionNumber;
-        public string WebclientIdentity => _webclientIdentity;
-        public string Domain => _domain;
-        public string WebclientVersion => _webclientVersion;
+        public bool IsConnected => _conn.IsFullyConnected && !_disposed;
+        public string ExtensionNumber => _conn.ExtensionNumber;
+        public string WebclientIdentity => _conn.WebclientIdentity;
+        public string Domain => _conn.Domain;
+        public string WebclientVersion => _conn.WebclientVersion;
 
         public WebSocketBridgeServer(int port)
         {
@@ -126,7 +151,7 @@ namespace DatevConnector.Webclient
                     HelloReceived += onHello;
 
                     // Start reading in background (uses outer ct so it survives beyond TryAccept return)
-                    var readTask = ReadLoopAsync(_currentStream, ct);
+                    var readTask = ReadLoopAsync(_conn.Stream, ct);
 
                     var helloWait = await Task.WhenAny(
                         helloTcs.Task,
@@ -178,13 +203,13 @@ namespace DatevConnector.Webclient
 
         public bool SendJson(string json)
         {
-            if (!_clientConnected || _currentStream == null || _disposed)
+            if (!_conn.Connected || _conn.Stream == null || _disposed)
                 return false;
             try
             {
                 lock (_writeLock)
                 {
-                    WriteTextFrame(_currentStream, json);
+                    WriteTextFrame(_conn.Stream, json);
                 }
                 LogManager.Debug("WebClient Connector: Sent -> {0}", json);
                 return true;
@@ -244,7 +269,7 @@ namespace DatevConnector.Webclient
             LogManager.Debug("WebClient Connector Server: Read loop started");
             try
             {
-                while (!ct.IsCancellationRequested && !_disposed && _clientConnected)
+                while (!ct.IsCancellationRequested && !_disposed && _conn.Connected)
                 {
                     var frame = await ReadFrameAsync(stream, ct);
                     if (frame == null) break;
@@ -275,8 +300,8 @@ namespace DatevConnector.Webclient
             }
             finally
             {
-                bool wasConnected = _clientConnected;
-                _clientConnected = false;
+                bool wasConnected = _conn.Connected;
+                _conn.Connected = false;
                 LogManager.Log("WebClient Connector Server: Read loop ended");
                 if (wasConnected)
                 {
@@ -399,20 +424,20 @@ namespace DatevConnector.Webclient
 
             if (string.Equals(msg.Type, Protocol.TypeHello, StringComparison.OrdinalIgnoreCase))
             {
-                _extensionNumber = msg.ExtensionNumber;
-                _webclientIdentity = msg.WebclientIdentity;
-                _domain = msg.Domain;
-                _webclientVersion = msg.WebclientVersion;
-                _helloReceived = true;
+                _conn.ExtensionNumber = msg.ExtensionNumber;
+                _conn.WebclientIdentity = msg.WebclientIdentity;
+                _conn.Domain = msg.Domain;
+                _conn.WebclientVersion = msg.WebclientVersion;
+                _conn.HelloReceived = true;
                 LogManager.Log("WebClient HELLO von extension={0}, identity={1}, FQDN={2}",
-                    _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
-                    _domain ?? "(none)");
-                LogManager.Debug("WebClient Connector: version={0}", _webclientVersion ?? "(none)");
-                HelloReceived?.Invoke(_extensionNumber);
+                    _conn.ExtensionNumber ?? "(none)", _conn.WebclientIdentity ?? "(none)",
+                    _conn.Domain ?? "(none)");
+                LogManager.Debug("WebClient Connector: version={0}", _conn.WebclientVersion ?? "(none)");
+                HelloReceived?.Invoke(_conn.ExtensionNumber);
             }
             else if (string.Equals(msg.Type, Protocol.TypeCallEvent, StringComparison.OrdinalIgnoreCase))
             {
-                if (!_helloReceived)
+                if (!_conn.HelloReceived)
                 {
                     LogManager.Warning("WebClient Connector: CALL_EVENT before HELLO, ignoring");
                     return;
@@ -465,9 +490,9 @@ namespace DatevConnector.Webclient
                 return false;
             }
 
-            _currentClient = client;
-            _currentStream = stream;
-            _clientConnected = true;
+            _conn.Client = client;
+            _conn.Stream = stream;
+            _conn.Connected = true;
             return true;
         }
 
@@ -479,18 +504,14 @@ namespace DatevConnector.Webclient
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
             LogManager.Log("WebClient Connector: WebClient connected");
 
-            await ReadLoopAsync(_currentStream, ct);
+            await ReadLoopAsync(_conn.Stream, ct);
             return true;
         }
 
         private void DisconnectClient(TcpClient client)
         {
-            bool wasConnected = _clientConnected;
-            _clientConnected = false;
-            _helloReceived = false;
-            _extensionNumber = null;
-            _currentClient = null;
-            _currentStream = null;
+            bool wasConnected = _conn.Connected;
+            _conn.Reset();
             if (client != null) try { client.Close(); } catch { }
             if (wasConnected)
             {
@@ -503,10 +524,9 @@ namespace DatevConnector.Webclient
         {
             if (_disposed) return;
             _disposed = true;
-            _clientConnected = false;
-            _helloReceived = false;
-            try { _currentStream?.Close(); } catch { }
-            try { _currentClient?.Close(); } catch { }
+            try { _conn.Stream?.Close(); } catch { }
+            try { _conn.Client?.Close(); } catch { }
+            _conn.Reset();
             StopListener();
         }
 

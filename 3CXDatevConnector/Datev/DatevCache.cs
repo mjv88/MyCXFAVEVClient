@@ -6,10 +6,7 @@ using DatevConnector.Datev.PluginData;
 using DatevConnector.Extensions;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -163,14 +160,11 @@ namespace DatevConnector.Datev
             if (isForceReload || _datevContacts == null)
             {
                 // Release old cache data before loading new to reduce peak memory during reload.
-                // Then force a GC so the old data is actually freed before we allocate the new
-                // deserialized XML graph (~68K objects).
                 if (_datevContacts != null)
                 {
                     _datevContacts = null;
                     _datevContactsSDict = null;
-                    GC.Collect(2, GCCollectionMode.Forced);
-                    GC.WaitForPendingFinalizers();
+                    MemoryOptimizer.CollectGen2();
                 }
 
                 LogManager.Log("Kontakte werden von DATEV Stamm Daten Dienst (SDD) geladen...");
@@ -205,34 +199,10 @@ namespace DatevConnector.Datev
             }
 
             // Reclaim memory after large batch load/transform.
-            //
-            // Why this is necessary:
-            // 1. XML deserialization creates ~68K Communication objects + wrapper types.
-            //    Phone-only filtering keeps ~17K; the other ~51K sit in Gen2 until a rare
-            //    full GC — that can take minutes in Workstation GC mode.
-            // 2. GCCollectionMode.Forced (not Optimized) guarantees the collection runs.
-            //    Optimized may skip entirely if the GC considers it unproductive.
-            // 3. Double-collect: first pass queues Release()‑bound finalizers;
-            //    WaitForPendingFinalizers runs them; second pass frees the now-dead objects.
-            // 4. The CLR does NOT return freed heap pages to the OS by default.
-            //    SetProcessWorkingSetSize(-1,-1) trims the working set so the reduction
-            //    is visible in Task Manager / memory profilers.
+            // See MemoryOptimizer for the full rationale (LOH compaction + working set trim).
             if (contactListUpdated)
             {
-                long wsBefore = Environment.WorkingSet / (1024 * 1024);
-
-                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-                GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-                GC.WaitForPendingFinalizers();
-                GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-
-                // Return freed physical pages to the OS
-                TrimWorkingSet();
-
-                long wsAfter = Environment.WorkingSet / (1024 * 1024);
-                long managedMB = GC.GetTotalMemory(false) / (1024 * 1024);
-                LogManager.Debug("Post-cache GC: working set {0} MB -> {1} MB (freed {2} MB), managed heap {3} MB",
-                    wsBefore, wsAfter, wsBefore - wsAfter, managedMB);
+                MemoryOptimizer.CollectAndTrim();
             }
 
             progress?.Report(100);
@@ -348,33 +318,5 @@ namespace DatevConnector.Datev
             LogManager.Log("----------- End lookup dictionary");
         }
 
-        #region Working set management
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool SetProcessWorkingSetSize(
-            IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
-
-        /// <summary>
-        /// Ask the OS to trim the process working set.
-        /// The CLR does not return freed heap pages to the OS after GC.Collect.
-        /// Passing (-1, -1) tells Windows to trim pages not currently in use,
-        /// making the freed memory visible in Task Manager.
-        /// </summary>
-        private static void TrimWorkingSet()
-        {
-            try
-            {
-                using (var proc = Process.GetCurrentProcess())
-                {
-                    SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
-                }
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("TrimWorkingSet failed: {0}", ex.Message);
-            }
-        }
-
-        #endregion
     }
 }

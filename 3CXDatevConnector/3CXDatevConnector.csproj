@@ -58,6 +58,7 @@
     <Compile Include="Program.cs" />
     
     <!-- Core -->
+    <Compile Include="Core\CallEventProcessor.cs" />
     <Compile Include="Core\ConnectorService.cs" />
     <Compile Include="Core\CallRecord.cs" />
     <Compile Include="Core\CallTracker.cs" />
@@ -75,9 +76,12 @@
     <Compile Include="Core\ShortcutManager.cs" />
     <Compile Include="Core\AutoStartManager.cs" />
     <Compile Include="Core\CommandLineOptions.cs" />
+    <Compile Include="Core\EventHelper.cs" />
+    <Compile Include="Core\MemoryOptimizer.cs" />
 
     <!-- Core - Config -->
     <Compile Include="Core\Config\AppConfig.cs" />
+    <Compile Include="Core\Config\ConfigParser.cs" />
     <Compile Include="Core\Config\IniConfig.cs" />
 
     <!-- Core - Constants -->
@@ -150,15 +154,19 @@
     <Compile Include="Extensions\PhoneNumberNormalizer.cs" />
 
     <!-- UI - Theme -->
-    <Compile Include="UI\Theme\Layout.cs" />
+    <Compile Include="UI\Theme\AsyncButtonAction.cs" />
     <Compile Include="UI\Theme\DarkMenuRenderer.cs" />
+    <Compile Include="UI\Theme\Layout.cs" />
+    <Compile Include="UI\Theme\ThemedForm.cs" />
 
     <!-- UI - Strings -->
     <Compile Include="UI\Strings\UIStrings.cs" />
 
     <!-- UI - Forms -->
     <Compile Include="UI\AboutForm.cs" />
+    <Compile Include="UI\FormNavigator.cs" />
     <Compile Include="UI\TrayApplication.cs" />
+    <Compile Include="UI\TrayContextMenuBuilder.cs" />
     <Compile Include="UI\SettingsForm.cs" />
     <Compile Include="UI\CallHistoryForm.cs" />
     <Compile Include="UI\StatusForm.cs" />

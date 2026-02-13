@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DatevConnector.Core;
 using DatevConnector.Datev.Managers;
 using static DatevConnector.Interop.TapiInterop;
+// Uses EventHelper for consistent event invocation across all providers
 
 namespace DatevConnector.Tapi
 {
@@ -249,14 +250,7 @@ namespace DatevConnector.Tapi
                 callEvent.CallStateString, pipeCallId,
                 callEvent.CallerNumber ?? "-", callEvent.CalledNumber ?? "-");
 
-            try
-            {
-                CallStateChanged?.Invoke(callEvent);
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("Error in CallStateChanged handler: {0}", ex.Message);
-            }
+            EventHelper.SafeInvoke(CallStateChanged, callEvent, "PipeTelephonyProvider.CallStateChanged");
 
             // Clean up completed calls
             if (callState == LINECALLSTATE_IDLE)

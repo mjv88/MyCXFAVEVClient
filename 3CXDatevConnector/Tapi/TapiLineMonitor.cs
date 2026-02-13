@@ -168,25 +168,12 @@ namespace DatevConnector.Tapi
 
         /// <summary>
         /// Safely invoke an action, checking for disposal state first.
-        /// Returns false if disposing/disposed.
         /// </summary>
         private bool SafeInvokeEvent<T>(Action<T> handler, T arg)
         {
-            if (_disposing || _disposed || handler == null)
+            if (_disposing || _disposed)
                 return false;
-            try
-            {
-                handler(arg);
-                return true;
-            }
-            catch (ObjectDisposedException)
-            {
-                return false;
-            }
-            catch (InvalidOperationException)
-            {
-                return false;
-            }
+            return EventHelper.SafeInvoke(handler, arg, "TapiLineMonitor");
         }
 
         /// <summary>
@@ -194,21 +181,9 @@ namespace DatevConnector.Tapi
         /// </summary>
         private bool SafeInvokeEvent(Action handler)
         {
-            if (_disposing || _disposed || handler == null)
+            if (_disposing || _disposed)
                 return false;
-            try
-            {
-                handler();
-                return true;
-            }
-            catch (ObjectDisposedException)
-            {
-                return false;
-            }
-            catch (InvalidOperationException)
-            {
-                return false;
-            }
+            return EventHelper.SafeInvoke(handler, "TapiLineMonitor");
         }
 
         /// <summary>
@@ -876,22 +851,7 @@ namespace DatevConnector.Tapi
             // Safely invoke the event handler, checking for disposal state
             if (!_disposing && !_disposed)
             {
-                try
-                {
-                    CallStateChanged?.Invoke(callEvent);
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Form already disposed, ignore
-                }
-                catch (InvalidOperationException)
-                {
-                    // Handle no longer valid, ignore
-                }
-                catch (Exception ex)
-                {
-                    LogManager.Log("Error in CallStateChanged handler: {0}", ex.Message);
-                }
+                EventHelper.SafeInvoke(CallStateChanged, callEvent, "TapiLineMonitor.CallStateChanged");
             }
 
             // Clean up after disconnect/idle
@@ -955,29 +915,11 @@ namespace DatevConnector.Tapi
                         callEvent.CallId = info.dwCallID;
                         callEvent.Origin = info.dwOrigin;
 
-                        // Extract caller number
-                        if (info.dwCallerIDSize > 0 && info.dwCallerIDOffset > 0)
-                        {
-                            callEvent.CallerNumber = ReadStringFromBuffer(pCallInfo, info.dwCallerIDOffset, info.dwCallerIDSize);
-                        }
-
-                        // Extract caller name
-                        if (info.dwCallerIDNameSize > 0 && info.dwCallerIDNameOffset > 0)
-                        {
-                            callEvent.CallerName = ReadStringFromBuffer(pCallInfo, info.dwCallerIDNameOffset, info.dwCallerIDNameSize);
-                        }
-
-                        // Extract called number
-                        if (info.dwCalledIDSize > 0 && info.dwCalledIDOffset > 0)
-                        {
-                            callEvent.CalledNumber = ReadStringFromBuffer(pCallInfo, info.dwCalledIDOffset, info.dwCalledIDSize);
-                        }
-
-                        // Extract called name
-                        if (info.dwCalledIDNameSize > 0 && info.dwCalledIDNameOffset > 0)
-                        {
-                            callEvent.CalledName = ReadStringFromBuffer(pCallInfo, info.dwCalledIDNameOffset, info.dwCalledIDNameSize);
-                        }
+                        // Extract caller/called info using shared helper
+                        callEvent.CallerNumber = ExtractField(pCallInfo, info.dwCallerIDOffset, info.dwCallerIDSize);
+                        callEvent.CallerName = ExtractField(pCallInfo, info.dwCallerIDNameOffset, info.dwCallerIDNameSize);
+                        callEvent.CalledNumber = ExtractField(pCallInfo, info.dwCalledIDOffset, info.dwCalledIDSize);
+                        callEvent.CalledName = ExtractField(pCallInfo, info.dwCalledIDNameOffset, info.dwCalledIDNameSize);
 
                         return;
                     }
@@ -990,6 +932,16 @@ namespace DatevConnector.Tapi
                 if (pCallInfo != IntPtr.Zero)
                     Marshal.FreeHGlobal(pCallInfo);
             }
+        }
+
+        /// <summary>
+        /// Extract a string field from a TAPI buffer if offset and size are valid.
+        /// Eliminates the repeated if (size > 0 && offset > 0) pattern.
+        /// </summary>
+        private string ExtractField(IntPtr basePtr, int offset, int size)
+        {
+            if (offset <= 0 || size <= 0) return null;
+            return ReadStringFromBuffer(basePtr, offset, size);
         }
 
         /// <summary>

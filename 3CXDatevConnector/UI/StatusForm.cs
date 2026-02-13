@@ -17,7 +17,7 @@ namespace DatevConnector.UI
     /// Quick status overview form shown on tray icon double-click.
     /// Shows connection status with colored indicators and quick action buttons.
     /// </summary>
-    public class StatusForm : Form
+    public class StatusForm : ThemedForm
     {
         /// <summary>
         /// Which action the user requested before closing.
@@ -144,18 +144,10 @@ namespace DatevConnector.UI
 
         private void InitializeComponent()
         {
+            // ThemedForm base class handles: BackColor, ForeColor, FormBorderStyle,
+            // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Overview;
-            BackColor = UITheme.FormBackground;
-            ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            Font = UITheme.FontBody;
             TopMost = false;
-            var appIcon = UITheme.GetFormIcon();
-            if (appIcon != null) { Icon = appIcon; ShowIcon = true; }
-            else ShowIcon = false;
 
             int y = UITheme.SpacingL;
             int cardWidth = 388;
