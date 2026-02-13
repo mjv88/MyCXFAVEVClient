@@ -251,7 +251,7 @@ namespace DatevConnector.UI
             List<DatevContactInfo> contacts,
             bool isIncoming)
         {
-            LogManager.Log("Bridge: Contact selection - {0} matches for {1}",
+            LogManager.Log("Connector: Contact selection - {0} matches for {1}",
                 contacts.Count, LogManager.Mask(phoneNumber));
 
             using (var form = new ContactSelectionForm(phoneNumber, contacts, isIncoming))
@@ -263,12 +263,12 @@ namespace DatevConnector.UI
 
                     if (dialogResult == DialogResult.Cancel)
                     {
-                        LogManager.Log("Bridge: Contact selection cancelled, using first");
+                        LogManager.Log("Connector: Contact selection cancelled, using first");
                         return contacts[0];
                     }
 
                     string selectedName = form.SelectedContact?.DatevContact?.Name ?? "(none)";
-                    LogManager.Log("Bridge: Contact selected: {0}", LogManager.MaskName(selectedName));
+                    LogManager.Log("Connector: Contact selected: {0}", LogManager.MaskName(selectedName));
 
                     return form.SelectedContact;
                 }

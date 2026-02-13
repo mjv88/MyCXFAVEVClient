@@ -66,7 +66,7 @@ namespace DatevConnector.Core
 
             if (_pendingCalls.TryAdd(tempId, record))
             {
-                LogManager.Log("Bridge: Added pending call {0}", tempId);
+                LogManager.Log("Connector: Added pending call {0}", tempId);
                 return record;
             }
 
@@ -97,7 +97,7 @@ namespace DatevConnector.Core
                         _datevCallIdToTapiId[record.CallData.CallID] = tapiCallId;
                     }
 
-                    LogManager.Log("Bridge: Promoted pending call {0} -> {1}", tempId, tapiCallId);
+                    LogManager.Log("Connector: Promoted pending call {0} -> {1}", tempId, tapiCallId);
                     return record;
                 }
             }
@@ -119,7 +119,7 @@ namespace DatevConnector.Core
                     _phoneNumberToPendingId.TryRemove(normalized, out _);
                 }
 
-                LogManager.Log("Bridge: Removed pending call {0}", tempId);
+                LogManager.Log("Connector: Removed pending call {0}", tempId);
                 return record;
             }
             return null;
@@ -134,7 +134,7 @@ namespace DatevConnector.Core
 
             if (_calls.TryAdd(tapiCallId, record))
             {
-                LogManager.Log("Bridge: Added call {0} (incoming={1})", tapiCallId, isIncoming);
+                LogManager.Log("Connector: Added call {0} (incoming={1})", tapiCallId, isIncoming);
                 return record;
             }
 
@@ -245,7 +245,7 @@ namespace DatevConnector.Core
                     _datevCallIdToTapiId.TryRemove(record.CallData.CallID, out _);
                 }
 
-                LogManager.Log("Bridge: Removed call {0}", tapiCallId);
+                LogManager.Log("Connector: Removed call {0}", tapiCallId);
                 return record;
             }
             return null;
@@ -284,7 +284,7 @@ namespace DatevConnector.Core
                         }
 
                         removedActive++;
-                        LogManager.Log("Bridge: Removed stale call {0} (age: {1})",
+                        LogManager.Log("Connector: Removed stale call {0} (age: {1})",
                             tapiId, now - record.StartTime);
                     }
                 }
@@ -307,20 +307,20 @@ namespace DatevConnector.Core
                         }
 
                         removedPending++;
-                        LogManager.Log("Bridge: Removed stale pending call {0} (age: {1})",
+                        LogManager.Log("Connector: Removed stale pending call {0} (age: {1})",
                             tempId, now - record.StartTime);
                     }
                 }
 
                 if (removedActive > 0 || removedPending > 0)
                 {
-                    LogManager.Log("Bridge: Cleanup completed - removed {0} active, {1} pending stale calls",
+                    LogManager.Log("Connector: Cleanup completed - removed {0} active, {1} pending stale calls",
                         removedActive, removedPending);
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Log("Bridge: Error during cleanup: {0}", ex.Message);
+                LogManager.Log("Connector: Error during cleanup: {0}", ex.Message);
             }
         }
 

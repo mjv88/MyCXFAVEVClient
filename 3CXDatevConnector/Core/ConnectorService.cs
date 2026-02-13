@@ -121,7 +121,7 @@ namespace DatevConnector.Core
             set
             {
                 _isMuted = value;
-                LogManager.Log("Bridge: Silent mode {0}", value ? "enabled" : "disabled");
+                LogManager.Log("Connector: Silent mode {0}", value ? "enabled" : "disabled");
             }
         }
 
@@ -194,10 +194,11 @@ namespace DatevConnector.Core
             SessionManager.LogSessionInfo();
 
             _configuredTelephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-            LogManager.Log("3CX Telefonie Modus: {0} (configured)", _configuredTelephonyMode);
 
             // ── Step 2: Provider selection / auto-detection ──────────────
             LogManager.Log("3CX Telefonie Modus Initialisierung...");
+            LogManager.Log("3CX Telefonie Modus: {0} (configured)",
+                _configuredTelephonyMode == TelephonyMode.Auto ? "Auto-Detection" : _configuredTelephonyMode.ToString());
 
             var selectionResult = await TelephonyProviderSelector.SelectProviderAsync(
                 _extension, _cts.Token);
@@ -278,7 +279,7 @@ namespace DatevConnector.Core
             try
             {
                 LogManager.Log("========================================");
-                LogManager.Log("DATEV Kontaktsyncronisation");
+                LogManager.Log("DATEV Kontaktsynchronisation");
                 LogManager.Log("========================================");
                 await DatevCache.StartLoadAsync();
             }
@@ -315,7 +316,7 @@ namespace DatevConnector.Core
             const int ShortInterval = 5000;   // 5s when unavailable
             const int LongInterval = 60000;   // 60s when available
 
-            LogManager.Log("Beginn der DATEV-Erkennungsdienst...");
+            LogManager.Log("Start des 3CX-DATEV-Erkennungsdienst...");
 
             Task.Run(async () =>
             {
@@ -373,8 +374,8 @@ namespace DatevConnector.Core
         {
             switch (_selectedMode)
             {
-                case TelephonyMode.Webclient:
-                    LogManager.Log("Webclient-Modus - verwende WebclientTelephonyProvider");
+                case TelephonyMode.WebClient:
+                    LogManager.Log("WebClient-Modus - verwende WebclientTelephonyProvider");
                     return new WebclientTelephonyProvider(_extension);
 
                 case TelephonyMode.Pipe:
@@ -604,8 +605,7 @@ namespace DatevConnector.Core
             pendingRecord.CallData = preservedData;
             _callTracker.UpdatePendingPhoneIndex(tempId, destination);
 
-            LogManager.Log("DATEV Dial: Sending to {0} (connected={1})",
-                _tapiMonitor.GetType().Name, _tapiMonitor.IsMonitoring);
+            LogManager.Log("DATEV Dial: connected={0}", _tapiMonitor.IsMonitoring);
             int result = _tapiMonitor.MakeCall(destination);
             if (result <= 0)
             {
@@ -794,7 +794,7 @@ namespace DatevConnector.Core
                     _extension);
             }
 
-            LogManager.Log("Bridge: Incoming call {0} from {1} (contact={2})",
+            LogManager.Log("Connector: Incoming call {0} from {1} (contact={2})",
                 callId, LogManager.Mask(callerNumber), LogManager.MaskName(contact?.DatevContact?.Name) ?? "unknown");
             _notificationManager.NewCall(callData);
         }
@@ -836,7 +836,7 @@ namespace DatevConnector.Core
                 record.CallData.Begin = record.StartTime;
                 record.CallData.End = record.StartTime;
 
-                LogManager.Log("Bridge: DATEV-initiated outgoing call {0} to {1} (SyncID={2}, Contact={3})",
+                LogManager.Log("Connector: DATEV-initiated outgoing call {0} to {1} (SyncID={2}, Contact={3})",
                     callId, LogManager.Mask(calledNumber), record.CallData.SyncID, record.CallData.Adressatenname);
                 _notificationManager.NewCall(record.CallData);
                 return;
@@ -872,7 +872,7 @@ namespace DatevConnector.Core
                     _extension);
             }
 
-            LogManager.Log("Bridge: Outgoing call {0} to {1} (contact={2})",
+            LogManager.Log("Connector: Outgoing call {0} to {1} (contact={2})",
                 callId, LogManager.Mask(calledNumber), contact?.DatevContact?.Name ?? "unknown");
             _notificationManager.NewCall(callData);
         }
@@ -886,7 +886,7 @@ namespace DatevConnector.Core
 
             if (record == null)
             {
-                LogManager.Log("Bridge: Creating record for previously unknown call {0}", callId);
+                LogManager.Log("Connector: Creating record for previously unknown call {0}", callId);
 
                 bool isIncoming = callEvent.IsIncoming;
                 record = _callTracker.AddCall(callId, isIncoming);
@@ -928,7 +928,7 @@ namespace DatevConnector.Core
                 record.CallData.Begin = record.ConnectedTime.Value;
                 record.CallData.End = record.ConnectedTime.Value;
 
-                LogManager.Log("Bridge: Call {0}", callId);
+                LogManager.Log("Connector: Call {0}", callId);
                 _notificationManager.CallStateChanged(record.CallData);
 
                 // Schedule contact reshow if enabled — skip for DATEV-initiated calls
@@ -964,7 +964,7 @@ namespace DatevConnector.Core
             string callId = record.TapiCallId;
             int delayMs = reshowDelaySeconds * 1000;
 
-            LogManager.Debug("Bridge: Scheduling contact reshow in {0}s for call {1} ({2} contacts)",
+            LogManager.Debug("Connector: Scheduling contact reshow in {0}s for call {1} ({2} contacts)",
                 reshowDelaySeconds, callId, contacts.Count);
 
             Task.Delay(delayMs).ContinueWith(t =>
@@ -1026,7 +1026,7 @@ namespace DatevConnector.Core
 
             if (record == null)
             {
-                LogManager.Log("Bridge: Unknown call {0} (ignoring)", callId);
+                LogManager.Log("Connector: Unknown call {0} (ignoring)", callId);
                 return;
             }
 
@@ -1057,7 +1057,7 @@ namespace DatevConnector.Core
                 record.CallData.CallState = record.State;
                 record.CallData.End = record.EndTime.Value;
 
-                LogManager.Log("Bridge: Call {0} (wasConnected={1}, duration={2})",
+                LogManager.Log("Connector: Call {0} (wasConnected={1}, duration={2})",
                     callId, record.WasConnected, durationStr);
 
                 _notificationManager.CallStateChanged(record.CallData);

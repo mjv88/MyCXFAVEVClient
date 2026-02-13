@@ -301,7 +301,7 @@ namespace DatevConnector.UI
                     if (statusChanged)
                     {
                         string connMsg;
-                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.Webclient)
+                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.WebClient)
                             connMsg = string.Format(UIStrings.Notifications.WebclientConnected, _bridgeService.Extension);
                         else if (SessionManager.IsTerminalSession)
                             connMsg = string.Format(UIStrings.Notifications.PipeConnected, _bridgeService.Extension);
@@ -322,7 +322,7 @@ namespace DatevConnector.UI
                     if (statusChanged)
                     {
                         string discMsg;
-                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.Webclient)
+                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.WebClient)
                             discMsg = UIStrings.Notifications.WebclientDisconnected;
                         else if (SessionManager.IsTerminalSession)
                             discMsg = UIStrings.Notifications.PipeDisconnected;

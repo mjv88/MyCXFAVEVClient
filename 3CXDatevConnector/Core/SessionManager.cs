@@ -89,10 +89,7 @@ namespace DatevConnector.Core
         /// </summary>
         internal static void LogSessionInfo()
         {
-            LogManager.Log("Terminal Server = {0}, SessionName={1}, Session: Id={2}",
-                IsTerminalSession,
-                Environment.GetEnvironmentVariable("SESSIONNAME") ?? "(null)",
-                SessionId);
+            LogManager.Log("Terminal Server = {0}", IsTerminalSession);
         }
 
         /// <summary>
