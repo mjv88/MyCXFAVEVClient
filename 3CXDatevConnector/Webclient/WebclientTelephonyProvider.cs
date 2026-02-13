@@ -80,7 +80,7 @@ namespace DatevConnector.Webclient
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
             LogManager.Log("WebClient: Starting for extension {0}", _extension);
-            progressText?.Invoke("Webclient-Modus: Warte auf Browser-Erweiterung...");
+            progressText?.Invoke("WebClient-Modus: Warte auf Browser-Erweiterung...");
 
             InitVirtualLine();
 
@@ -102,7 +102,7 @@ namespace DatevConnector.Webclient
             // before entering the accept loop (avoids port conflict)
             if (_wsServer != null && _wsServer.IsConnected)
             {
-                LogManager.Debug("WebclientTelephonyProvider: Continuing existing WebSocket connection");
+                LogManager.Debug("WebClient Connector: Continuing existing WebSocket connection");
                 var disconnectTcs = new TaskCompletionSource<bool>();
                 _wsServer.Disconnected += () => disconnectTcs.TrySetResult(true);
 
@@ -128,7 +128,7 @@ namespace DatevConnector.Webclient
             {
                 try
                 {
-                    progressText?.Invoke("Webclient: Warte auf Erweiterung (WebSocket)...");
+                    progressText?.Invoke("WebClient: Warte auf Erweiterung (WebSocket)...");
 
                     _wsServer = new WebSocketBridgeServer(_wsPort);
                     WireWebSocketEvents(progressText);
@@ -142,8 +142,8 @@ namespace DatevConnector.Webclient
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("WebclientTelephonyProvider: WebSocket error - {0}", ex.Message);
-                    progressText?.Invoke("Webclient: Fehler - " + ex.Message);
+                    LogManager.Log("WebClient Connector: WebSocket error - {0}", ex.Message);
+                    progressText?.Invoke("WebClient: Fehler - " + ex.Message);
                 }
                 finally
                 {
@@ -178,12 +178,12 @@ namespace DatevConnector.Webclient
             {
                 _extension = ext;
                 _virtualLine.Extension = ext;
-                _virtualLine.LineName = "3CX Webclient: " + ext;
-                LogManager.Log("Auto Extension Detection: {0}", ext);
+                _virtualLine.LineName = "3CX WebClient: " + ext;
+                LogManager.Log("WebClient Extension Detection: {0}", ext);
             }
 
-            LogManager.Debug("WebclientTelephonyProvider: Handshake complete (extension={0})", ext);
-            progressText?.Invoke("Webclient: Verbunden (" + (ext ?? _extension) + ")");
+            LogManager.Debug("WebClient Connector: Handshake complete (extension={0})", ext);
+            progressText?.Invoke("WebClient: Verbunden (" + (ext ?? _extension) + ")");
 
             LineConnected?.Invoke(_virtualLine);
             Connected?.Invoke();
@@ -196,8 +196,8 @@ namespace DatevConnector.Webclient
             _activeCalls.Clear();
             _lastCallState.Clear();
 
-            LogManager.Log("WebclientTelephonyProvider: Extension disconnected");
-            progressText?.Invoke("Webclient: Erweiterung getrennt");
+            LogManager.Log("WebClient Connector: Extension disconnected");
+            progressText?.Invoke("WebClient: Erweiterung getrennt");
 
             LineDisconnected?.Invoke(_virtualLine);
         }
@@ -218,11 +218,11 @@ namespace DatevConnector.Webclient
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);
                 if (ok)
                 {
-                    LogManager.Log("WebclientTelephonyProvider: TryConnect succeeded via WebSocket");
+                    LogManager.Log("WebClient Connection succeeded via WS");
                     return true;
                 }
 
-                LogManager.Log("WebclientTelephonyProvider: TryConnect failed (no HELLO within timeout)");
+                LogManager.Log("WebClient Connector: TryConnect failed (no HELLO within timeout)");
                 CleanupConnection();
                 return false;
             }
@@ -233,7 +233,7 @@ namespace DatevConnector.Webclient
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebclientTelephonyProvider: TryConnect error - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: TryConnect error - {0}", ex.Message);
                 CleanupConnection();
                 return false;
             }
@@ -284,7 +284,7 @@ namespace DatevConnector.Webclient
             if (_lastCallState.TryGetValue(callId, out lastState) &&
                 string.Equals(lastState, state, StringComparison.OrdinalIgnoreCase))
             {
-                LogManager.Debug("WebclientTelephonyProvider: Duplicate state {0} for call {1}, ignoring", state, callId);
+                LogManager.Debug("WebClient Connector: Duplicate state {0} for call {1}, ignoring", state, callId);
                 return;
             }
             _lastCallState[callId] = state;
@@ -313,7 +313,7 @@ namespace DatevConnector.Webclient
             }
             else
             {
-                LogManager.Log("WebclientTelephonyProvider: Unknown call state '{0}' for call {1}", state, callId);
+                LogManager.Log("WebClient Connector: Unknown call state '{0}' for call {1}", state, callId);
                 return;
             }
 
@@ -346,7 +346,7 @@ namespace DatevConnector.Webclient
                 }
             }
 
-            LogManager.Log("WebclientTelephonyProvider: {0} callId={1} caller={2} called={3} (mapped from '{4}')",
+            LogManager.Log("WebClient Connector: {0} callId={1} caller={2} called={3} (mapped from '{4}')",
                 callEvent.CallStateString, callId,
                 LogManager.Mask(callEvent.CallerNumber) ?? "-", LogManager.Mask(callEvent.CalledNumber) ?? "-", state);
 
@@ -356,7 +356,7 @@ namespace DatevConnector.Webclient
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebclientTelephonyProvider: Error in CallStateChanged handler - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: Error in CallStateChanged handler - {0}", ex.Message);
             }
 
             // Clean up ended calls
@@ -379,7 +379,7 @@ namespace DatevConnector.Webclient
         {
             if (!_connected)
             {
-                LogManager.Log("WebclientTelephonyProvider: MakeCall failed - not connected");
+                LogManager.Log("WebClient Connector: MakeCall failed - not connected");
                 return -1;
             }
 
@@ -387,11 +387,11 @@ namespace DatevConnector.Webclient
 
             if (sent)
             {
-                LogManager.Log("WebclientTelephonyProvider: DIAL sent for {0}", LogManager.Mask(destination));
+                LogManager.Log("DIAL sent for {0}", LogManager.Mask(destination));
                 return 1;
             }
 
-            LogManager.Log("WebclientTelephonyProvider: MakeCall failed - send error");
+            LogManager.Log("WebClient Connector: MakeCall failed - send error");
             return -1;
         }
 
@@ -414,7 +414,7 @@ namespace DatevConnector.Webclient
             bool sent = _wsServer != null && _wsServer.SendDrop(lastCall);
             if (sent)
             {
-                LogManager.Log("WebclientTelephonyProvider: DROP sent (callId={0})", lastCall ?? "(all)");
+                LogManager.Log("WebClient Connector: DROP sent (callId={0})", lastCall ?? "(all)");
                 return 1;
             }
 
@@ -430,21 +430,21 @@ namespace DatevConnector.Webclient
 
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
-            LogManager.Log("WebclientTelephonyProvider: ReconnectLine - WebSocket server handles reconnect automatically");
+            LogManager.Log("WebClient Connector: ReconnectLine - WebSocket server handles reconnect automatically");
             return _connected;
         }
 
         public void ReconnectAllLines(Action<string> progressText = null)
         {
-            LogManager.Log("WebclientTelephonyProvider: ReconnectAllLines - WebSocket server handles reconnect automatically");
+            LogManager.Log("WebClient Connector: ReconnectAllLines - WebSocket server handles reconnect automatically");
         }
 
         public bool TestLine(string extension, Action<string> progressText = null, int maxRetries = 3)
         {
             bool ok = _connected && _wsServer != null && _wsServer.IsConnected;
             progressText?.Invoke(ok
-                ? string.Format("Webclient ({0}): Browser-Erweiterung verbunden", _extension)
-                : string.Format("Webclient ({0}): Warte auf Browser-Erweiterung", _extension));
+                ? string.Format("WebClient ({0}): Browser-Erweiterung verbunden", _extension)
+                : string.Format("WebClient ({0}): Warte auf Browser-Erweiterung", _extension));
             return ok;
         }
 
@@ -455,7 +455,7 @@ namespace DatevConnector.Webclient
             _virtualLine = new TapiLineInfo
             {
                 DeviceId = 0,
-                LineName = "3CX Webclient: " + _extension,
+                LineName = "3CX WebClient: " + _extension,
                 Extension = _extension,
                 Handle = IntPtr.Zero
             };

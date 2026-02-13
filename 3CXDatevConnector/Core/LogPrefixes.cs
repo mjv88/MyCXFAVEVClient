@@ -13,7 +13,7 @@ namespace DatevConnector.Core
         public const string DatevToBridge = "DATEV -> Bridge";
 
         /// <summary>Messages sent to DATEV (journal entries, lookups)</summary>
-        public const string BridgeToDatev = "Bridge -> DATEV";
+        public const string BridgeToDatev = "Connector -> DATEV";
 
         /// <summary>TAPI events and call state changes</summary>
         public const string TapiEvent = "TAPI";

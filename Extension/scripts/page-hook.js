@@ -1,6 +1,6 @@
 (() => {
   const channel = document.currentScript?.dataset.bridgeChannel || "__3cx_datev_connector__";
-  const DEFAULT_DIAL_DELAY = 650;
+  const DEFAULT_DIAL_DELAY = 750;
   let dialDelay = DEFAULT_DIAL_DELAY;
 
   const post = (payload) => {
