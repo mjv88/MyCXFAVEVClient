@@ -146,7 +146,7 @@ namespace DatevConnector.Datev
 
             if (rotAvailable && sddAvailable)
             {
-                LogManager.Log("DATEV available - Alle Komponenten Verfügbar");
+                LogManager.Log("DATEV Alle Komponente Verfügbar");
                 progressText?.Invoke("DATEV verfügbar");
             }
             else if (sddAvailable)

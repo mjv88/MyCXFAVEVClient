@@ -21,7 +21,7 @@ The 3CX - DATEV Connector connects **3CX** (Desktop App or WebClient) with **DAT
 | Operating System | Windows 10 or Windows 11 (x86 or x64) |
 | Runtime | .NET Framework 4.8 (included in Windows 10 1903+) |
 | 3CX (Desktop mode) | 3CX Windows Softphone App V20 or later + 3CX Multi-Line TAPI driver |
-| 3CX (Webclient mode) | Chrome or Edge with 3CX DATEV Connector browser extension |
+| 3CX (WebClient mode) | Chrome or Edge with 3CX DATEV Connector browser extension |
 | DATEV | DATEV Arbeitsplatz with Telefonie component |
 | DATEV DLLs | `DATEV.Interop.DatevCtiBuddy.dll`, `Datev.Sdd.Data.ClientInterfaces.dll`, `Datev.Sdd.Data.ClientPlugIn.Base.dll` (installed via GAC by DATEV) |
 
@@ -66,7 +66,7 @@ Select the connection mode:
 | **Auto** (recommended) | Detects best provider automatically (Webclient → Pipe → TAPI) |
 | **TAPI** | 3CX Windows App on Desktop |
 | **Pipe** | 3CX Windows App on Terminal Server |
-| **Webclient** | 3CX Webclient in Browser (Chrome/Edge) |
+| **WebClient** | 3CX Webclient in Browser (Chrome/Edge) |
 
 ### Step 3 — Provider Configuration
 
@@ -270,7 +270,7 @@ Open Settings via tray menu → **Einstellungen**.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Modus | Auto | Connection mode: Auto, TAPI, Pipe, or Webclient |
+| Modus | Auto | Connection mode: Auto, TAPI, Pipe, or WebClient |
 | Aktiver Modus | (read-only) | Shows currently active telephony provider |
 
 > **Note:** Changing the telephony mode requires an application restart.

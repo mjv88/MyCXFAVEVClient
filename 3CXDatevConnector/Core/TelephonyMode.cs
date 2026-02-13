@@ -25,6 +25,6 @@ namespace DatevConnector.Core
         /// <summary>
         /// Browser extension via Native Messaging (3CX Webclient / WebRTC only).
         /// </summary>
-        Webclient
+        WebClient
     }
 }

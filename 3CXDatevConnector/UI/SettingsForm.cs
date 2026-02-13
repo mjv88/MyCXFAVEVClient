@@ -721,7 +721,7 @@ namespace DatevConnector.UI
             {
                 case TelephonyMode.Tapi: _cboTelephonyMode.SelectedIndex = 1; break;
                 case TelephonyMode.Pipe: _cboTelephonyMode.SelectedIndex = 2; break;
-                case TelephonyMode.Webclient: _cboTelephonyMode.SelectedIndex = 3; break;
+                case TelephonyMode.WebClient: _cboTelephonyMode.SelectedIndex = 3; break;
                 default: _cboTelephonyMode.SelectedIndex = 0; break;
             }
 
@@ -807,7 +807,7 @@ namespace DatevConnector.UI
             AppConfig.SetBool("TrayDoubleClickCallHistory", _chkTrayDoubleClickCallHistory.Checked);
 
             // Telephony Mode (requires restart to take effect)
-            string[] modeValues = { "Auto", "Tapi", "Pipe", "Webclient" };
+            string[] modeValues = { "Auto", "Tapi", "Pipe", "WebClient" };
             int modeIndex = _cboTelephonyMode.SelectedIndex;
             if (modeIndex >= 0 && modeIndex < modeValues.Length)
             {

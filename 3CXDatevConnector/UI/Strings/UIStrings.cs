@@ -395,7 +395,7 @@ namespace DatevConnector.UI.Strings
             public const string Advanced = "Erweitert";
             public const string CallerId = "Anruferkennung";
             public const string CallHistorySection = "Anrufliste";
-            public const string Webclient = "Webclient";
+            public const string Webclient = "WebClient";
             public const string TelephonyMode = "Telefonie-Modus";
         }
 
