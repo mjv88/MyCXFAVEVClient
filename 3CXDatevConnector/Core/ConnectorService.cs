@@ -10,10 +10,9 @@ using DatevConnector.Datev.Constants;
 using DatevConnector.Datev.Enums;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
-using DatevConnector.Interop;
 using DatevConnector.Tapi;
-using DatevConnector.UI;
 using DatevConnector.Webclient;
+// UI references removed — call event handling delegated to CallEventProcessor
 
 namespace DatevConnector.Core
 {
@@ -26,6 +25,7 @@ namespace DatevConnector.Core
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly DatevAdapter _datevAdapter;
+        private readonly CallEventProcessor _callEventProcessor;
         private readonly object _statusLock = new object();
         private ConnectorStatus _status = ConnectorStatus.Disconnected;
 
@@ -35,15 +35,8 @@ namespace DatevConnector.Core
         private volatile bool _disposed;
         private Task _pipeServerTask;
 
-        // Settings (written only during constructor and ApplySettings on UI thread)
-        private bool _enableJournaling;
-        private bool _enableJournalPopup;
-        private bool _enableJournalPopupOutbound;
-        private bool _enableCallerPopup;
-        private bool _enableCallerPopupOutbound;
-        private CallerPopupMode _callerPopupMode;
+        // Settings
         private int _minCallerIdLength;
-        private int _contactReshowDelaySeconds;
         private bool _isMuted;
 
         // Call history
@@ -121,6 +114,7 @@ namespace DatevConnector.Core
             set
             {
                 _isMuted = value;
+                _callEventProcessor.IsMuted = value;
                 LogManager.Log("Connector: Silent mode {0}", value ? "enabled" : "disabled");
             }
         }
@@ -151,24 +145,13 @@ namespace DatevConnector.Core
         {
             _extension = extension;
             _callTracker = new CallTracker();
+            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
 
             // Use base GUID - Windows ROT is already per-session on terminal servers
             _notificationManager = new NotificationManager(CommonParameters.ClsIdDatev);
-            
+
             // Create and register DatevAdapter for receiving Dial/Drop commands from DATEV
             _datevAdapter = new DatevAdapter(DatevEventHandler);
-            
-            // Read configuration
-            _enableJournaling = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);
-            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
-
-            // UI Popup settings
-            _enableJournalPopup = AppConfig.GetBool(ConfigKeys.EnableJournalPopup, true);
-            _enableJournalPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableJournalPopupOutbound, false);
-            _enableCallerPopup = AppConfig.GetBool(ConfigKeys.EnableCallerPopup, true);
-            _enableCallerPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableCallerPopupOutbound, false);
-            _callerPopupMode = AppConfig.GetEnum(ConfigKeys.CallerPopupMode, CallerPopupMode.Form);
-            _contactReshowDelaySeconds = AppConfig.GetInt(ConfigKeys.ContactReshowDelaySeconds, 3);
 
             // Call history
             bool histInbound = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
@@ -176,11 +159,15 @@ namespace DatevConnector.Core
             int histMax = AppConfig.GetInt(ConfigKeys.CallHistoryMaxEntries, 5);
             _callHistory = new CallHistoryStore(histMax, histInbound, histOutbound);
 
+            // Call event processing (handles all TAPI state transitions + DATEV notifications + UI popups)
+            _callEventProcessor = new CallEventProcessor(
+                _callTracker, _notificationManager, _callHistory, _extension, _minCallerIdLength);
+
             // Contact filter (must be set before LoadContactsAsync)
             DatevContactManager.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
-            LogManager.Debug("Configuration: EnableJournaling={0}, EnableJournalPopup={1}, MinCallerIdLength={2}, EnableCallerPopup={3}, ActiveContactsOnly={4}",
-                _enableJournaling, _enableJournalPopup, _minCallerIdLength, _enableCallerPopup, DatevContactManager.FilterActiveContactsOnly);
+            LogManager.Debug("Configuration: MinCallerIdLength={0}, ActiveContactsOnly={1}",
+                _minCallerIdLength, DatevContactManager.FilterActiveContactsOnly);
         }
 
         /// <summary>
@@ -483,7 +470,7 @@ namespace DatevConnector.Core
 
                     _tapiMonitor?.Dispose();
                     _tapiMonitor = providerToUse;
-                    _tapiMonitor.CallStateChanged += OnTapiCallStateChanged;
+                    _tapiMonitor.CallStateChanged += _callEventProcessor.OnTapiCallStateChanged;
 
                     // Per-line events for multi-line support
                     _tapiMonitor.LineDisconnected += (line) =>
@@ -674,448 +661,7 @@ namespace DatevConnector.Core
 
         #endregion
 
-        /// <summary>
-        /// Look up a DATEV contact by phone number, apply routing, fill CallData, and record usage.
-        /// Returns the matched contact (or null).
-        /// </summary>
-        private DatevContactInfo LookupAndFillContact(CallRecord record, CallData callData, string remoteNumber)
-        {
-            DatevContactInfo contact = null;
-            if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
-            {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
-                if (contacts.Count > 1)
-                    contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
-                if (contacts.Count > 0)
-                    contact = contacts[0];
-            }
-
-            CallDataManager.Fill(callData, remoteNumber, contact);
-            record.CallData = callData;
-
-            if (contact?.DatevContact?.Id != null)
-                ContactRoutingCache.RecordUsage(remoteNumber, contact.DatevContact.Id);
-
-            return contact;
-        }
-
-        #region TAPI Event Handlers
-
-        /// <summary>
-        /// Handle call state change events from the telephony provider
-        /// </summary>
-        private void OnTapiCallStateChanged(TapiCallEvent callEvent)
-        {
-            try
-            {
-                string callId = callEvent.CallId.ToString();
-                int state = callEvent.CallState;
-
-                switch (state)
-                {
-                    case TapiInterop.LINECALLSTATE_OFFERING:
-                        HandleOffering(callId, callEvent);
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_RINGBACK:
-                        HandleRingback(callId, callEvent);
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_CONNECTED:
-                        HandleConnected(callId, callEvent);
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_DISCONNECTED:
-                        HandleDisconnected(callId, callEvent);
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_IDLE:
-                        // Call handle deallocated - no action needed
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_DIALING:
-                    case TapiInterop.LINECALLSTATE_PROCEEDING:
-                        // Intermediate outgoing states - just log
-                        LogManager.Log("TAPI: Call {0} state={1}", callId, callEvent.CallStateString);
-                        break;
-
-                    case TapiInterop.LINECALLSTATE_BUSY:
-                        LogManager.Log("TAPI: Call {0} BUSY", callId);
-                        HandleDisconnected(callId, callEvent);
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("Error processing TAPI call event: {0}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Handle incoming call offering (ringing)
-        /// </summary>
-        private void HandleOffering(string callId, TapiCallEvent callEvent)
-        {
-            string callerNumber = callEvent.CallerNumber;
-
-            var existingRecord = _callTracker.GetCall(callId);
-            if (existingRecord != null)
-            {
-                CallStateMachine.TryTransition(existingRecord, TapiCallState.Ringing);
-                return;
-            }
-
-            var record = _callTracker.AddCall(callId, isIncoming: true);
-            CallStateMachine.TryTransition(record, TapiCallState.Ringing);
-
-            record.RemoteNumber = callerNumber;
-            record.RemoteName = callEvent.CallerName;
-            record.LocalNumber = callEvent.CalledNumber ?? _extension;
-
-            var callData = new CallData
-            {
-                CallID = CallIdGenerator.Next(),
-                CallState = ENUM_CALLSTATE.eCSOffered,
-                Direction = ENUM_DIRECTION.eDirIncoming,
-                Begin = record.StartTime,
-                End = record.StartTime
-            };
-
-            var contact = LookupAndFillContact(record, callData, callerNumber);
-
-            if (_enableCallerPopup && !_isMuted)
-            {
-                CallerPopupForm.ShowPopup(
-                    callerNumber,
-                    callEvent.CallerName,
-                    contact,
-                    isIncoming: true,
-                    _callerPopupMode,
-                    _extension);
-            }
-
-            LogManager.Log("Connector: Incoming call {0} from {1} (contact={2})",
-                callId, LogManager.Mask(callerNumber), LogManager.MaskName(contact?.DatevContact?.Name) ?? "unknown");
-            _notificationManager.NewCall(callData);
-        }
-
-        /// <summary>
-        /// Handle outgoing call ringback
-        /// </summary>
-        private void HandleRingback(string callId, TapiCallEvent callEvent)
-        {
-            string calledNumber = callEvent.CalledNumber;
-
-            var existingRecord = _callTracker.GetCall(callId);
-            if (existingRecord != null)
-            {
-                CallStateMachine.TryTransition(existingRecord, TapiCallState.Ringback);
-                return;
-            }
-
-            // Check if this is a DATEV-initiated call (pending call matching by number)
-            var pendingRecord = _callTracker.FindPendingCallByNumber(calledNumber);
-            CallRecord record;
-
-            if (pendingRecord != null && pendingRecord.CallData != null)
-            {
-                // Promote the pending call - use preserved DATEV data
-                record = _callTracker.PromotePendingCall(pendingRecord.TapiCallId, callId);
-                if (record == null)
-                {
-                    record = _callTracker.AddCall(callId, isIncoming: false);
-                }
-                CallStateMachine.TryTransition(record, TapiCallState.Ringback);
-
-                record.RemoteNumber = calledNumber;
-                record.RemoteName = callEvent.CalledName;
-                record.LocalNumber = callEvent.CallerNumber ?? _extension;
-
-                // Use preserved DATEV CallData (CallID, SyncID, contact, datasource already set)
-                // Do NOT override CallID - it was assigned in Dial() and DATEV expects consistency
-                record.CallData.Begin = record.StartTime;
-                record.CallData.End = record.StartTime;
-
-                LogManager.Log("Connector: DATEV-initiated outgoing call {0} to {1} (SyncID={2}, Contact={3})",
-                    callId, LogManager.Mask(calledNumber), record.CallData.SyncID, record.CallData.Adressatenname);
-                _notificationManager.NewCall(record.CallData);
-                return;
-            }
-
-            // Normal outgoing call (not DATEV-initiated)
-            record = _callTracker.AddCall(callId, isIncoming: false);
-            CallStateMachine.TryTransition(record, TapiCallState.Ringback);
-
-            record.RemoteNumber = calledNumber;
-            record.RemoteName = callEvent.CalledName;
-            record.LocalNumber = callEvent.CallerNumber ?? _extension;
-
-            var callData = new CallData
-            {
-                CallID = CallIdGenerator.Next(),
-                CallState = ENUM_CALLSTATE.eCSOffered,
-                Direction = ENUM_DIRECTION.eDirOutgoing,
-                Begin = record.StartTime,
-                End = record.StartTime
-            };
-
-            var contact = LookupAndFillContact(record, callData, calledNumber);
-
-            if (_enableCallerPopupOutbound && !_isMuted)
-            {
-                CallerPopupForm.ShowPopup(
-                    calledNumber,
-                    callEvent.CalledName,
-                    contact,
-                    isIncoming: false,
-                    _callerPopupMode,
-                    _extension);
-            }
-
-            LogManager.Log("Connector: Outgoing call {0} to {1} (contact={2})",
-                callId, LogManager.Mask(calledNumber), contact?.DatevContact?.Name ?? "unknown");
-            _notificationManager.NewCall(callData);
-        }
-
-        /// <summary>
-        /// Handle call connected
-        /// </summary>
-        private void HandleConnected(string callId, TapiCallEvent callEvent)
-        {
-            var record = _callTracker.GetCall(callId);
-
-            if (record == null)
-            {
-                LogManager.Log("Connector: Creating record for previously unknown call {0}", callId);
-
-                bool isIncoming = callEvent.IsIncoming;
-                record = _callTracker.AddCall(callId, isIncoming);
-
-                string remoteNumber = isIncoming ? callEvent.CallerNumber : callEvent.CalledNumber;
-                record.RemoteNumber = remoteNumber;
-                record.RemoteName = isIncoming ? callEvent.CallerName : callEvent.CalledName;
-                record.LocalNumber = isIncoming ? (callEvent.CalledNumber ?? _extension) : (callEvent.CallerNumber ?? _extension);
-
-                var callData = new CallData
-                {
-                    CallID = CallIdGenerator.Next(),
-                    CallState = ENUM_CALLSTATE.eCSOffered,
-                    Direction = isIncoming ? ENUM_DIRECTION.eDirIncoming : ENUM_DIRECTION.eDirOutgoing,
-                    Begin = record.StartTime,
-                    End = record.StartTime
-                };
-
-                LookupAndFillContact(record, callData, remoteNumber);
-
-                _notificationManager.NewCall(callData);
-            }
-
-            if (!CallStateMachine.TryTransition(record, TapiCallState.Connected))
-                return;
-
-            record.ConnectedTime = DateTime.Now;
-            record.State = ENUM_CALLSTATE.eCSConnected;
-
-            // Close caller popup on connect
-            if (_enableCallerPopup)
-            {
-                CallerPopupForm.CloseCurrentPopup();
-            }
-
-            if (record.CallData != null)
-            {
-                record.CallData.CallState = ENUM_CALLSTATE.eCSConnected;
-                record.CallData.Begin = record.ConnectedTime.Value;
-                record.CallData.End = record.ConnectedTime.Value;
-
-                LogManager.Log("Connector: Call {0}", callId);
-                _notificationManager.CallStateChanged(record.CallData);
-
-                // Schedule contact reshow if enabled — skip for DATEV-initiated calls
-                // (DATEV already specified the contact in the dial command)
-                int reshowDelay = DebugConfigWatcher.GetInt(
-                    DebugConfigWatcher.Instance?.ContactReshowDelaySeconds,
-                    "ContactReshowDelaySeconds", _contactReshowDelaySeconds);
-                if (reshowDelay > 0 && string.IsNullOrEmpty(record.CallData.SyncID))
-                {
-                    ScheduleContactReshow(record, reshowDelay);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Schedule a delayed contact reshow after call connects.
-        /// Allows user to change contact assignment mid-call.
-        /// Fires CallAdressatChanged if user picks a different contact.
-        /// </summary>
-        private void ScheduleContactReshow(CallRecord record, int reshowDelaySeconds)
-        {
-            string remoteNumber = record.RemoteNumber;
-            if (string.IsNullOrEmpty(remoteNumber) || remoteNumber.Length < _minCallerIdLength)
-                return;
-
-            var contacts = DatevCache.GetContactByNumber(remoteNumber);
-            if (contacts.Count <= 1)
-                return;
-
-            // Apply last-agent routing so previously-selected contact appears first
-            contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
-
-            string callId = record.TapiCallId;
-            int delayMs = reshowDelaySeconds * 1000;
-
-            LogManager.Debug("Connector: Scheduling contact reshow in {0}s for call {1} ({2} contacts)",
-                reshowDelaySeconds, callId, contacts.Count);
-
-            Task.Delay(delayMs).ContinueWith(t =>
-            {
-                try
-                {
-                    // Verify call is still connected
-                    var currentRecord = _callTracker.GetCall(callId);
-                    if (currentRecord == null || currentRecord.TapiState != TapiCallState.Connected)
-                    {
-                        LogManager.Debug("Contact reshow: Call {0} no longer connected, skipping", callId);
-                        return;
-                    }
-
-                    // Re-show contact selection (stays open until user picks or cancels)
-                    var selectedContact = ContactSelectionForm.SelectContact(
-                        remoteNumber, contacts, record.IsIncoming);
-
-                    if (selectedContact != null && currentRecord.CallData != null)
-                    {
-                        string existingSyncId = currentRecord.CallData.SyncID;
-                        string previousId = currentRecord.CallData.AdressatenId;
-
-                        CallDataManager.Fill(currentRecord.CallData, remoteNumber, selectedContact);
-
-                        // Preserve existing SyncID (DATEV assigns during the call)
-                        if (!string.IsNullOrEmpty(existingSyncId))
-                            currentRecord.CallData.SyncID = existingSyncId;
-
-                        // Only fire notification if contact actually changed
-                        if (currentRecord.CallData.AdressatenId != previousId)
-                        {
-                            LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
-                                callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
-                            _notificationManager.CallAdressatChanged(currentRecord.CallData);
-
-                            // Update routing cache with new preference
-                            ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
-                        }
-                        else
-                        {
-                            LogManager.Debug("Contact reshow: Same contact selected for call {0}", callId);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogManager.Log("Contact reshow error for call {0}: {1}", callId, ex.Message);
-                }
-            });
-        }
-
-        /// <summary>
-        /// Handle call disconnected
-        /// </summary>
-        private void HandleDisconnected(string callId, TapiCallEvent callEvent)
-        {
-            var record = _callTracker.GetCall(callId);
-
-            if (record == null)
-            {
-                LogManager.Log("Connector: Unknown call {0} (ignoring)", callId);
-                return;
-            }
-
-            if (!CallStateMachine.TryTransition(record, TapiCallState.Disconnected))
-                return;
-
-            _callTracker.RemoveCall(callId);
-
-            // Close any open popups/dialogs for this call
-            CallerPopupForm.CloseCurrentPopup();
-            ContactSelectionForm.CloseCurrentDialog();
-
-            record.EndTime = DateTime.Now;
-            record.State = record.WasConnected
-                ? ENUM_CALLSTATE.eCSFinished
-                : ENUM_CALLSTATE.eCSAbsence;
-
-            var duration = record.GetDuration();
-            string durationStr = duration.HasValue
-                ? string.Format("{0:D2}:{1:D2}:{2:D2}",
-                    (int)duration.Value.TotalHours,
-                    duration.Value.Minutes,
-                    duration.Value.Seconds)
-                : "N/A";
-
-            if (record.CallData != null)
-            {
-                record.CallData.CallState = record.State;
-                record.CallData.End = record.EndTime.Value;
-
-                LogManager.Log("Connector: Call {0} (wasConnected={1}, duration={2})",
-                    callId, record.WasConnected, durationStr);
-
-                _notificationManager.CallStateChanged(record.CallData);
-
-                // Add to call history for later re-journaling (only DATEV-matched contacts)
-                if (!string.IsNullOrEmpty(record.CallData.AdressatenId))
-                    _callHistory.AddEntry(CallHistoryEntry.FromCallRecord(record));
-
-                // Only show journal popup for answered calls with a matched DATEV contact
-                // Skip outbound calls unless EnableJournalPopupOutbound is set
-                if (_enableJournaling && _enableJournalPopup && !_isMuted && record.WasConnected
-                    && !string.IsNullOrEmpty(record.CallData.AdressatenId)
-                    && (record.IsIncoming || _enableJournalPopupOutbound))
-                {
-                    // Ensure DataSource is set (defensive - should already be set by Fill)
-                    if (string.IsNullOrEmpty(record.CallData.DataSource))
-                    {
-                        LogManager.Warning("Journal: DataSource empty, defaulting to 3CX");
-                        record.CallData.DataSource = DatevDataSource.ThirdParty;
-                    }
-
-                    // Show journal popup - only send if user writes a note and clicks send
-                    var journalCallData = record.CallData;
-                    JournalForm.ShowJournal(
-                        journalCallData.Adressatenname,
-                        journalCallData.CalledNumber,
-                        journalCallData.DataSource,
-                        journalCallData.Begin,
-                        journalCallData.End,
-                        note =>
-                        {
-                            if (!string.IsNullOrWhiteSpace(note))
-                            {
-                                // Per DATEV spec: NewJournal must not be sent while a call is active
-                                if (_callTracker.Count > 0)
-                                {
-                                    LogManager.Warning("Journal: Blocked - {0} active call(s)", _callTracker.Count);
-                                    return;
-                                }
-
-                                // Per DATEV IDL: NewJournal needs a new CallID; SyncID must not be set
-                                journalCallData.CallID = CallIdGenerator.Next();
-                                journalCallData.SyncID = string.Empty;
-                                journalCallData.Note = note;
-                                _notificationManager.NewJournal(journalCallData);
-                                LogManager.Log("Journal sent for call {0} (NewCallID={1}, {2} chars)",
-                                    callId, journalCallData.CallID, note.Length);
-                            }
-                            else
-                            {
-                                LogManager.Log("Journal skipped for call {0} - empty note", callId);
-                            }
-                        });
-                }
-            }
-        }
-
-        #endregion
+        // Call event processing is delegated to CallEventProcessor
 
         /// <summary>
         /// Reload contacts from DATEV SDD
@@ -1258,13 +804,8 @@ namespace DatevConnector.Core
         /// </summary>
         public void ApplySettings()
         {
-            _enableJournaling = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);
-            _enableJournalPopup = AppConfig.GetBool(ConfigKeys.EnableJournalPopup, true);
-            _enableJournalPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableJournalPopupOutbound, false);
-            _enableCallerPopup = AppConfig.GetBool(ConfigKeys.EnableCallerPopup, true);
-            _enableCallerPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableCallerPopupOutbound, false);
-            _callerPopupMode = AppConfig.GetEnum(ConfigKeys.CallerPopupMode, CallerPopupMode.Form);
-            _contactReshowDelaySeconds = AppConfig.GetInt(ConfigKeys.ContactReshowDelaySeconds, 3);
+            // Delegate popup/journal settings to CallEventProcessor
+            _callEventProcessor.ApplySettings();
 
             // Update call history store live
             bool histIn = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
@@ -1275,8 +816,8 @@ namespace DatevConnector.Core
             // DATEV Active contacts filter
             DatevContactManager.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
-            LogManager.Log("Settings applied live: Journaling={0}, JournalPopup={1}, CallerPopup={2}, History={3}/{4}/{5}, ActiveOnly={6}",
-                _enableJournaling, _enableJournalPopup, _enableCallerPopup, histIn, histOut, histMax, DatevContactManager.FilterActiveContactsOnly);
+            LogManager.Log("Settings applied live: History={0}/{1}/{2}, ActiveOnly={3}",
+                histIn, histOut, histMax, DatevContactManager.FilterActiveContactsOnly);
         }
 
         public void Dispose()

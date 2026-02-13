@@ -1,14 +1,12 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using DatevConnector.Core;
 using DatevConnector.Core.Config;
-using DatevConnector.Datev;
 using DatevConnector.Datev.Managers;
 using DatevConnector.UI.Strings;
 using DatevConnector.UI.Theme;
@@ -16,7 +14,9 @@ using DatevConnector.UI.Theme;
 namespace DatevConnector.UI
 {
     /// <summary>
-    /// System tray application - hidden form with NotifyIcon
+    /// System tray application - hidden form with NotifyIcon.
+    /// Delegates menu construction to TrayContextMenuBuilder and
+    /// form navigation to FormNavigator.
     /// </summary>
     public class TrayApplication : Form
     {
@@ -27,16 +27,13 @@ namespace DatevConnector.UI
         private readonly Icon _iconConnected;
         private readonly Icon _iconDisconnected;
         private readonly Icon _iconConnecting;
+        private readonly FormNavigator _navigator;
 
         // Track last notified status to avoid duplicate balloons
         private ConnectorStatus _lastNotifiedStatus = ConnectorStatus.Disconnected;
 
         // Mute status balloons (separate from caller popup muting)
         private readonly bool _muteStatusBalloons;
-
-        // Single window management - only one main window at a time
-        private Form _currentMainForm;
-        private Point? _lastFormLocation;
 
         public TrayApplication(string extension)
         {
@@ -50,8 +47,9 @@ namespace DatevConnector.UI
             _iconDisconnected = UITheme.CreateTrayIcon(UITheme.StatusBad);
             _iconConnecting = UITheme.CreateTrayIcon(UITheme.StatusWarn);
 
-            // Create context menu
-            _contextMenu = CreateContextMenu();
+            // Build context menu (delegated to TrayContextMenuBuilder)
+            _contextMenu = TrayContextMenuBuilder.Build();
+            WireMenuEvents();
 
             // Create notify icon
             _notifyIcon = new NotifyIcon
@@ -73,6 +71,9 @@ namespace DatevConnector.UI
             _bridgeService.DatevUnavailableNotified += OnDatevUnavailable;
             _bridgeService.DatevBecameAvailable += OnDatevBecameAvailable;
 
+            // Create form navigator (delegated form lifecycle management)
+            _navigator = new FormNavigator(_bridgeService, this);
+
             // Status balloons muted by default (caller popups still work via their own settings)
             _muteStatusBalloons = AppConfig.GetBool(ConfigKeys.MuteNotifications, true);
 
@@ -90,140 +91,53 @@ namespace DatevConnector.UI
         }
 
         /// <summary>
-        /// Create context menu with dark theme:
-        /// Title | --- | Status | Anrufliste | Kontakte neu laden | ---
-        /// Einstellungen | Hilfe > | --- | Autostart | Stummschalten | ---
-        /// Neustart | Info | Beenden
+        /// Wire event handlers to named menu items built by TrayContextMenuBuilder.
         /// </summary>
-        private ContextMenuStrip CreateContextMenu()
+        private void WireMenuEvents()
         {
-            var menu = new ContextMenuStrip();
-
-            // Apply dark theme renderer
-            menu.Renderer = new DarkMenuRenderer();
-            menu.ShowImageMargin = true;
-            menu.ShowCheckMargin = true;
-
-            // App title (bold, non-interactive)
-            var titleItem = new ToolStripMenuItem(UIStrings.MenuItems.AppTitle)
+            _contextMenu.Items["statusItem"].Click += (s, e) => _navigator.ShowStatus();
+            _contextMenu.Items["historyItem"].Click += (s, e) => _navigator.ShowCallHistory();
+            _contextMenu.Items["reloadItem"].Click += (s, e) => _ = ReloadContactsAsync();
+            _contextMenu.Items["settingsItem"].Click += (s, e) => _navigator.ShowSettings();
+            _contextMenu.Items["restartItem"].Click += (s, e) => _ = RestartBridgeAsync();
+            _contextMenu.Items["aboutItem"].Click += (s, e) =>
             {
-                Enabled = false,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                using (var aboutForm = new AboutForm()) { aboutForm.ShowDialog(); }
             };
-            menu.Items.Add(titleItem);
+            _contextMenu.Items["exitItem"].Click += (s, e) => { _cts.Cancel(); Application.Exit(); };
 
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Status (clickable, with colored dot image)
-            var statusItem = new ToolStripMenuItem(UIStrings.MenuItems.Status)
+            // Help submenu items
+            var helpMenu = _contextMenu.Items[6] as ToolStripMenuItem; // Help is the 7th item
+            if (helpMenu != null)
             {
-                Name = "statusItem",
-                Image = CreateStatusDot(UITheme.StatusBad)
-            };
-            statusItem.Click += (s, e) => ShowStatus();
-            menu.Items.Add(statusItem);
-
-            // Call History
-            var historyItem = new ToolStripMenuItem(UIStrings.MenuItems.CallHistory, null, OnCallHistory);
-            menu.Items.Add(historyItem);
-
-            // Reload contacts
-            var reloadItem = new ToolStripMenuItem(UIStrings.MenuItems.ReloadContacts, null, OnReloadContacts);
-            menu.Items.Add(reloadItem);
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Settings
-            var settingsItem = new ToolStripMenuItem(UIStrings.MenuItems.Settings, null, OnSettings);
-            menu.Items.Add(settingsItem);
-
-            // Help submenu
-            var helpMenu = new ToolStripMenuItem(UIStrings.MenuItems.Help);
-            helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.Troubleshooting, null, OnHelp));
-            helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.OpenLog, null, OnOpenLogFile));
-            helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.RunSetupWizard, null, OnSetupWizard));
-            // Apply dark renderer to help submenu dropdown
-            helpMenu.DropDown.Renderer = new DarkMenuRenderer();
-            menu.Items.Add(helpMenu);
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Autostart toggle
-            var autostartItem = new ToolStripMenuItem(UIStrings.MenuItems.Autostart)
-            {
-                Name = "autostartItem",
-                CheckOnClick = true,
-                Checked = AutoStartManager.IsEnabled()
-            };
-            autostartItem.CheckedChanged += OnAutoStartToggle;
-            menu.Items.Add(autostartItem);
-
-            // Mute toggle (silent mode) - controls caller/journal popups only
-            // Status balloons are separately controlled by MuteNotifications config
-            var muteItem = new ToolStripMenuItem(UIStrings.MenuItems.Mute)
-            {
-                Name = "muteItem",
-                CheckOnClick = true,
-                Checked = false
-            };
-            muteItem.CheckedChanged += OnMuteToggle;
-            menu.Items.Add(muteItem);
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Restart bridge service
-            var restartItem = new ToolStripMenuItem(UIStrings.MenuItems.Restart, null, OnRestart);
-            menu.Items.Add(restartItem);
-
-            // About/Info
-            var aboutItem = new ToolStripMenuItem(UIStrings.MenuItems.Info, null, OnAbout);
-            menu.Items.Add(aboutItem);
-
-            // Exit
-            var exitItem = new ToolStripMenuItem(UIStrings.MenuItems.Exit, null, OnExit);
-            menu.Items.Add(exitItem);
-
-            return menu;
-        }
-
-        /// <summary>
-        /// Create a small colored dot image for status menu items.
-        /// </summary>
-        private static Image CreateStatusDot(Color color)
-        {
-            var bmp = new Bitmap(16, 16);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.Clear(Color.Transparent);
-                using (var brush = new SolidBrush(color))
-                {
-                    g.FillEllipse(brush, 3, 3, 10, 10);
-                }
+                helpMenu.DropDownItems["helpItem"].Click += (s, e) => TroubleshootingForm.ShowHelp();
+                helpMenu.DropDownItems["logItem"].Click += (s, e) => OnOpenLogFile();
+                helpMenu.DropDownItems["wizardItem"].Click += (s, e) => SetupWizardForm.ShowWizard(_bridgeService);
             }
-            return bmp;
+
+            // Toggle items
+            var autostartItem = _contextMenu.Items["autostartItem"] as ToolStripMenuItem;
+            if (autostartItem != null)
+                autostartItem.CheckedChanged += (s, e) => AutoStartManager.SetEnabled(autostartItem.Checked);
+
+            var muteItem = _contextMenu.Items["muteItem"] as ToolStripMenuItem;
+            if (muteItem != null)
+                muteItem.CheckedChanged += (s, e) => _bridgeService.IsMuted = muteItem.Checked;
         }
 
-        /// <summary>
-        /// Start bridge service async with proper exception handling
-        /// </summary>
         private async Task StartConnectorServiceAsync()
         {
             try
             {
                 await _bridgeService.StartAsync(_cts.Token);
 
-                // On first run, ask user if they want to launch the setup wizard
                 if (AppConfig.IsFirstRun)
                 {
                     LogManager.Log("First run detected - prompting for setup wizard");
                     BeginInvoke(new Action(PromptFirstRunWizard));
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // Normal shutdown
-            }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 LogManager.Log("Bridge service error: {0}", ex);
@@ -240,59 +154,27 @@ namespace DatevConnector.UI
                 MessageBoxIcon.Question);
 
             if (result == DialogResult.Yes)
-            {
                 SetupWizardForm.ShowWizard(_bridgeService);
-            }
         }
 
-        /// <summary>
-        /// Handle DATEV unavailable notification - show balloon to user
-        /// </summary>
         private void OnDatevUnavailable(object sender, EventArgs e)
         {
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action<object, EventArgs>(OnDatevUnavailable), sender, e);
-                return;
-            }
-
-            ShowBalloon("3CX - DATEV Connector",
-                UIStrings.Notifications.DatevLost,
-                ToolTipIcon.Warning);
+            if (InvokeRequired) { BeginInvoke(new Action<object, EventArgs>(OnDatevUnavailable), sender, e); return; }
+            ShowBalloon("3CX - DATEV Connector", UIStrings.Notifications.DatevLost, ToolTipIcon.Warning);
             UpdateTrayStatus();
         }
 
-        /// <summary>
-        /// Handle DATEV became available - show confirmation balloon
-        /// </summary>
         private void OnDatevBecameAvailable(object sender, EventArgs e)
         {
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action<object, EventArgs>(OnDatevBecameAvailable), sender, e);
-                return;
-            }
-
-            ShowBalloon("3CX - DATEV Connector",
-                UIStrings.Notifications.DatevFound,
-                ToolTipIcon.Info);
+            if (InvokeRequired) { BeginInvoke(new Action<object, EventArgs>(OnDatevBecameAvailable), sender, e); return; }
+            ShowBalloon("3CX - DATEV Connector", UIStrings.Notifications.DatevFound, ToolTipIcon.Info);
             UpdateTrayStatus();
         }
 
-        /// <summary>
-        /// Handle status changes from bridge service
-        /// </summary>
         private void OnStatusChanged(ConnectorStatus status)
         {
-            // Ensure we're on the UI thread
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action<ConnectorStatus>(OnStatusChanged), status);
-                return;
-            }
+            if (InvokeRequired) { BeginInvoke(new Action<ConnectorStatus>(OnStatusChanged), status); return; }
 
-            // Only show balloon on actual status transitions (prevents duplicates
-            // when LineDisconnected fires StatusChanged with unchanged status)
             bool statusChanged = status != _lastNotifiedStatus;
 
             switch (status)
@@ -316,7 +198,7 @@ namespace DatevConnector.UI
                     _notifyIcon.Text = UIStrings.Status.TrayConnecting;
                     UpdateStatusMenuItem(UIStrings.Status.Connecting);
                     _lastNotifiedStatus = status;
-                    return; // Don't run combined status update
+                    return;
 
                 case ConnectorStatus.Disconnected:
                     if (statusChanged)
@@ -337,9 +219,6 @@ namespace DatevConnector.UI
             UpdateTrayStatus();
         }
 
-        /// <summary>
-        /// Updates tray icon and tooltip based on combined TAPI + DATEV state
-        /// </summary>
         private void UpdateTrayStatus()
         {
             bool tapiOk = _bridgeService.TapiConnected;
@@ -366,10 +245,6 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Update status menu item with colored dot image and text.
-        /// Green = all OK, Orange = partial, Red = disconnected
-        /// </summary>
         private void UpdateStatusMenuItem(string text)
         {
             var statusItem = _contextMenu.Items["statusItem"] as ToolStripMenuItem;
@@ -378,120 +253,33 @@ namespace DatevConnector.UI
                 bool tapiOk = _bridgeService.TapiConnected;
                 bool datevOk = _bridgeService.DatevAvailable;
 
-                // Update colored dot image
                 Color dotColor = (tapiOk && datevOk) ? UITheme.StatusOk
                     : (tapiOk || datevOk) ? UITheme.StatusWarn
                     : UITheme.StatusBad;
 
                 var oldImage = statusItem.Image;
-                statusItem.Image = CreateStatusDot(dotColor);
+                statusItem.Image = TrayContextMenuBuilder.CreateStatusDot(dotColor);
                 oldImage?.Dispose();
 
                 statusItem.Text = $"{UIStrings.MenuItems.Status}: {text}";
             }
         }
 
-        /// <summary>
-        /// Show status balloon notification (suppressed when MuteNotifications=true)
-        /// </summary>
         private void ShowBalloon(string title, string text, ToolTipIcon icon)
         {
             if (_muteStatusBalloons) return;
             _notifyIcon.ShowBalloonTip(3000, title, text, icon);
         }
 
-        /// <summary>
-        /// Close current main form if open, preserving location for next form
-        /// </summary>
-        private void CloseCurrentMainForm()
-        {
-            if (_currentMainForm != null && !_currentMainForm.IsDisposed)
-            {
-                _lastFormLocation = _currentMainForm.Location;
-                _currentMainForm.Close();
-                _currentMainForm.Dispose();
-            }
-            _currentMainForm = null;
-        }
-
-        /// <summary>
-        /// Show a form as the main window, closing any existing main form first
-        /// </summary>
-        private void ShowMainForm(Form form)
-        {
-            CloseCurrentMainForm();
-            _currentMainForm = form;
-
-            // Restore previous location if available
-            if (_lastFormLocation.HasValue)
-            {
-                form.StartPosition = FormStartPosition.Manual;
-                form.Location = _lastFormLocation.Value;
-            }
-
-            form.Show();
-            form.Activate();
-            form.BringToFront();
-        }
-
-        /// <summary>
-        /// Handle double-click on tray icon - show status or call history based on setting
-        /// </summary>
         private void OnNotifyIconDoubleClick(object sender, EventArgs e)
         {
             bool showCallHistory = AppConfig.GetBool("TrayDoubleClickCallHistory", true);
             if (showCallHistory)
-                ShowCallHistory();
+                _navigator.ShowCallHistory();
             else
-                ShowStatus();
+                _navigator.ShowStatus();
         }
 
-        /// <summary>
-        /// Show status form
-        /// </summary>
-        private void ShowStatus()
-        {
-            // If status form is already open, just bring it to front
-            if (_currentMainForm is StatusForm existingStatus && !existingStatus.IsDisposed)
-            {
-                existingStatus.Activate();
-                existingStatus.BringToFront();
-                return;
-            }
-
-            var statusForm = new StatusForm(_bridgeService);
-            statusForm.FormClosed += (s, args) =>
-            {
-                var form = s as StatusForm;
-                if (form != null && !form.IsDisposed)
-                {
-                    _lastFormLocation = form.Location;
-                }
-                if (_currentMainForm == s)
-                    _currentMainForm = null;
-
-                // Handle navigation request
-                if (form?.RequestedAction == StatusForm.Action.CallHistory)
-                    BeginInvoke(new System.Action(ShowCallHistory));
-                else if (form?.RequestedAction == StatusForm.Action.Settings)
-                    BeginInvoke(new System.Action(ShowSettings));
-            };
-
-            ShowMainForm(statusForm);
-        }
-
-        /// <summary>
-        /// Handle reload contacts menu item (event handler wrapper)
-        /// </summary>
-        private void OnReloadContacts(object sender, EventArgs e)
-        {
-            // Fire-and-forget with proper exception handling
-            _ = ReloadContactsAsync();
-        }
-
-        /// <summary>
-        /// Reload contacts async with proper exception handling
-        /// </summary>
         private async Task ReloadContactsAsync()
         {
             try
@@ -508,10 +296,7 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Handle open log file menu item
-        /// </summary>
-        private void OnOpenLogFile(object sender, EventArgs e)
+        private void OnOpenLogFile()
         {
             try
             {
@@ -521,164 +306,20 @@ namespace DatevConnector.UI
                     "3CXDatevConnector.log");
 
                 if (File.Exists(logPath))
-                {
-                    // Use default system handler for .log files
                     Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
-                }
                 else
-                {
                     MessageBox.Show(
                         string.Format(UIStrings.Notifications.LogFileNotFoundFormat, logPath),
                         UIStrings.Notifications.LogFileTitle,
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                }
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
                     string.Format(UIStrings.Notifications.LogFileOpenFailed, ex.Message),
                     UIStrings.Errors.GenericError,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        /// <summary>
-        /// Handle settings menu item
-        /// </summary>
-        private void OnSettings(object sender, EventArgs e)
-        {
-            ShowSettings();
-        }
-
-        /// <summary>
-        /// Show settings form
-        /// </summary>
-        private void ShowSettings()
-        {
-            // If settings form is already open, just bring it to front
-            if (_currentMainForm is SettingsForm existingSettings && !existingSettings.IsDisposed)
-            {
-                existingSettings.Activate();
-                existingSettings.BringToFront();
-                return;
-            }
-
-            var settingsForm = new SettingsForm(_bridgeService);
-            settingsForm.FormClosed += (s, args) =>
-            {
-                var form = s as SettingsForm;
-                if (form != null && !form.IsDisposed)
-                {
-                    _lastFormLocation = form.Location;
-                }
-                if (_currentMainForm == s)
-                    _currentMainForm = null;
-
-                // Handle navigation request
-                if (form?.RequestedAction == SettingsForm.Action.Status)
-                    BeginInvoke(new System.Action(ShowStatus));
-            };
-
-            ShowMainForm(settingsForm);
-        }
-
-        /// <summary>
-        /// Handle call history menu item
-        /// </summary>
-        private void OnCallHistory(object sender, EventArgs e)
-        {
-            ShowCallHistory();
-        }
-
-        /// <summary>
-        /// Show call history form
-        /// </summary>
-        private void ShowCallHistory()
-        {
-            // If call history form is already open, just bring it to front
-            if (_currentMainForm is CallHistoryForm existingHistory && !existingHistory.IsDisposed)
-            {
-                existingHistory.Activate();
-                existingHistory.BringToFront();
-                return;
-            }
-
-            var historyForm = new CallHistoryForm(
-                _bridgeService.CallHistory,
-                (entry, note) => _bridgeService.SendHistoryJournal(entry, note));
-            historyForm.FormClosed += (s, args) =>
-            {
-                var form = s as CallHistoryForm;
-                if (form != null && !form.IsDisposed)
-                {
-                    _lastFormLocation = form.Location;
-                }
-                if (_currentMainForm == s)
-                    _currentMainForm = null;
-
-                // Handle navigation request
-                if (form?.RequestedAction == CallHistoryForm.Action.Back)
-                    BeginInvoke(new System.Action(ShowStatus));
-            };
-
-            ShowMainForm(historyForm);
-        }
-
-        /// <summary>
-        /// Handle help menu item - show troubleshooting form
-        /// </summary>
-        private void OnHelp(object sender, EventArgs e)
-        {
-            TroubleshootingForm.ShowHelp();
-        }
-
-        /// <summary>
-        /// Handle setup wizard menu item
-        /// </summary>
-        private void OnSetupWizard(object sender, EventArgs e)
-        {
-            SetupWizardForm.ShowWizard(_bridgeService);
-        }
-
-        /// <summary>
-        /// Handle about menu item
-        /// </summary>
-        private void OnAbout(object sender, EventArgs e)
-        {
-            using (var aboutForm = new AboutForm())
-            {
-                aboutForm.ShowDialog();
-            }
-        }
-
-        /// <summary>
-        /// Handle autostart toggle
-        /// </summary>
-        private void OnAutoStartToggle(object sender, EventArgs e)
-        {
-            var item = sender as ToolStripMenuItem;
-            if (item != null)
-                AutoStartManager.SetEnabled(item.Checked);
-        }
-
-        /// <summary>
-        /// Handle mute toggle (silent mode)
-        /// </summary>
-        private void OnMuteToggle(object sender, EventArgs e)
-        {
-            var item = sender as ToolStripMenuItem;
-            if (item != null)
-                _bridgeService.IsMuted = item.Checked;
-        }
-
-        /// <summary>
-        /// Handle restart - reconnect TAPI and reload contacts
-        /// </summary>
-        private void OnRestart(object sender, EventArgs e)
-        {
-            _ = RestartBridgeAsync();
         }
 
         private async Task RestartBridgeAsync()
@@ -702,35 +343,12 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Handle exit menu item
-        /// </summary>
-        private void OnExit(object sender, EventArgs e)
-        {
-            // Cancel the bridge service
-            _cts.Cancel();
-            
-            // Close the application
-            Application.Exit();
-        }
-
-        /// <summary>
-        /// Clean up resources
-        /// </summary>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 _cts?.Cancel();
-
-                // Dispose any open main form (StatusForm, SettingsForm, CallHistoryForm)
-                if (_currentMainForm != null && !_currentMainForm.IsDisposed)
-                {
-                    _currentMainForm.Close();
-                    _currentMainForm.Dispose();
-                }
-                _currentMainForm = null;
-
+                _navigator?.DisposeCurrentForm();
                 _bridgeService?.Dispose();
                 _contextMenu?.Dispose();
                 _notifyIcon?.Dispose();
@@ -742,9 +360,6 @@ namespace DatevConnector.UI
             base.Dispose(disposing);
         }
 
-        /// <summary>
-        /// Prevent form from showing, but ensure handle is created for BeginInvoke
-        /// </summary>
         protected override void SetVisibleCore(bool value)
         {
             if (!IsHandleCreated)

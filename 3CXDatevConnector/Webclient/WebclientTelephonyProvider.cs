@@ -350,14 +350,7 @@ namespace DatevConnector.Webclient
                 callEvent.CallStateString, callId,
                 LogManager.Mask(callEvent.CallerNumber) ?? "-", LogManager.Mask(callEvent.CalledNumber) ?? "-", state);
 
-            try
-            {
-                CallStateChanged?.Invoke(callEvent);
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("WebClient Connector: Error in CallStateChanged handler - {0}", ex.Message);
-            }
+            EventHelper.SafeInvoke(CallStateChanged, callEvent, "WebclientTelephonyProvider.CallStateChanged");
 
             // Clean up ended calls
             if (tapiState == LINECALLSTATE_DISCONNECTED)
