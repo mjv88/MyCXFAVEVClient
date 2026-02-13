@@ -24,7 +24,7 @@ namespace DatevConnector.Datev.Managers
 
                 _adapter = adapter;
 
-                LogManager.Log("DatevConnectorAdapter registriert in ROT");
+                LogManager.Debug("DatevConnectorAdapter registriert in ROT");
             }
             catch (Exception e)
             {

@@ -106,7 +106,7 @@ namespace DatevConnector.Webclient
         public async Task<bool> TryAcceptAsync(CancellationToken ct, int timeoutSec)
         {
             StartListener();
-            LogManager.Log("WebClient Connector: TryAccept");
+            LogManager.Debug("WebClient Connector: TryAccept");
 
             using (var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
@@ -136,7 +136,7 @@ namespace DatevConnector.Webclient
 
                     if (helloWait == helloTcs.Task && helloTcs.Task.Result)
                     {
-                        LogManager.Log("WebClient Connector: TryAccept succeeded");
+                        LogManager.Debug("WebClient Connector: TryAccept succeeded");
                         StopListener(); // Release port — client connection stays alive
                         return true;
                     }
@@ -241,7 +241,7 @@ namespace DatevConnector.Webclient
 
         private async Task ReadLoopAsync(NetworkStream stream, CancellationToken ct)
         {
-            LogManager.Log("WebClient Connector Server: Read loop started");
+            LogManager.Debug("WebClient Connector Server: Read loop started");
             try
             {
                 while (!ct.IsCancellationRequested && !_disposed && _clientConnected)
@@ -404,7 +404,7 @@ namespace DatevConnector.Webclient
                 _domain = msg.Domain;
                 _webclientVersion = msg.WebclientVersion;
                 _helloReceived = true;
-                LogManager.Log("WebClient: HELLO von extension={0}, identity={1}, FQDN={2}",
+                LogManager.Log("WebClient HELLO von extension={0}, identity={1}, FQDN={2}",
                     _extensionNumber ?? "(none)", _webclientIdentity ?? "(none)",
                     _domain ?? "(none)");
                 LogManager.Debug("WebClient Connector: version={0}", _webclientVersion ?? "(none)");
@@ -477,7 +477,7 @@ namespace DatevConnector.Webclient
 
             string remote = "(unknown)";
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
-            LogManager.Log("WebClient Connector: Client connected from {0}", remote);
+            LogManager.Log("WebClient Connector: WebClient connected");
 
             await ReadLoopAsync(_currentStream, ct);
             return true;

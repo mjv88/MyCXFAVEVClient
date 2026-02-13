@@ -2,13 +2,13 @@
 
 ## Architecture Overview
 
-The bridge is a .NET Framework 4.8 WinForms system tray application (x86) that acts as a proxy between the 3CX Softphone and DATEV Arbeitsplatz.
+The connector is a .NET Framework 4.8 WinForms system tray application (x86) that acts as a proxy between the 3CX Softphone and DATEV Arbeitsplatz.
 
 ```
 +------------------+     Named Pipe      +-------------------+
 |  3CX Softphone   | <=================> |                   |
 |  (V20, WinUI 3)  |   UTF-16 LE msgs   |   3CX-DATEV       |
-+------------------+                     |   Bridge          |
++------------------+                     |   Connector       |
                                          |   (Tray App)      |
 +------------------+     TAPI 2.x       |                   |
 |  3CX Multi-Line  | -----------------> |                   |
@@ -42,7 +42,7 @@ The bridge is a .NET Framework 4.8 WinForms system tray application (x86) that a
 | **PipeTelephonyProvider** | `Tapi/PipeTelephonyProvider.cs` | Named pipe server for 3CX commands |
 | **TapiPipeServer** | `Tapi/TapiPipeServer.cs` | Low-level pipe I/O |
 | **DatevAdapter** | `Datev/COMs/DatevAdapter.cs` | COM adapter registered in ROT |
-| **NotificationManager** | `Datev/Managers/NotificationManager.cs` | Bridge → DATEV notifications (with circuit breaker) |
+| **NotificationManager** | `Datev/Managers/NotificationManager.cs` | Connector → DATEV notifications (with circuit breaker) |
 | **CallDataManager** | `Datev/Managers/CallDataManager.cs` | Call data handling and SyncID management |
 | **DatevCache** | `Datev/DatevCache.cs` | Contact cache with phone number lookup |
 | **DatevContactManager** | `Datev/Managers/DatevContactManager.cs` | SDD contact loading |
@@ -62,14 +62,14 @@ The bridge performs these steps on startup in order:
 1. Detect environment and select telephony mode
    ├── Log session info (Session ID, IsTerminalSession, SessionName)
    └── TelephonyProviderSelector: Auto, Tapi, Pipe, or Webclient
-       ├── Auto: Webclient → Pipe → TAPI (priority order)
+       ├── Auto: WebClient → Pipe → TAPI (priority order)
        ├── Explicit mode: use configured provider only
        └── Log selected mode and reason
 
 2. Initialize telephony provider
    ├── TAPI: Connect line monitor
    ├── Pipe: Create Named Pipe server (\\.\pipe\3CX_tsp_server_{extension})
-   └── Webclient: Start WebSocket server (port 19800)
+   └── WebClient: Start WebSocket server (port 19800)
 
 3. Initialize DATEV
    ├── Register COM adapter in ROT (AdapterManager)
@@ -83,7 +83,7 @@ The bridge performs these steps on startup in order:
 4. Await telephony connection
    ├── TAPI: Line monitor already connected
    ├── Pipe: Await Named Pipe client connection
-   └── Webclient: Await browser extension HELLO
+   └── WebClient: Await browser extension HELLO
 ```
 
 ### DATEV Connection Test Output
@@ -178,9 +178,9 @@ Messages are prefixed for structured filtering:
 | Prefix | Description | Example |
 |--------|-------------|---------|
 | `DATEV -> Bridge` | Commands from DATEV | `DATEV -> Bridge: Dial command received` |
-| `Bridge -> DATEV` | Notifications to DATEV | `Bridge -> DATEV: NewCall (Direction=eDirIncoming)` |
+| `Connector -> DATEV` | Notifications to DATEV | `Connector -> DATEV: NewCall (Direction=eDirIncoming)` |
 | `TAPI` | TAPI call events | `TAPI: LINECALLSTATE_OFFERING on line 161` |
-| `Bridge` | Internal bridge operations | `Bridge: Added call 161-04022026-1430-1234567` |
+| `Connector` | Internal connector operations | `Connector: Added call 161-04022026-1430-1234567` |
 | `Config` | Configuration changes | `Config: VerboseLogging changed to true` |
 | `Cache` | Contact cache operations | `Cache: 19421 contacts loaded` |
 | `CircuitBreaker` | Circuit breaker state | `CircuitBreaker: OPEN after 3 failures` |
@@ -234,7 +234,7 @@ Messages are prefixed for structured filtering:
 
 ### Issue: Calls Detected but No DATEV Notification
 
-1. Search log for `Bridge -> DATEV: NewCall`
+1. Search log for `Connector -> DATEV: NewCall`
 2. If present: DATEV notification was sent
 3. If missing, search for `CircuitBreaker`:
    ```
@@ -281,7 +281,7 @@ Messages are prefixed for structured filtering:
 ### Desktop (Single User)
 
 ```
-IsTerminalSession=False, SessionName=Console, Session: Id=1
+Terminal Server = False
 ```
 
 - TAPI line monitor connects directly
@@ -291,7 +291,7 @@ IsTerminalSession=False, SessionName=Console, Session: Id=1
 ### Terminal Server / RDS (Multi-User)
 
 ```
-IsTerminalSession=True, SessionName=RDP-Tcp#0, Session: Id=2
+Terminal Server = True
 ```
 
 - Named Pipe server is created first (3CX polls every 2 seconds)
@@ -306,7 +306,7 @@ IsTerminalSession=True, SessionName=RDP-Tcp#0, Session: Id=2
 The `SessionManager` logs session details at startup:
 
 ```
-[INFO] IsTerminalSession=True, SessionName=RDP-Tcp#0, Session: Id=2
+[INFO] Terminal Server = True
 [INFO] ========================================
 [INFO] 3CX - DATEV Connector starting (Extension=161)
 [INFO] Mode: Terminal Server (Named Pipe)
@@ -396,7 +396,7 @@ Files are written to `%AppData%\3CXDATEVConnector\`:
 ### Healthy Startup
 
 ```
-[INFO] IsTerminalSession=False, SessionName=Console, Session: Id=1
+[INFO] Terminal Server = False
 [INFO] ========================================
 [INFO] 3CX - DATEV Connector starting (Extension=161)
 [INFO] === DATEV Connection Test ===
@@ -415,14 +415,14 @@ Files are written to `%AppData%\3CXDATEVConnector\`:
 
 ```
 [INFO] RINGING: Incoming call 161-04022026-1430-0912387 from ********4567 (contact=Mueller GmbH)
-[INFO] Bridge -> DATEV: NewCall (Direction=eDirIncoming, Contact=Mueller GmbH)
+[INFO] Connector -> DATEV: NewCall (Direction=eDirIncoming, Contact=Mueller GmbH)
 [INFO] CONNECTED: Call 161-04022026-1430-0912387
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSConnected)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSConnected)
 [INFO] Contact reshow: Contact changed - new=Mueller Hans (SyncID=datev-123)
-[INFO] Bridge -> DATEV: CallAdressatChanged (Contact=Mueller Hans, DataSource=DATEV_Adressaten)
+[INFO] Connector -> DATEV: CallAdressatChanged (Contact=Mueller Hans, DataSource=DATEV_Adressaten)
 [INFO] DISCONNECTED: Call 161-04022026-1430-0912387
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSFinished)
-[INFO] Bridge -> DATEV: NewJournal (Duration=00:05:23, Contact=Mueller Hans)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
+[INFO] Connector -> DATEV: NewJournal (Duration=00:05:23, Contact=Mueller Hans)
 ```
 
 ### Click-to-Dial from DATEV
@@ -433,11 +433,11 @@ Files are written to `%AppData%\3CXDATEVConnector\`:
 [INFO] DATEV Dial: Pending call stored for ********4567 (SyncID=datev-456)
 [INFO] DATEV Dial: MAKE-CALL sent for ********4567
 [INFO] RINGBACK: Outgoing call 161-04022026-1435-4829173 to ********4567 (DATEV-initiated, SyncID=datev-456)
-[INFO] Bridge -> DATEV: NewCall (Direction=eDirOutgoing, SyncID=datev-456)
+[INFO] Connector -> DATEV: NewCall (Direction=eDirOutgoing, SyncID=datev-456)
 [INFO] CONNECTED: Call 161-04022026-1435-4829173
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSConnected)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSConnected)
 [INFO] DISCONNECTED: Call 161-04022026-1435-4829173
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSFinished)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
 ```
 
 ### Circuit Breaker Activation

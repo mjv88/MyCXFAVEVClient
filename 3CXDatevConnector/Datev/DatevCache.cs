@@ -77,7 +77,7 @@ namespace DatevConnector.Datev
                     contactNumber,
                     _maxCompareLength ?? 10);
 
-                LogManager.Log("Bridge: Contact lookup - Input='{0}' Normalized='{1}'", LogManager.Mask(contactNumber), LogManager.Mask(normalizedNumber));
+                LogManager.Log("Connector: Contact lookup - Input='{0}' Normalized='{1}'", LogManager.Mask(contactNumber), LogManager.Mask(normalizedNumber));
 
                 List<DatevContactInfo> result = null;
 
@@ -85,7 +85,7 @@ namespace DatevConnector.Datev
                 if (_datevContactsSDict != null && _datevContactsSDict.ContainsKey(normalizedNumber))
                 {
                     result = _datevContactsSDict[normalizedNumber];
-                    LogManager.Debug("Bridge: Contact lookup - Exact match on key '{0}'", LogManager.Mask(normalizedNumber));
+                    LogManager.Debug("Connector: Contact lookup - Exact match on key '{0}'", LogManager.Mask(normalizedNumber));
                 }
 
                 // If no exact match, try suffix matching for shorter DATEV numbers
@@ -105,7 +105,7 @@ namespace DatevConnector.Datev
                         if (normalizedNumber.EndsWith(kvp.Key) || kvp.Key.EndsWith(normalizedNumber))
                         {
                             result = kvp.Value;
-                            LogManager.Debug("Bridge: Contact lookup - Suffix match: '{0}' <-> '{1}'", LogManager.Mask(normalizedNumber), LogManager.Mask(kvp.Key));
+                            LogManager.Debug("Connector: Contact lookup - Suffix match: '{0}' <-> '{1}'", LogManager.Mask(normalizedNumber), LogManager.Mask(kvp.Key));
                             break;
                         }
                     }
@@ -114,7 +114,7 @@ namespace DatevConnector.Datev
                 if (result == null || result.Count == 0)
                 {
                     result = new List<DatevContactInfo>();
-                    LogManager.Log("Bridge: Contact lookup - No match found");
+                    LogManager.Log("Connector: Contact lookup - No match found");
                 }
                 else
                 {
@@ -124,7 +124,7 @@ namespace DatevConnector.Datev
                         if (sb.Length > 0) sb.Append(", ");
                         sb.Append(LogManager.MaskName(info.DatevContact.Name));
                     }
-                    LogManager.Log("Bridge: Contact lookup - Found {0} match(es): {1}", result.Count, sb);
+                    LogManager.Log("Connector: Contact lookup - Found {0} match(es): {1}", result.Count, sb);
                 }
 
                 return result;
@@ -283,7 +283,7 @@ namespace DatevConnector.Datev
 
             _datevContactsSDict = sorted;
 
-            LogManager.Log("Kontaktsuchverzeichnis mit {0} einmaligen Telefonnummern erstellt", _datevContactsSDict.Count);
+            LogManager.Log("Kontaktsuchverzeichnis mit {0} einmalige Telefonnummern erstellt", _datevContactsSDict.Count);
         }
 
         /// <summary>

@@ -289,7 +289,7 @@ namespace DatevConnector.UI
             {
                 case TelephonyMode.Tapi: _rbModeTapi.Checked = true; break;
                 case TelephonyMode.Pipe: _rbModePipe.Checked = true; break;
-                case TelephonyMode.Webclient: _rbModeWebclient.Checked = true; break;
+                case TelephonyMode.WebClient: _rbModeWebclient.Checked = true; break;
                 default: _rbModeAuto.Checked = true; break;
             }
         }
@@ -298,7 +298,7 @@ namespace DatevConnector.UI
         {
             if (_rbModeTapi != null && _rbModeTapi.Checked) return TelephonyMode.Tapi;
             if (_rbModePipe != null && _rbModePipe.Checked) return TelephonyMode.Pipe;
-            if (_rbModeWebclient != null && _rbModeWebclient.Checked) return TelephonyMode.Webclient;
+            if (_rbModeWebclient != null && _rbModeWebclient.Checked) return TelephonyMode.WebClient;
             return TelephonyMode.Auto;
         }
 
@@ -320,7 +320,7 @@ namespace DatevConnector.UI
 
             switch (selectedMode)
             {
-                case TelephonyMode.Webclient:
+                case TelephonyMode.WebClient:
                     ShowWebclientPage();
                     break;
                 case TelephonyMode.Pipe:
@@ -541,7 +541,7 @@ namespace DatevConnector.UI
                 Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
             };
 
-            if (selectedMode == TelephonyMode.Webclient && webclientConnected)
+            if (selectedMode == TelephonyMode.WebClient && webclientConnected)
             {
                 _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
                 _lblTapiStatus.ForeColor = UITheme.StatusOk;
@@ -721,8 +721,8 @@ namespace DatevConnector.UI
 
             switch (activeMode)
             {
-                case TelephonyMode.Webclient:
-                    lines.AppendLine(string.Format("Webclient: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
+                case TelephonyMode.WebClient:
+                    lines.AppendLine(string.Format("WebClient: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
                     break;
                 case TelephonyMode.Pipe:
                     lines.AppendLine(string.Format("3CX Pipe: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));

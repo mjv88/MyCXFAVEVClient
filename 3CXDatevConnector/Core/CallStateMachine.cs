@@ -58,13 +58,13 @@ namespace DatevConnector.Core
             if (IsValidTransition(currentState, newState))
             {
                 record.TapiState = newState;
-                LogManager.Log("Bridge: Call {0} state {1} -> {2}",
+                LogManager.Log("Connector: Call {0} state {1} -> {2}",
                     record.TapiCallId, currentState, newState);
                 return true;
             }
             else
             {
-                LogManager.Log("Bridge: Call {0} invalid state {1} -> {2} (ignored)",
+                LogManager.Log("Connector: Call {0} invalid state {1} -> {2} (ignored)",
                     record.TapiCallId, currentState, newState);
                 return false;
             }

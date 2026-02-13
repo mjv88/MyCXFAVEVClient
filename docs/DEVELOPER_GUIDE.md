@@ -10,21 +10,21 @@ This standalone proxy application restores DATEV integration by:
 2. Sending commands to 3CX via **Named Pipes** (the TAPI Service Provider's pipe interface)
 3. Communicating with DATEV via the **COM/ROT Buddy interface** (unchanged since DATEV SDK 2022)
 
-The bridge is intentionally a separate process rather than a plugin because there is no plugin system to hook into.
+The connector is intentionally a separate process rather than a plugin because there is no plugin system to hook into.
 
 ---
 
 ## DATEV Buddy Interface
 
-The bridge implements the **DATEV CTI Buddy SDK** (version 16.02.2022). This is a COM-based interface defined in `DatevCtiBuddy.tlb`.
+The connector implements the **DATEV CTI Buddy SDK** (version 16.02.2022). This is a COM-based interface defined in `DatevCtiBuddy.tlb`.
 
 ### Interface Map
 
 | IDL Interface | Implemented By | Role |
 |---------------|----------------|------|
-| `IDatevCtiControl` | `DatevAdapter.cs` (Bridge) | DATEV calls `Dial()` and `Drop()` on the bridge |
-| `IDatevCtiHistory` | `DatevAdapter.cs` (Bridge) | DATEV calls `GetCallData()` (not used per spec) |
-| `IDatevCtiNotification` | DATEV Telefonie | Bridge calls `NewCall()`, `CallStateChanged()`, `CallAdressatChanged()`, `NewJournal()` |
+| `IDatevCtiControl` | `DatevAdapter.cs` (Connector) | DATEV calls `Dial()` and `Drop()` on the connector |
+| `IDatevCtiHistory` | `DatevAdapter.cs` (Connector) | DATEV calls `GetCallData()` (not used per spec) |
+| `IDatevCtiNotification` | DATEV Telefonie | Connector calls `NewCall()`, `CallStateChanged()`, `CallAdressatChanged()`, `NewJournal()` |
 | `IDatevCtiData` | Both sides | Data transfer object for call information (11 properties) |
 
 ### COM Class Registration (ROT)
@@ -34,9 +34,9 @@ Neither class is registered in the Windows registry. Both use the **Running Obje
 | Class | CLSID | Registered By |
 |-------|-------|---------------|
 | `DatevTelefonie` | `A299D197-E7C3-43E2-8ACC-C608FC2A7806` | DATEV Arbeitsplatz |
-| `BuddyAdapter` | `D8CA0C15-8585-494A-93DF-07D706629793` | This bridge (`AdapterManager.cs`) |
+| `BuddyAdapter` | `D8CA0C15-8585-494A-93DF-07D706629793` | This connector (`AdapterManager.cs`) |
 
-The bridge registers `BuddyAdapter` in ROT at startup and removes it at shutdown. DATEV looks up the bridge via `GetActiveObject()` with the BuddyAdapter CLSID.
+The connector registers `BuddyAdapter` in ROT at startup and removes it at shutdown. DATEV looks up the connector via `GetActiveObject()` with the BuddyAdapter CLSID.
 
 ### IDatevCtiData Properties
 
@@ -66,7 +66,7 @@ Finished                            (direct, for NewJournal)
 Absence                             (direct, for NewJournal)
 ```
 
-All other transitions are forbidden. The bridge enforces this in `ConnectorService.cs` by mapping TAPI states to DATEV states:
+All other transitions are forbidden. The connector enforces this in `ConnectorService.cs` by mapping TAPI states to DATEV states:
 
 | TAPI State | DATEV CallState | Notification |
 |------------|----------------|--------------|
@@ -151,10 +151,10 @@ Only communications with `Medium == 1` (Phone) are loaded. Email, fax, internet,
 
 ### Architecture
 
-The bridge is the pipe **server**. The 3CX Softphone connects as **client**.
+The connector is the pipe **server**. The 3CX Softphone connects as **client**.
 
 ```
-3CX Softphone (Client)  ←→  Bridge (Server)
+3CX Softphone (Client)  ←→  Connector (Server)
                               \\.\pipe\3CX_tsp_server_{extension}
 ```
 
@@ -238,7 +238,7 @@ Implementation: `CallIdGenerator.Next()` in `Core/CallIdGenerator.cs`.
 
 ### Pending Calls (DATEV Dial)
 
-When DATEV initiates a Dial command, the bridge stores a "pending call" because the TAPI event hasn't arrived yet:
+When DATEV initiates a Dial command, the connector stores a "pending call" because the TAPI event hasn't arrived yet:
 
 ```
 1. DATEV Dial received
@@ -304,7 +304,7 @@ Closed → (3 failures) → Open → (30s timeout) → Half-Open → (success) �
                                                            → (failure) → Open
 ```
 
-This prevents the bridge from hanging on DATEV COM timeouts when DATEV is unavailable.
+This prevents the connector from hanging on DATEV COM timeouts when DATEV is unavailable.
 
 ### Retry with Backoff
 
@@ -333,7 +333,7 @@ This prevents the bridge from hanging on DATEV COM timeouts when DATEV is unavai
 
 ### Per-Session Isolation
 
-On terminal servers, multiple users run DATEV and the bridge simultaneously. Isolation is provided by the OS:
+On terminal servers, multiple users run DATEV and the connector simultaneously. Isolation is provided by the OS:
 
 | Resource | Isolation | Mechanism |
 |----------|-----------|-----------|
@@ -346,9 +346,9 @@ On terminal servers, multiple users run DATEV and the bridge simultaneously. Iso
 ### Startup Order on Terminal Server
 
 ```
-1. Bridge creates Named Pipe server (MUST be first)
+1. Connector creates Named Pipe server (MUST be first)
 2. 3CX Softphone detects pipe (polls every ~2 seconds)
-3. Bridge initializes DATEV (ROT registration, SDD load)
+3. Connector initializes DATEV (ROT registration, SDD load)
 4. 3CX connects to pipe → handshake (SRVHELLO/CLIHELLO)
 5. TAPI events begin flowing
 ```
@@ -381,7 +381,7 @@ Splitting ConnectorService would mainly shuffle code and add inter-class communi
 
 ### Why COM/ROT Instead of REST/gRPC?
 
-The DATEV Buddy interface is defined by DATEV as a COM/ROT-based interface. There is no alternative. Both DATEV and the bridge register COM objects in the Running Object Table and discover each other via `GetActiveObject()`.
+The DATEV Buddy interface is defined by DATEV as a COM/ROT-based interface. There is no alternative. Both DATEV and the connector register COM objects in the Running Object Table and discover each other via `GetActiveObject()`.
 
 ### Why .NET Framework 4.8 Instead of .NET 8+?
 
@@ -479,7 +479,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 ├── Webclient/
 │   ├── Protocol.cs                    JSON protocol (v1) types & parser
 │   ├── WebSocketBridgeServer.cs       WebSocket server (port 19800)
-│   └── WebclientTelephonyProvider.cs  ITelephonyProvider for Webclient
+│   └── WebclientTelephonyProvider.cs  ITelephonyProvider for WebClient
 ├── Interop/
 │   ├── Rot.cs                          Running Object Table P/Invoke
 │   └── TapiInterop.cs                 TAPI 2.x P/Invoke
@@ -510,13 +510,13 @@ The project uses old-style `.csproj` with explicit `<Compile Include>` entries. 
 
 ---
 
-## Webclient Mode (Browser Extension)
+## WebClient Mode (Browser Extension)
 
 ### Overview
 
-The Webclient mode enables DATEV integration for users who use ONLY the 3CX Webclient (browser-based, WebRTC). No 3CX Windows application is required.
+The WebClient mode enables DATEV integration for users who use ONLY the 3CX Webclient (browser-based, WebRTC). No 3CX Windows application is required.
 
-Call events are received from a browser extension (Chrome/Edge) via a direct WebSocket connection. The bridge sends Dial/Drop commands back to the extension using the same channel.
+Call events are received from a browser extension (Chrome/Edge) via a direct WebSocket connection. The connector sends Dial/Drop commands back to the extension using the same channel.
 
 ### Architecture
 
@@ -549,7 +549,7 @@ The extension auto-detects the extension number from the 3CX PWA's `localStorage
 
 All messages are JSON with a `"v": 1` version field. Over WebSocket, messages are plain JSON text frames (no length prefix).
 
-#### Extension -> Bridge: HELLO
+#### Extension -> Connector: HELLO
 
 Sent by the extension after connecting. Must be the first message.
 
@@ -558,13 +558,13 @@ Sent by the extension after connecting. Must be the first message.
   "v": 1,
   "type": "HELLO",
   "extension": "101",
-  "identity": "3CX DATEV Connector Extension MV3"
+  "identity": "3CX WebClient"
 }
 ```
 
-#### Bridge -> Extension: HELLO_ACK
+#### Connector -> Extension: HELLO_ACK
 
-Sent after receiving HELLO. Indicates the bridge is ready.
+Sent after receiving HELLO. Indicates the connector is ready.
 
 ```json
 {
@@ -612,7 +612,7 @@ Sent for each call state change.
 
 **End reasons:** `hangup`, `busy`, `failed`, `unknown`
 
-#### Bridge -> Extension: COMMAND
+#### Connector -> Extension: COMMAND
 
 ```json
 {
@@ -660,7 +660,7 @@ If 3CX changes protobuf field numbers in future builds, adjust parser mappings i
 | "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check bridge is running on port 19800 |
 | Extension connects but no HELLO | Protocol version mismatch | Verify extension sends `"v": 1` and `"type": "HELLO"` |
 | HELLO has empty extension | Content script not injected or PWA not detected | Check `localStorage.wc.provision` exists; reload extension |
-| Calls not appearing in DATEV | State mapping issue | Check logs for "WebclientTelephonyProvider" entries |
+| Calls not appearing in DATEV | State mapping issue | Check logs for "WebClient Connector" entries |
 | Timeout during auto-detection | Extension takes too long | Increase `Webclient.ConnectTimeoutSec` in INI |
 
 ---
@@ -669,13 +669,13 @@ If 3CX changes protobuf field numbers in future builds, adjust parser mappings i
 
 ### Overview
 
-When `TelephonyMode = Auto` (default), the bridge attempts to detect the best available telephony provider at startup.
+When `TelephonyMode = Auto` (default), the connector attempts to detect the best available telephony provider at startup.
 
 ### Detection Order
 
 | Priority | Provider | Detection Method | Success Criteria |
 |----------|----------|-----------------|-----------------|
-| A | **Webclient** | Start pipe listener, wait for extension HELLO | Extension connects and sends HELLO within `Webclient.ConnectTimeoutSec` |
+| A | **WebClient** | Start pipe listener, wait for extension HELLO | Extension connects and sends HELLO within `Webclient.ConnectTimeoutSec` |
 | B | **Pipe** | Check `SessionManager.IsTerminalSession` and pipe availability | Running in a terminal server session |
 | C | **TAPI** | Default fallback for desktop environments | Desktop environment detected |
 | D | **None** | All detection methods failed | Setup Wizard is shown |
@@ -684,7 +684,7 @@ When `TelephonyMode = Auto` (default), the bridge attempts to detect the best av
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `Webclient` |
+| `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `WebClient` |
 | `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
 | `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
 | `Webclient.Enabled` | `true` | Enable/disable Webclient detection in Auto mode |
@@ -692,16 +692,16 @@ When `TelephonyMode = Auto` (default), the bridge attempts to detect the best av
 
 ### Explicit Mode
 
-When `TelephonyMode` is explicitly set to `Tapi`, `Pipe`, or `Webclient`, only that provider is used. If it fails to start, the bridge logs a guided error.
+When `TelephonyMode` is explicitly set to `Tapi`, `Pipe`, or `WebClient`, only that provider is used. If it fails to start, the connector logs a guided error.
 
 ### Diagnostic Logs
 
-During auto-detection, the bridge logs a diagnostic summary:
+During auto-detection, the connector logs a diagnostic summary:
 
 ```
 TelephonyProviderSelector: Auto-detection starting (timeout=10s)
-TelephonyProviderSelector: [A] Trying Webclient (timeout=8s)
-TelephonyProviderSelector: [A] Webclient not detected
+TelephonyProviderSelector: [A] Trying WebClient (timeout=8s)
+TelephonyProviderSelector: [A] WebClient not detected
 TelephonyProviderSelector: [B] Trying Pipe
 TelephonyProviderSelector: [B] Pipe not applicable
 TelephonyProviderSelector: [C] Trying TAPI
@@ -749,7 +749,7 @@ Outbound no-answer (absence):
 
 ---
 
-## 3CX Webclient Protocol Internals
+## 3CX WebClient Protocol Internals
 
 This section documents the internal signaling protocol of the 3CX Webclient, reverse-engineered from the 3CX PWA's main bundle. This knowledge is needed to build the browser extension that intercepts call events.
 
@@ -876,9 +876,9 @@ CC_BargeIn  = 16   // Can barge in
      (caller hung up before answer)
 ```
 
-### State Mapping: 3CX Internal → Bridge Protocol → TAPI → DATEV
+### State Mapping: 3CX Internal → Connector Protocol → TAPI → DATEV
 
-| 3CX LocalConnectionState | ActionType | Bridge Protocol | TAPI Constant | DATEV |
+| 3CX LocalConnectionState | ActionType | Connector Protocol | TAPI Constant | DATEV |
 |--------------------------|------------|----------------|---------------|-------|
 | Ringing (1) + IsIncoming=true | Inserted | `offered` | LINECALLSTATE_OFFERING (0x02) | NewCall(eCSOffered, eDirIncoming) |
 | Dialing (2) + IsIncoming=false | Inserted | `dialing` | LINECALLSTATE_RINGBACK (0x20) | NewCall(eCSOffered, eDirOutgoing) |

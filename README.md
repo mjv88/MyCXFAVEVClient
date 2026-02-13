@@ -1,6 +1,6 @@
 # 3CX - DATEV Connector
 
-A Windows system tray application that bridges **3CX** (Desktop App or WebClient) with **DATEV**.
+A Windows system tray application that connects **3CX** (Desktop App or WebClient) with **DATEV**.
 
 ## Background
 
@@ -12,8 +12,8 @@ As 3CX v20 evolved it introduced significant architectural changes:
 This broke existing DATEV integrations. This standalone proxy application restores functionality by:
 
 - Monitoring calls via Windows TAPI 2.x API (3CX Multi-Line TAPI driver) — **Desktop mode**
-- Monitoring calls via browser extension WebSocket relay — **Webclient mode**
-- Sending commands to 3CX via Named Pipes (TAPI) or WebSocket (Webclient)
+- Monitoring calls via browser extension WebSocket relay — **WebClient mode**
+- Sending commands to 3CX via Named Pipes (TAPI) or WebSocket (WebClient)
 - Communicating with DATEV via COM/ROT interfaces
 - Running as a lightweight system tray application
 
@@ -44,8 +44,8 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Troubleshooting Help** | Built-in help dialog with common problems and solutions |
 | **Command Line Options** | Silent mode, custom config paths, verbose logging for deployment |
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
-| **Webclient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
-| **Auto-Detection** | Automatic telephony mode selection (TAPI, Pipe, or Webclient) based on environment |
+| **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
+| **Auto-Detection** | Automatic telephony mode selection (TAPI, Pipe, or WebClient) based on environment |
 
 ## Requirements
 
@@ -53,7 +53,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 - .NET Framework 4.8
 - DATEV Arbeitsplatz with Telefonie component
 - **Desktop mode:** 3CX Windows Softphone App (V20) or later + 3CX Multi-Line TAPI driver
-- **Webclient mode:** Chrome or Edge browser with 3CX DATEV Connector extension
+- **WebClient mode:** Chrome or Edge browser with 3CX DATEV Connector extension
 - DATEV DLLs found in GAC:
   - `DATEV.Interop.DatevCtiBuddy.dll`
   - `Datev.Sdd.Data.ClientInterfaces.dll`
@@ -173,14 +173,14 @@ CallHistoryMaxEntries=5
 ActiveContactsOnly=false
 
 [Connection]
-; TelephonyMode: Auto, Tapi, Pipe, Webclient
-; Auto = detect best provider at startup (Webclient -> Pipe -> TAPI)
+; TelephonyMode: Auto, Tapi, Pipe, WebClient
+; Auto = detect best provider at startup (WebClient -> Pipe -> TAPI)
 TelephonyMode=Auto
 ; Auto-detection timeout in seconds
 AutoDetectionTimeoutSec=10
 ; Webclient extension connect timeout in seconds
 WebclientConnectTimeoutSec=8
-; Enable Webclient mode (browser extension via WebSocket)
+; Enable WebClient mode (browser extension via WebSocket)
 WebclientEnabled=true
 ; WebSocket port for browser extension connection
 WebclientWebSocketPort=19800
@@ -234,10 +234,10 @@ LogAsync=true
 | `CallHistoryOutbound` | false | [Settings] | Track outbound calls for re-journaling |
 | `CallHistoryMaxEntries` | 5 | [Settings] | Maximum entries per direction (circular buffer) |
 | `ActiveContactsOnly` | false | [Settings] | Only load contacts with Status ≠ 0 (inactive contacts excluded) |
-| `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Tapi`, `Pipe`, or `Webclient` |
+| `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Tapi`, `Pipe`, or `WebClient` |
 | `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
 | `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
-| `WebclientEnabled` | true | [Connection] | Enable/disable Webclient detection in Auto mode |
+| `WebclientEnabled` | true | [Connection] | Enable/disable WebClient detection in Auto mode |
 | `WebclientWebSocketPort` | 19800 | [Connection] | WebSocket port for browser extension connection |
 | `ReconnectIntervalSeconds` | 5 | [Connection] | Seconds between 3CX reconnection attempts |
 | `ConnectionTimeoutSeconds` | 30 | [Connection] | Connection timeout for named pipes |
@@ -358,7 +358,7 @@ The context menu uses a **dark theme** (matching the form/popup color scheme) wi
 Double-clicking the tray icon opens the **Call History** (Anrufliste) by default. This can be changed in Settings to open the Status Overview instead.
 
 The **Status Overview** (StatusForm) is accessible via the Status menu item and shows:
-- Card-based layout with DATEV (green), 3CX TAPI (blue), and Bridge (purple) sections
+- Card-based layout with DATEV (green), 3CX TAPI (blue), and Connector (purple) sections
 - Real-time status updates via event subscription
 - Per-line TAPI status with individual "Testen" buttons and progress feedback
 - Reconnect buttons for TAPI and "Testen" for full reconnect
@@ -385,7 +385,7 @@ The Settings dialog (right-click -> Einstellungen) is a single-page dashboard wi
 
 | Section | Settings |
 |---------|----------|
-| **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + Nebenstelle, Bridge combined status |
+| **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + Nebenstelle, Connector combined status |
 | **Pop-Up-Verhalten** | Journaling toggle, Eingehende/Ausgehende Anrufe, Journal-Popup, Ausgehende Journal-Popup, Modus selector (Beide/Formular/Balloon), Kontakt erneut delay |
 | **Erweitert** | Anrufer-ID Mindestlänge/Max. Vergleich, Anrufliste (Eingehend/Ausgehend) + Anzahl, DATEV "Aktive Kontakte" filter |
 
@@ -561,7 +561,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    AutoStartManager.cs           - Windows autostart (HKCU Run)     |
 |    CommandLineOptions.cs         - Command line argument parser      |
 |    LogPrefixes.cs                - Structured log message prefixes   |
-|    TelephonyMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/Webclient) |
+|    TelephonyMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/WebClient) |
 |    TelephonyProviderSelector.cs - Auto-detection logic              |
 |    Config/                                                           |
 |      AppConfig.cs                - Configuration defaults & access   |
@@ -585,7 +585,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |  Webclient/                                                          |
 |    Protocol.cs                   - JSON protocol (v1) types & parser |
 |    WebSocketBridgeServer.cs      - WebSocket server (port 19800)     |
-|    WebclientTelephonyProvider.cs - ITelephonyProvider for Webclient   |
+|    WebclientTelephonyProvider.cs - ITelephonyProvider for WebClient   |
 +----------------------------------------------------------------------+
 |  Interop/                                                            |
 |    Rot.cs                        - Running Object Table interop      |
@@ -630,7 +630,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
          |                |                              |
          | TAPI 2.x       | WebSocket                    | COM/ROT
          | (Desktop)       | ws://127.0.0.1:19800         | (per-session)
-         |                 | (Webclient)                  |
+         |                 | (WebClient)                  |
          | Named Pipe      |                              |
          | (MAKE-CALL)     |                              |
          v                 v                              v
@@ -836,7 +836,7 @@ This ensures uniqueness across application restarts (no sequential counter reuse
 | `DATEV_Institutionen` | Contact is a DATEV Institution |
 | `3CX` | Contact is not in DATEV (third-party / unmatched) |
 
-### Notifications (Bridge -> DATEV)
+### Notifications (Connector -> DATEV)
 
 | Method | When Called |
 |--------|-------------|
@@ -1021,7 +1021,7 @@ The following prefixes are used for structured logging (defined in `LogPrefixes.
 | Prefix | Description |
 |--------|-------------|
 | `DATEV -> Bridge` | Messages received from DATEV |
-| `Bridge -> DATEV` | Messages sent to DATEV |
+| `Connector -> DATEV` | Messages sent to DATEV |
 | `TAPI` | TAPI events and call state changes |
 | `User` | User-initiated actions |
 | `System` | System events (startup, shutdown) |
@@ -1053,14 +1053,14 @@ The following prefixes are used for structured logging (defined in `LogPrefixes.
 **Incoming Call Flow:**
 ```
 [INFO] RINGING: Incoming call 161-23012026-1030-0912387 from ********4567 (contact=Mueller GmbH)
-[INFO] Bridge -> DATEV: NewCall (Direction=eDirIncoming, Contact=Mueller GmbH)
+[INFO] Connector -> DATEV: NewCall (Direction=eDirIncoming, Contact=Mueller GmbH)
 [INFO] CONNECTED: Call 161-23012026-1030-0912387
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSConnected)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSConnected)
 [INFO] Contact reshow: Contact changed - new=Mueller Hans (SyncID=datev-123)
-[INFO] Bridge -> DATEV: CallAdressatChanged (Contact=Mueller Hans, DataSource=DATEV_Adressaten)
+[INFO] Connector -> DATEV: CallAdressatChanged (Contact=Mueller Hans, DataSource=DATEV_Adressaten)
 [INFO] DISCONNECTED: Call 161-23012026-1030-0912387
-[INFO] Bridge -> DATEV: CallStateChanged (State=eCSFinished)
-[INFO] Bridge -> DATEV: NewJournal (Duration=00:05:23, Contact=Mueller Hans)
+[INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
+[INFO] Connector -> DATEV: NewJournal (Duration=00:05:23, Contact=Mueller Hans)
 ```
 
 > **Note:** Phone numbers are masked in log output for privacy (default: last 5 digits visible). Configure via `LogMaskDigits` in `[Logging]` section. Set to `0` to disable masking.
@@ -1110,9 +1110,9 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 | DATEV SyncID lost | Ensure DATEV-initiated calls are using Dial command (not manual dialing) |
 | Short internal numbers triggering lookup | MinCallerIdLength auto-adjusts to extension length |
 | Fewer contacts than expected | If "Aktive Kontakte" is enabled, only contacts with Status ≠ 0 are loaded (inactive contacts excluded) — check setting |
-| Webclient: no calls forwarded | Ensure browser extension is installed, 3CX WebClient is open, and bridge is listening on port 19800 |
-| Webclient: empty extension in HELLO | Reload extension; ensure `localStorage.wc.provision` exists in the 3CX PWA origin |
-| Webclient: connection refused | Bridge not running or port 19800 blocked; check `Webclient.WebSocketPort` in INI |
+| WebClient: no calls forwarded | Ensure browser extension is installed, 3CX WebClient is open, and bridge is listening on port 19800 |
+| WebClient: empty extension in HELLO | Reload extension; ensure `localStorage.wc.provision` exists in the 3CX PWA origin |
+| WebClient: connection refused | Bridge not running or port 19800 blocked; check `Webclient.WebSocketPort` in INI |
 | Sync timestamp not updating | Reload contacts via Laden button — timestamp updates on successful load |
 | StatusForm shows disconnected after reconnect | Wait for event-based update (up to 6 seconds) or status will auto-refresh |
 

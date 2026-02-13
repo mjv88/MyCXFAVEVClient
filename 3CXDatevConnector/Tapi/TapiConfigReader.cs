@@ -143,7 +143,7 @@ namespace DatevConnector.Tapi
         {
             if (!IsTapiInstalled())
             {
-                LogManager.Log("Desktop = 3CXTAPI.ini nicht gefunden");
+                LogManager.Log("Desktop = False");
                 return null;
             }
 
