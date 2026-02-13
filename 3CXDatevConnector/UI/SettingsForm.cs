@@ -7,13 +7,14 @@ using DatevConnector.Core.Config;
 using DatevConnector.Datev;
 using DatevConnector.Datev.Managers;
 using DatevConnector.UI.Strings;
+using DatevConnector.UI.Theme;
 
 namespace DatevConnector.UI
 {
     /// <summary>
     /// Settings dialog - single-page dashboard layout
     /// </summary>
-    public class SettingsForm : Form
+    public class SettingsForm : ThemedForm
     {
         /// <summary>
         /// Which action the user requested before closing.
@@ -86,18 +87,10 @@ namespace DatevConnector.UI
 
         private void InitializeComponent()
         {
+            // ThemedForm base class handles: BackColor, ForeColor, FormBorderStyle,
+            // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Overview;
             Size = new Size(540, 554);
-            BackColor = UITheme.FormBackground;
-            ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            Font = UITheme.FontBody;
-            var appIcon = UITheme.GetFormIcon();
-            if (appIcon != null) { Icon = appIcon; ShowIcon = true; }
-            else ShowIcon = false;
 
             var root = new Panel
             {

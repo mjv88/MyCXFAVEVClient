@@ -97,16 +97,7 @@ namespace DatevConnector.Core.Config
         public static bool GetBool(string section, string key, bool defaultValue = false)
         {
             var value = GetString(section, key, null);
-            if (string.IsNullOrEmpty(value))
-                return defaultValue;
-
-            var lower = value.ToLowerInvariant();
-            if (lower == "true" || lower == "1" || lower == "yes")
-                return true;
-            if (lower == "false" || lower == "0" || lower == "no")
-                return false;
-
-            return defaultValue;
+            return ConfigParser.ParseBool(value) ?? defaultValue;
         }
 
         /// <summary>
