@@ -200,6 +200,7 @@ namespace DatevConnector.Webclient
             progressText?.Invoke("WebClient: Erweiterung getrennt");
 
             LineDisconnected?.Invoke(_virtualLine);
+            Disconnected?.Invoke();
         }
 
         /// <summary>

@@ -236,6 +236,8 @@ namespace DatevConnector.Core
             }
         }
 
+        private static int Clamp(int value, int min, int max) => Math.Max(min, Math.Min(value, max));
+
         private void ApplyDebugSetting(string key, string value, ref bool contactsDump, ref bool addressatContactsDump, ref bool institutionContactsDump)
         {
             switch (key)
@@ -262,12 +264,12 @@ namespace DatevConnector.Core
 
                 case "tapidebug":
                     if (int.TryParse(value, out int tapiLevel))
-                        TAPIDebugLevel = Math.Min(Math.Max(tapiLevel, 0), 3);
+                        TAPIDebugLevel = Clamp(tapiLevel, 0, 3);
                     break;
 
                 case "datevdebug":
                     if (int.TryParse(value, out int datevLevel))
-                        DATEVDebugLevel = Math.Min(Math.Max(datevLevel, 0), 3);
+                        DATEVDebugLevel = Clamp(datevLevel, 0, 3);
                     break;
 
                 default:
@@ -282,34 +284,34 @@ namespace DatevConnector.Core
             switch (key)
             {
                 case "reconnectintervalseconds":
-                    if (int.TryParse(value, out v)) ReconnectIntervalSeconds = Math.Max(1, Math.Min(v, 300));
+                    if (int.TryParse(value, out v)) ReconnectIntervalSeconds = Clamp(v, 1, 300);
                     break;
                 case "connectiontimeoutseconds":
-                    if (int.TryParse(value, out v)) ConnectionTimeoutSeconds = Math.Max(5, Math.Min(v, 300));
+                    if (int.TryParse(value, out v)) ConnectionTimeoutSeconds = Clamp(v, 5, 300);
                     break;
                 case "readtimeoutseconds":
-                    if (int.TryParse(value, out v)) ReadTimeoutSeconds = Math.Max(10, Math.Min(v, 600));
+                    if (int.TryParse(value, out v)) ReadTimeoutSeconds = Clamp(v, 10, 600);
                     break;
                 case "writetimeoutseconds":
-                    if (int.TryParse(value, out v)) WriteTimeoutSeconds = Math.Max(5, Math.Min(v, 300));
+                    if (int.TryParse(value, out v)) WriteTimeoutSeconds = Clamp(v, 5, 300);
                     break;
                 case "datevcircuitbreakerthreshold":
-                    if (int.TryParse(value, out v)) DatevCircuitBreakerThreshold = Math.Max(1, Math.Min(v, 10));
+                    if (int.TryParse(value, out v)) DatevCircuitBreakerThreshold = Clamp(v, 1, 10);
                     break;
                 case "datevcircuitbreakertimeoutseconds":
-                    if (int.TryParse(value, out v)) DatevCircuitBreakerTimeoutSeconds = Math.Max(10, Math.Min(v, 300));
+                    if (int.TryParse(value, out v)) DatevCircuitBreakerTimeoutSeconds = Clamp(v, 10, 300);
                     break;
                 case "sddmaxretries":
-                    if (int.TryParse(value, out v)) SddMaxRetries = Math.Max(0, Math.Min(v, 10));
+                    if (int.TryParse(value, out v)) SddMaxRetries = Clamp(v, 0, 10);
                     break;
                 case "sddretrydelayseconds":
-                    if (int.TryParse(value, out v)) SddRetryDelaySeconds = Math.Max(1, Math.Min(v, 30));
+                    if (int.TryParse(value, out v)) SddRetryDelaySeconds = Clamp(v, 1, 30);
                     break;
                 case "stalecalltimeoutminutes":
-                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Math.Max(30, Math.Min(v, 1440));
+                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Clamp(v, 30, 1440);
                     break;
                 case "stalependingtimeoutseconds":
-                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Math.Max(30, Math.Min(v, 3600));
+                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Clamp(v, 30, 3600);
                     break;
             }
         }
@@ -322,10 +324,10 @@ namespace DatevConnector.Core
             switch (key)
             {
                 case "contactreshowdelayseconds":
-                    if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Math.Max(0, Math.Min(v, 30));
+                    if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Clamp(v, 0, 30);
                     break;
                 case "lastcontactroutingminutes":
-                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Math.Max(0, Math.Min(v, 1440));
+                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Clamp(v, 0, 1440);
                     break;
             }
         }
@@ -337,16 +339,16 @@ namespace DatevConnector.Core
             switch (key)
             {
                 case "stalecalltimeoutminutes":
-                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Math.Max(30, Math.Min(v, 1440));
+                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Clamp(v, 30, 1440);
                     break;
                 case "stalependingtimeoutseconds":
-                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Math.Max(30, Math.Min(v, 3600));
+                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Clamp(v, 30, 3600);
                     break;
                 case "contactreshowdelayseconds":
-                    if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Math.Max(0, Math.Min(v, 30));
+                    if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Clamp(v, 0, 30);
                     break;
                 case "lastcontactroutingminutes":
-                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Math.Max(0, Math.Min(v, 1440));
+                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Clamp(v, 0, 1440);
                     break;
             }
         }

@@ -13,11 +13,12 @@ namespace DatevConnector.UI
 {
     /// <summary>
     /// First-run setup wizard for initial configuration.
-    /// Guides user through TAPI line selection, DATEV connection test, and autostart setup.
+    /// Auto-detects the telephony provider and guides user through
+    /// provider verification, DATEV connection test, and autostart setup.
     /// </summary>
     public class SetupWizardForm : Form
     {
-        private const int TOTAL_STEPS = 5;
+        private const int TOTAL_STEPS = 4;
 
         private int _currentStep = 1;
         private readonly Panel _contentPanel;
@@ -26,21 +27,15 @@ namespace DatevConnector.UI
         private readonly Button _btnNext;
         private readonly ConnectorService _bridgeService;
 
-        // Step 2: Mode Selection
-        private RadioButton _rbModeAuto;
-        private RadioButton _rbModeTapi;
-        private RadioButton _rbModePipe;
-        private RadioButton _rbModeWebclient;
-
-        // Step 3: TAPI / Pipe / Webclient config
+        // Step 2: TAPI / Pipe / Webclient config
         private ComboBox _cboTapiLine;
         private Label _lblTapiStatus;
 
-        // Step 4: DATEV
+        // Step 3: DATEV
         private Label _lblDatevStatus;
         private bool _datevOk;
 
-        // Step 5: Finish
+        // Step 4: Finish
         private CheckBox _chkAutoStart;
 
         public SetupWizardForm(ConnectorService bridgeService = null)
@@ -125,15 +120,12 @@ namespace DatevConnector.UI
                     ShowWelcomePage();
                     break;
                 case 2:
-                    ShowModeSelectionPage();
-                    break;
-                case 3:
                     ShowProviderConfigPage();
                     break;
-                case 4:
+                case 3:
                     ShowDatevPage();
                     break;
-                case 5:
+                case 4:
                     ShowFinishPage();
                     break;
             }
@@ -167,11 +159,25 @@ namespace DatevConnector.UI
             _contentPanel.Controls.Add(lblWelcome);
             y += 70;
 
-            // Feature list
+            // Feature list based on detected mode
+            var detectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            string providerFeature;
+            switch (detectedMode)
+            {
+                case TelephonyMode.WebClient:
+                    providerFeature = UIStrings.Wizard.FeatureWebclient;
+                    break;
+                case TelephonyMode.Pipe:
+                    providerFeature = UIStrings.Wizard.FeaturePipe;
+                    break;
+                default:
+                    providerFeature = SessionManager.IsTerminalSession ? UIStrings.Wizard.FeaturePipe : UIStrings.Wizard.FeatureTapi;
+                    break;
+            }
+
             var features = new[]
             {
-                UIStrings.Wizard.ModeSelectionDesc,
-                SessionManager.IsTerminalSession ? UIStrings.Wizard.FeaturePipe : UIStrings.Wizard.FeatureTapi,
+                providerFeature,
                 UIStrings.Wizard.FeatureDatev,
                 UIStrings.Wizard.FeatureAutostart
             };
@@ -189,136 +195,28 @@ namespace DatevConnector.UI
                 _contentPanel.Controls.Add(lblFeature);
                 y += 24;
             }
-        }
 
-        // ========== STEP 2: MODE SELECTION ==========
-
-        private void ShowModeSelectionPage()
-        {
-            int y = LayoutConstants.SpaceLG;
-
-            var lblTitle = new Label
+            // Show detected environment
+            y += 10;
+            string envLabel = GetEnvironmentLabel(detectedMode);
+            var lblEnv = new Label
             {
-                Text = UIStrings.Wizard.ModeSelectionTitle,
-                Font = UITheme.FontLarge,
-                ForeColor = UITheme.AccentIncoming,
+                Text = string.Format(UIStrings.Troubleshooting.DetectedEnvironmentFormat, envLabel),
+                Font = UITheme.FontItalic,
+                ForeColor = UITheme.TextMuted,
                 Location = new Point(LayoutConstants.SpaceLG, y),
                 AutoSize = true
             };
-            _contentPanel.Controls.Add(lblTitle);
-            y += 35;
-
-            var lblDesc = new Label
-            {
-                Text = UIStrings.Wizard.ModeSelectionDesc,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblDesc);
-            y += 30;
-
-            // Radio buttons for each mode
-            _rbModeAuto = new RadioButton
-            {
-                Text = UIStrings.Wizard.ModeOptionAuto,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG + 8, y),
-                AutoSize = true,
-                Checked = true
-            };
-            _contentPanel.Controls.Add(_rbModeAuto);
-            y += 28;
-
-            _rbModeTapi = new RadioButton
-            {
-                Text = UIStrings.Wizard.ModeOptionTapi,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG + 8, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(_rbModeTapi);
-            y += 28;
-
-            _rbModePipe = new RadioButton
-            {
-                Text = UIStrings.Wizard.ModeOptionPipe,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG + 8, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(_rbModePipe);
-            y += 28;
-
-            _rbModeWebclient = new RadioButton
-            {
-                Text = UIStrings.Wizard.ModeOptionWebclient,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG + 8, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(_rbModeWebclient);
-            y += 35;
-
-            // Copy diagnostics button
-            string diagnostics = _bridgeService?.DetectionDiagnostics;
-            if (!string.IsNullOrEmpty(diagnostics))
-            {
-                var btnCopyDiag = UITheme.CreateSecondaryButton(UIStrings.Wizard.CopyDiagnostics, 160);
-                btnCopyDiag.Location = new Point(LayoutConstants.SpaceLG, y);
-                btnCopyDiag.Click += (s, e) =>
-                {
-                    try
-                    {
-                        Clipboard.SetText(diagnostics);
-                        ((Button)s).Text = UIStrings.Wizard.DiagnosticsCopied;
-                    }
-                    catch { }
-                };
-                _contentPanel.Controls.Add(btnCopyDiag);
-            }
-
-            // Pre-select based on current config
-            var currentMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-            switch (currentMode)
-            {
-                case TelephonyMode.Tapi: _rbModeTapi.Checked = true; break;
-                case TelephonyMode.Pipe: _rbModePipe.Checked = true; break;
-                case TelephonyMode.WebClient: _rbModeWebclient.Checked = true; break;
-                default: _rbModeAuto.Checked = true; break;
-            }
+            _contentPanel.Controls.Add(lblEnv);
         }
 
-        private TelephonyMode GetSelectedMode()
-        {
-            if (_rbModeTapi != null && _rbModeTapi.Checked) return TelephonyMode.Tapi;
-            if (_rbModePipe != null && _rbModePipe.Checked) return TelephonyMode.Pipe;
-            if (_rbModeWebclient != null && _rbModeWebclient.Checked) return TelephonyMode.WebClient;
-            return TelephonyMode.Auto;
-        }
-
-        // ========== STEP 3: PROVIDER CONFIG (TAPI / PIPE / WEBCLIENT) ==========
+        // ========== STEP 2: PROVIDER CONFIG (AUTO-DETECTED) ==========
 
         private void ShowProviderConfigPage()
         {
-            var selectedMode = GetSelectedMode();
+            var detectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
 
-            // If Auto, show the appropriate page based on environment
-            if (selectedMode == TelephonyMode.Auto)
-            {
-                if (SessionManager.IsTerminalSession)
-                    ShowPipePage();
-                else
-                    ShowTapiPage();
-                return;
-            }
-
-            switch (selectedMode)
+            switch (detectedMode)
             {
                 case TelephonyMode.WebClient:
                     ShowWebclientPage();
@@ -327,13 +225,19 @@ namespace DatevConnector.UI
                     ShowPipePage();
                     break;
                 case TelephonyMode.Tapi:
-                default:
                     ShowTapiPage();
+                    break;
+                default:
+                    // Auto mode: pick based on environment
+                    if (SessionManager.IsTerminalSession)
+                        ShowPipePage();
+                    else
+                        ShowTapiPage();
                     break;
             }
         }
 
-        // ========== TAPI / PIPE CONFIG ==========
+        // ========== TAPI / PIPE / WEBCLIENT CONFIG ==========
 
         private void ShowTapiPage()
         {
@@ -489,8 +393,6 @@ namespace DatevConnector.UI
             _contentPanel.Controls.Add(lblSoftphone);
         }
 
-        // ========== WEBCLIENT CONFIG ==========
-
         private void ShowWebclientPage()
         {
             int y = LayoutConstants.SpaceLG;
@@ -532,7 +434,7 @@ namespace DatevConnector.UI
 
             // Connection status
             bool webclientConnected = _bridgeService?.TapiConnected ?? false;
-            var selectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
 
             _lblTapiStatus = new Label
             {
@@ -541,7 +443,7 @@ namespace DatevConnector.UI
                 Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
             };
 
-            if (selectedMode == TelephonyMode.WebClient && webclientConnected)
+            if (activeMode == TelephonyMode.WebClient && webclientConnected)
             {
                 _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
                 _lblTapiStatus.ForeColor = UITheme.StatusOk;
@@ -711,12 +613,11 @@ namespace DatevConnector.UI
         {
             var lines = new System.Text.StringBuilder();
 
-            // Telephony mode
-            var selectedMode = GetSelectedMode();
-            lines.AppendLine(string.Format("Modus: {0}", TelephonyProviderSelector.GetModeDescription(selectedMode)));
+            // Telephony mode (auto-detected)
+            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            lines.AppendLine(string.Format("Modus: {0}", TelephonyProviderSelector.GetModeDescription(activeMode)));
 
             // 3CX connection status
-            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
             bool connected = _bridgeService?.TapiConnected ?? false;
 
             switch (activeMode)
@@ -783,10 +684,9 @@ namespace DatevConnector.UI
                     SetAutoStart(_chkAutoStart.Checked);
                 }
 
-                // Save selected telephony mode
-                var mode = GetSelectedMode();
-                AppConfig.Set(ConfigKeys.TelephonyMode, mode.ToString());
-                LogManager.Log("SetupWizard: TelephonyMode set to {0}", mode);
+                // Always use Auto mode (auto-detection)
+                AppConfig.Set(ConfigKeys.TelephonyMode, TelephonyMode.Auto.ToString());
+                LogManager.Log("SetupWizard: TelephonyMode set to Auto");
 
                 LogManager.Log("SetupWizard: Configuration completed");
             }
@@ -796,7 +696,18 @@ namespace DatevConnector.UI
             }
         }
 
-        // ========== AUTOSTART ==========
+        // ========== HELPERS ==========
+
+        private static string GetEnvironmentLabel(TelephonyMode mode)
+        {
+            switch (mode)
+            {
+                case TelephonyMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case TelephonyMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case TelephonyMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
+                default: return UIStrings.Troubleshooting.EnvAuto;
+            }
+        }
 
         private bool IsAutoStartEnabled() => AutoStartManager.IsEnabled();
 

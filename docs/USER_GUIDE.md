@@ -88,6 +88,8 @@ The wizard shows the browser extension connection status:
 - Whether the extension is connected via WebSocket (port 19800)
 - Installation instructions for Chrome/Edge
 
+> **Extension Popup:** Click the extension icon in the browser toolbar to see a dark-themed popup showing live WebSocket connection status (green/yellow/red dot), the bold extension number, and a configurable DATEV Auto-DIAL delay (default: 750 ms).
+
 ### Step 4 — DATEV Connection Test
 
 The wizard tests connectivity to DATEV:
@@ -273,7 +275,7 @@ Open Settings via tray menu → **Einstellungen**.
 | Modus | Auto | Connection mode: Auto, TAPI, Pipe, or WebClient |
 | Aktiver Modus | (read-only) | Shows currently active telephony provider |
 
-> **Note:** Changing the telephony mode requires an application restart.
+> **Note:** Changing the telephony mode takes effect immediately after clicking Save. The UI updates instantly and the connector switches providers on the next reconnect cycle.
 
 ---
 
@@ -412,6 +414,8 @@ In multi-user terminal server environments:
 | Call history empty | Only DATEV-matched calls are stored. Ensure contacts are loaded |
 | Short internal numbers triggering lookup | `MinCallerIdLength` auto-adjusts to extension length |
 | Fewer contacts than expected | If "Aktive Kontakte" is enabled, inactive contacts (Status = 0) are excluded |
+| Mode label not updating after save | Mode labels update immediately — if stuck, reopen the Settings or Status form |
+| WebClient still shows connected after extension closed | Disconnect propagates automatically to tray, StatusForm, and SettingsForm |
 
 For detailed diagnostics, enable verbose logging:
 

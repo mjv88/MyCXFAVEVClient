@@ -35,6 +35,7 @@ namespace DatevConnector.UI
 
         // Track the current open popup for closing on connect
         private static CallerPopupForm _currentPopup;
+        private static readonly object _popupLock = new object();
 
         // System tray icon reference for balloon notifications
         private static NotifyIcon _notifyIcon;
@@ -236,37 +237,39 @@ namespace DatevConnector.UI
         {
             try
             {
-                if (_currentPopup != null && !_currentPopup.IsDisposed)
+                CallerPopupForm popupToClose;
+                lock (_popupLock)
                 {
-                    if (_uiContext != null)
+                    popupToClose = _currentPopup;
+                    if (popupToClose == null || popupToClose.IsDisposed)
+                        return;
+                    _currentPopup = null;
+                }
+
+                if (_uiContext != null)
+                {
+                    _uiContext.Post(_ =>
                     {
-                        _uiContext.Post(_ =>
+                        if (!popupToClose.IsDisposed)
                         {
-                            if (_currentPopup != null && !_currentPopup.IsDisposed)
-                            {
-                                var popup = _currentPopup;
-                                _currentPopup = null;
-                                popup.Close();
-                                popup.Dispose();
-                            }
-                        }, null);
-                    }
-                    else if (Application.OpenForms.Count > 0)
-                    {
-                        var mainForm = Application.OpenForms[0];
-                        if (mainForm.InvokeRequired)
-                        {
-                            mainForm.BeginInvoke(new Action(() =>
-                            {
-                                if (_currentPopup != null && !_currentPopup.IsDisposed)
-                                {
-                                    var popup = _currentPopup;
-                                    _currentPopup = null;
-                                    popup.Close();
-                                    popup.Dispose();
-                                }
-                            }));
+                            popupToClose.Close();
+                            popupToClose.Dispose();
                         }
+                    }, null);
+                }
+                else if (Application.OpenForms.Count > 0)
+                {
+                    var mainForm = Application.OpenForms[0];
+                    if (mainForm.InvokeRequired)
+                    {
+                        mainForm.BeginInvoke(new Action(() =>
+                        {
+                            if (!popupToClose.IsDisposed)
+                            {
+                                popupToClose.Close();
+                                popupToClose.Dispose();
+                            }
+                        }));
                     }
                 }
             }
@@ -334,7 +337,12 @@ namespace DatevConnector.UI
             bool isIncoming)
         {
             // Close and dispose any existing popup first
-            var oldPopup = _currentPopup;
+            CallerPopupForm oldPopup;
+            lock (_popupLock)
+            {
+                oldPopup = _currentPopup;
+                _currentPopup = null;
+            }
             if (oldPopup != null && !oldPopup.IsDisposed)
             {
                 oldPopup.Close();
@@ -347,13 +355,22 @@ namespace DatevConnector.UI
                 direction, LogManager.Mask(callerNumber), contactName);
 
             var popup = new CallerPopupForm(callerNumber, callerName, contactInfo, isIncoming);
-            _currentPopup = popup;
-            popup.FormClosed += (s, e) =>
+            FormClosedEventHandler handler = null;
+            handler = (s, e) =>
             {
-                if (_currentPopup == popup)
-                    _currentPopup = null;
+                ((Form)s).FormClosed -= handler;
+                lock (_popupLock)
+                {
+                    if (_currentPopup == popup)
+                        _currentPopup = null;
+                }
                 ((Form)s).Dispose();
             };
+            popup.FormClosed += handler;
+            lock (_popupLock)
+            {
+                _currentPopup = popup;
+            }
             popup.Show();
         }
     }

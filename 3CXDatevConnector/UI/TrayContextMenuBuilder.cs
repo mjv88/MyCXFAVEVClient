@@ -56,7 +56,7 @@ namespace DatevConnector.UI
             menu.Items.Add(new ToolStripMenuItem(UIStrings.MenuItems.Settings) { Name = "settingsItem" });
 
             // Help submenu
-            var helpMenu = new ToolStripMenuItem(UIStrings.MenuItems.Help);
+            var helpMenu = new ToolStripMenuItem(UIStrings.MenuItems.Help) { Name = "helpMenu" };
             helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.Troubleshooting) { Name = "helpItem" });
             helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.OpenLog) { Name = "logItem" });
             helpMenu.DropDownItems.Add(new ToolStripMenuItem(UIStrings.MenuItems.RunSetupWizard) { Name = "wizardItem" });

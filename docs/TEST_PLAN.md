@@ -328,6 +328,54 @@ WebClient Extension Detection: XXX
 
 ---
 
+### TC-12a: Extension Disconnect Updates UI (WebClient only)
+
+**Preconditions:** Environment 3 only. Connector running with WebClient mode active. StatusForm and/or SettingsForm open.
+
+**Steps:**
+
+1. Verify UI shows connected state (green tray icon, "Verbunden" in StatusForm/SettingsForm)
+2. Close the browser or disable the browser extension
+3. Observe tray icon, StatusForm, and SettingsForm
+
+**Expected log output:**
+
+```
+WebClient Connector: Extension disconnected
+```
+
+**Expected UI behavior:**
+- Tray icon changes to red/orange
+- Tray balloon notification shows "Getrennt" (if notifications enabled)
+- StatusForm updates to disconnected state
+- SettingsForm mode/status labels update
+
+**Pass criteria:** All UI elements update within 1-2 seconds of extension disconnect without user interaction.
+
+---
+
+### TC-12b: Telephony Mode Change via Settings
+
+**Preconditions:** Connector running. SettingsForm open.
+
+**Steps:**
+
+1. Note the current telephony mode displayed in SettingsForm (e.g., "TAPI" or "Auto")
+2. Change the telephony mode dropdown to a different value (e.g., "WebClient")
+3. Click Save
+4. Observe the mode label in SettingsForm immediately after save
+5. Open StatusForm and verify the mode label there
+
+**Expected behavior:**
+- Mode label in SettingsForm updates immediately after Save (no restart needed)
+- Mode label in StatusForm shows the new mode
+- Log shows: `Settings: TelephonyMode changed to WebClient`
+- Connector switches providers on next reconnect cycle
+
+**Pass criteria:** Mode label updates instantly in both forms without application restart.
+
+---
+
 ### TC-13: Silent Mode Toggle
 
 **Preconditions:** Connector running.
@@ -345,19 +393,25 @@ WebClient Extension Detection: XXX
 
 ---
 
-### TC-14: Settings Change — Dial Delay (WebClient only)
+### TC-14: Extension Popup — Dark Theme & Status (WebClient only)
 
 **Preconditions:** Environment 3 only. Browser extension installed.
 
 **Steps:**
 
 1. Click the extension icon in Chrome/Edge toolbar
-2. Change the "Wählverzögerung" value (default: 750ms)
-3. Click "Speichern"
-4. Initiate a Click-to-Dial from DATEV
-5. Verify the delay is applied before the dial command is sent
+2. Verify dark theme popup renders (background `#2D2D30`, white text)
+3. Verify status bar shows connection state:
+   - Green dot + "Connected" when connector is running and connected
+   - Red dot + "Disconnected" when connector is stopped
+   - Yellow dot + "Connecting..." during connection attempt
+4. Verify extension number shows bold (right-aligned in status bar), or "—" if not detected
+5. Change the "DATEV Auto-DIAL" delay value (default: 750 ms)
+6. Click "Save" — button should flash green briefly
+7. Close and reopen popup — saved value should persist
+8. Click "Reload Extension" — extension should reload
 
-**Pass criteria:** Dial delay matches the configured value. Extension popup shows the saved value on reopen.
+**Pass criteria:** Dark theme matches main app. Status dot reflects live WebSocket state. Dial delay persists across popup opens.
 
 ---
 

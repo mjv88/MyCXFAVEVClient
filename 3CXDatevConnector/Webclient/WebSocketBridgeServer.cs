@@ -136,51 +136,70 @@ namespace DatevConnector.Webclient
             using (var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
-                TcpClient client = null;
 
-                try
+                // Loop to handle pre-WebSocket HTTP probes from the browser extension.
+                // The extension sends a plain GET to check port reachability before opening
+                // a real WebSocket — that probe fails the handshake but should not abort detection.
+                while (!timeoutCts.IsCancellationRequested)
                 {
-                    client = await AcceptAsync(timeoutCts.Token);
-                    if (client == null) return false;
+                    TcpClient client = null;
 
-                    if (!await SetupClientAsync(client)) return false;
-
-                    // Wait for HELLO
-                    var helloTcs = new TaskCompletionSource<bool>();
-                    Action<string> onHello = _ => helloTcs.TrySetResult(true);
-                    HelloReceived += onHello;
-
-                    // Start reading in background (uses outer ct so it survives beyond TryAccept return)
-                    var readTask = ReadLoopAsync(_conn.Stream, ct);
-
-                    var helloWait = await Task.WhenAny(
-                        helloTcs.Task,
-                        Task.Delay(TimeSpan.FromSeconds(timeoutSec), ct));
-
-                    HelloReceived -= onHello;
-
-                    if (helloWait == helloTcs.Task && helloTcs.Task.Result)
+                    try
                     {
-                        LogManager.Debug("WebClient Connector: TryAccept succeeded");
-                        StopListener(); // Release port — client connection stays alive
-                        return true;
-                    }
+                        client = await AcceptAsync(timeoutCts.Token);
+                        if (client == null) return false;
 
-                    LogManager.Log("WebClient Connector: TryAccept failed (no HELLO)");
-                    DisconnectClient(client);
-                    return false;
+                        if (!await SetupClientAsync(client))
+                        {
+                            // Handshake failed (HTTP probe) — accept next connection
+                            continue;
+                        }
+
+                        // Wait for HELLO
+                        var helloTcs = new TaskCompletionSource<bool>();
+                        Action<string> onHello = _ => helloTcs.TrySetResult(true);
+                        HelloReceived += onHello;
+
+                        try
+                        {
+                            // Start reading in background (uses outer ct so it survives beyond TryAccept return)
+                            var readTask = ReadLoopAsync(_conn.Stream, ct);
+
+                            var helloWait = await Task.WhenAny(
+                                helloTcs.Task,
+                                Task.Delay(Timeout.Infinite, timeoutCts.Token));
+
+                            if (helloWait == helloTcs.Task && helloTcs.Task.Result)
+                            {
+                                LogManager.Debug("WebClient Connector: TryAccept succeeded");
+                                StopListener(); // Release port — client connection stays alive
+                                return true;
+                            }
+
+                            LogManager.Log("WebClient Connector: TryAccept failed (no HELLO)");
+                            DisconnectClient(client);
+                            return false;
+                        }
+                        finally
+                        {
+                            HelloReceived -= onHello;
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (client != null) DisconnectClient(client);
+                        return false;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManager.Log("WebClient Connector: TryAccept error - {0}", ex.Message);
+                        if (client != null) DisconnectClient(client);
+                        // Continue loop to try next connection within timeout
+                    }
                 }
-                catch (OperationCanceledException)
-                {
-                    if (client != null) DisconnectClient(client);
-                    return false;
-                }
-                catch (Exception ex)
-                {
-                    LogManager.Log("WebClient Connector: TryAccept error - {0}", ex.Message);
-                    if (client != null) DisconnectClient(client);
-                    return false;
-                }
+
+                LogManager.Log("WebClient Connector: TryAccept timed out ({0}s)", timeoutSec);
+                return false;
             }
         }
 
@@ -240,7 +259,19 @@ namespace DatevConnector.Webclient
 
             string request = Encoding.ASCII.GetString(buffer, 0, totalRead);
             var match = Regex.Match(request, @"Sec-WebSocket-Key:\s*(\S+)", RegexOptions.IgnoreCase);
-            if (!match.Success) return false;
+            if (!match.Success)
+            {
+                // Respond to plain HTTP requests (extension uses fetch probe to check port
+                // reachability before opening a WebSocket, avoiding chrome://extensions errors).
+                if (request.StartsWith("GET ", StringComparison.OrdinalIgnoreCase) ||
+                    request.StartsWith("HEAD ", StringComparison.OrdinalIgnoreCase))
+                {
+                    const string httpResponse = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK";
+                    byte[] httpBytes = Encoding.ASCII.GetBytes(httpResponse);
+                    try { await stream.WriteAsync(httpBytes, 0, httpBytes.Length); } catch { }
+                }
+                return false;
+            }
 
             string acceptKey;
             using (var sha1 = SHA1.Create())
@@ -524,8 +555,10 @@ namespace DatevConnector.Webclient
         {
             if (_disposed) return;
             _disposed = true;
-            try { _conn.Stream?.Close(); } catch { }
-            try { _conn.Client?.Close(); } catch { }
+            try { _conn.Stream?.Close(); }
+            catch (Exception ex) { LogManager.Debug("WebClient Connector: Stream close error during dispose - {0}", ex.Message); }
+            try { _conn.Client?.Close(); }
+            catch (Exception ex) { LogManager.Debug("WebClient Connector: Client close error during dispose - {0}", ex.Message); }
             _conn.Reset();
             StopListener();
         }

@@ -15,6 +15,9 @@ let helloRetryTimer = null;
 let helloRetryCount = 0;
 let reconnectTimer = null;
 let reconnectDelay = RECONNECT_DELAY_MS;
+const MAX_COLD_RETRIES = 3;     // Max reconnect attempts when never connected
+let hasEverConnected = false;    // Set true on first successful ws.onopen
+let coldRetryCount = 0;          // Tracks failed attempts before first success
 let configuredExtension = "";
 let detectedExtension = "";
 let detectedDomain = "";
@@ -57,24 +60,54 @@ function resolveExtensionNumber() {
 
 // ===== WebSocket transport =====
 
-function connectBridge() {
+// Probe port with fetch before opening a WebSocket. Fetch errors are silently
+// catchable and do NOT appear on chrome://extensions, unlike WebSocket
+// ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
+async function isPortReachable() {
+  try {
+    await fetch(`http://127.0.0.1:${bridgePort}/`, {
+      signal: AbortSignal.timeout(2000)
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let connectingInProgress = false;
+
+async function connectBridge() {
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
     return ws;
   }
+  if (connectingInProgress) return null;
+  connectingInProgress = true;
 
   const url = `ws://127.0.0.1:${bridgePort}`;
   logDebug("Connecting to bridge", url);
+
+  if (!(await isPortReachable())) {
+    logDebug("Port probe failed — server not reachable");
+    connectingInProgress = false;
+    scheduleReconnect();
+    return null;
+  }
 
   try {
     ws = new WebSocket(url);
   } catch (err) {
     console.warn("[3CX-DATEV-C][bg] WebSocket create failed", err);
+    connectingInProgress = false;
     scheduleReconnect();
     return null;
   }
 
+  connectingInProgress = false;
+
   ws.onopen = () => {
     logDebug("WebSocket connected");
+    hasEverConnected = true;
+    coldRetryCount = 0;
     reconnectDelay = RECONNECT_DELAY_MS; // reset backoff on success
     helloSent = false;
     helloAcked = false;
@@ -120,11 +153,11 @@ function connectBridge() {
 
 function sendBridge(message) {
   try {
-    const socket = connectBridge();
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connectBridge(); // async — initiates probe + connection for future sends
       return false;
     }
-    socket.send(JSON.stringify(message));
+    ws.send(JSON.stringify(message));
     logDebug("Extension -> bridge", message);
     return true;
   } catch (err) {
@@ -135,6 +168,15 @@ function sendBridge(message) {
 
 function scheduleReconnect() {
   if (reconnectTimer) return;
+
+  if (!hasEverConnected) {
+    coldRetryCount++;
+    if (coldRetryCount > MAX_COLD_RETRIES) {
+      logDebug("Cold reconnect limit reached — waiting for new webclient activity");
+      return;
+    }
+  }
+
   logDebug("Scheduling reconnect", { delay: reconnectDelay });
 
   reconnectTimer = setTimeout(() => {
@@ -647,9 +689,21 @@ function parse3cxFrame(payload) {
 
 // ===== Message listeners =====
 
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "GET_STATUS") {
+    sendResponse({
+      wsState: ws ? ws.readyState : 3,
+      helloAcked,
+      extension: configuredExtension || detectedExtension || null
+    });
+    return true;
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg, sender) => {
   // Handle provision data from content script (localStorage auto-detect)
   if (msg?.type === "3CX_PROVISION" && msg.provision) {
+    coldRetryCount = 0;
     const prov = msg.provision;
     const extensionChanged = prov.extension && !configuredExtension && prov.extension !== detectedExtension;
 
@@ -688,6 +742,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
   if (!msg || msg.type !== "3CX_RAW_SIGNAL") return;
 
+  coldRetryCount = 0;
   const sourceTabId = sender?.tab?.id ?? "";
   if (sourceTabId) webclientTabId = sourceTabId; // track active 3CX tab
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
@@ -753,6 +808,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
     });
     if (changes.extensionNumber || portChanged) {
+      coldRetryCount = 0;
       // Close existing connection so it reconnects with new settings
       if (ws) {
         try { ws.close(); } catch {}

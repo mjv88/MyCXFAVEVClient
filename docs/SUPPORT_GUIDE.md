@@ -37,7 +37,7 @@ The connector is a .NET Framework 4.8 WinForms system tray application (x86) tha
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| **ConnectorService** | `Core/ConnectorService.cs` | Central orchestrator — wires TAPI, DATEV, and UI |
+| **ConnectorService** | `Core/ConnectorService.cs` | Central orchestrator — wires TAPI, DATEV, and UI; events: `StatusChanged`, `ModeChanged` |
 | **TapiLineMonitor** | `Tapi/TapiLineMonitor.cs` | TAPI 2.x call event monitoring |
 | **PipeTelephonyProvider** | `Tapi/PipeTelephonyProvider.cs` | Named pipe server for 3CX commands |
 | **TapiPipeServer** | `Tapi/TapiPipeServer.cs` | Low-level pipe I/O |
@@ -353,6 +353,7 @@ File changed → Debounce (300ms) → Parse INI → Validate → Apply
 | Section | Settings | Effect |
 |---------|----------|--------|
 | `[Debug]` | `VerboseLogging`, `Contacts`, `TAPIDebug`, `DATEVDebug` | Immediate |
+| `[Connection]` | `TelephonyMode` | Immediate UI update via `ModeChanged` event; provider switch on next reconnect cycle |
 | `[Connection]` | All timeout/retry values | Next connection attempt |
 | `[Settings]` | `ContactReshowDelaySeconds`, `LastContactRoutingMinutes` | Next call event |
 
@@ -439,6 +440,24 @@ Files are written to `%AppData%\3CXDATEVConnector\`:
 [INFO] DISCONNECTED: Call 161-04022026-1435-4829173
 [INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
 ```
+
+### WebClient Extension Disconnect
+
+```
+[INFO] WebClient Connector: Close frame received from extension
+[INFO] WebClient Connector: Extension disconnected
+[INFO] Connector status: Disconnected
+```
+
+After disconnect, the connector enters a reconnect loop, waiting for the extension to reconnect:
+
+```
+[INFO] WebClient: Warte auf Erweiterung (WebSocket)...
+[INFO] WebClient Connector: Handshake complete (extension=101)
+[INFO] Connector status: Connected
+```
+
+All UI forms (StatusForm, SettingsForm, tray icon) update automatically via the `StatusChanged` event. Tray balloon notifications are shown for both connect and disconnect transitions (if notifications are enabled).
 
 ### Circuit Breaker Activation
 

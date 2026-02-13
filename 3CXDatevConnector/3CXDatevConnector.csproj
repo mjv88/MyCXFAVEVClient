@@ -42,7 +42,6 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
-    
     <!-- DATEV DLLs from GAC -->
     <Reference Include="DATEV.Interop.DatevCtiBuddy, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cbc631f1c682336b">
       <EmbedInteropTypes>False</EmbedInteropTypes>
@@ -53,10 +52,8 @@
   <ItemGroup>
     <!-- Assembly Info -->
     <Compile Include="Properties\AssemblyInfo.cs" />
-
     <!-- Entry Point -->
     <Compile Include="Program.cs" />
-    
     <!-- Core -->
     <Compile Include="Core\CallEventProcessor.cs" />
     <Compile Include="Core\ConnectorService.cs" />
@@ -78,23 +75,18 @@
     <Compile Include="Core\CommandLineOptions.cs" />
     <Compile Include="Core\EventHelper.cs" />
     <Compile Include="Core\MemoryOptimizer.cs" />
-
     <!-- Core - Config -->
     <Compile Include="Core\Config\AppConfig.cs" />
     <Compile Include="Core\Config\ConfigParser.cs" />
     <Compile Include="Core\Config\IniConfig.cs" />
-
     <!-- Core - Constants -->
     <Compile Include="Core\Constants\IntegrationConstants.cs" />
-
     <!-- Core - Exceptions -->
     <Compile Include="Core\Exceptions\TapiException.cs" />
     <Compile Include="Core\Exceptions\DatevException.cs" />
-
     <!-- Core - Telephony Mode -->
     <Compile Include="Core\TelephonyMode.cs" />
     <Compile Include="Core\TelephonyProviderSelector.cs" />
-
     <!-- TAPI -->
     <Compile Include="Tapi\ITelephonyProvider.cs" />
     <Compile Include="Tapi\TapiLineMonitor.cs" />
@@ -104,34 +96,27 @@
     <Compile Include="Tapi\TapiCommands.cs" />
     <Compile Include="Tapi\TapiCallState.cs" />
     <Compile Include="Tapi\TapiConfigReader.cs" />
-
     <!-- Webclient (Browser Extension) -->
     <Compile Include="Webclient\Protocol.cs" />
     <Compile Include="Webclient\WebSocketBridgeServer.cs" />
     <Compile Include="Webclient\WebclientTelephonyProvider.cs" />
-    
     <!-- DATEV COMs -->
     <Compile Include="Datev\COMs\CallData.cs" />
     <Compile Include="Datev\COMs\DatevAdapter.cs" />
-
     <!-- DATEV Enums -->
     <Compile Include="Datev\Enums\DatevEventType.cs" />
-
     <!-- DATEV Managers -->
     <Compile Include="Datev\Managers\NotificationManager.cs" />
     <Compile Include="Datev\Managers\AdapterManager.cs" />
     <Compile Include="Datev\Managers\CallDataManager.cs" />
     <Compile Include="Datev\Managers\DatevContactManager.cs" />
     <Compile Include="Datev\Managers\LogManager.cs" />
-    
     <!-- DATEV Constants -->
     <Compile Include="Datev\Constants\CommonParameters.cs" />
     <Compile Include="Datev\Constants\DatevDataSource.cs" />
-    
     <!-- DATEV Cache & Connection -->
     <Compile Include="Datev\DatevCache.cs" />
     <Compile Include="Datev\DatevConnectionChecker.cs" />
-    
     <!-- DATEV Data Models -->
     <Compile Include="Datev\DatevData\Communication.cs" />
     <Compile Include="Datev\DatevData\Enums\ContactType.cs" />
@@ -141,40 +126,56 @@
     <Compile Include="Datev\DatevData\Recipients\RecipientsContactList.cs" />
     <Compile Include="Datev\DatevData\Institutions\InstitutionContactDetail.cs" />
     <Compile Include="Datev\DatevData\Institutions\InstitutionsContactList.cs" />
-    
     <!-- DATEV Plugin Data -->
     <Compile Include="Datev\PluginData\DatevContact.cs" />
     <Compile Include="Datev\PluginData\DatevContactInfo.cs" />
-    
     <!-- Interop -->
     <Compile Include="Interop\Rot.cs" />
     <Compile Include="Interop\TapiInterop.cs" />
-    
     <!-- Extensions -->
     <Compile Include="Extensions\PhoneNumberNormalizer.cs" />
-
     <!-- UI - Theme -->
     <Compile Include="UI\Theme\AsyncButtonAction.cs" />
     <Compile Include="UI\Theme\DarkMenuRenderer.cs" />
     <Compile Include="UI\Theme\Layout.cs" />
-    <Compile Include="UI\Theme\ThemedForm.cs" />
-
+    <Compile Include="UI\Theme\ThemedForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <!-- UI - Strings -->
     <Compile Include="UI\Strings\UIStrings.cs" />
-
     <!-- UI - Forms -->
-    <Compile Include="UI\AboutForm.cs" />
+    <Compile Include="UI\AboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\FormNavigator.cs" />
-    <Compile Include="UI\TrayApplication.cs" />
+    <Compile Include="UI\TrayApplication.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\TrayContextMenuBuilder.cs" />
-    <Compile Include="UI\SettingsForm.cs" />
-    <Compile Include="UI\CallHistoryForm.cs" />
-    <Compile Include="UI\StatusForm.cs" />
-    <Compile Include="UI\CallerPopupForm.cs" />
-    <Compile Include="UI\JournalForm.cs" />
-    <Compile Include="UI\ContactSelectionForm.cs" />
-    <Compile Include="UI\TroubleshootingForm.cs" />
-    <Compile Include="UI\SetupWizardForm.cs" />
+    <Compile Include="UI\SettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\CallHistoryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\StatusForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\CallerPopupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\JournalForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ContactSelectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\TroubleshootingForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SetupWizardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\UITheme.cs" />
     <Compile Include="Core\ConnectorStatus.cs" />
   </ItemGroup>

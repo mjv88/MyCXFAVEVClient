@@ -39,8 +39,10 @@ namespace DatevConnector.UI
             }
 
             var form = new StatusForm(_bridgeService);
-            form.FormClosed += (s, args) =>
+            FormClosedEventHandler handler = null;
+            handler = (s, args) =>
             {
+                ((Form)s).FormClosed -= handler;
                 var f = s as StatusForm;
                 SaveLocationAndClear(f);
                 if (f?.RequestedAction == StatusForm.Action.CallHistory)
@@ -48,6 +50,7 @@ namespace DatevConnector.UI
                 else if (f?.RequestedAction == StatusForm.Action.Settings)
                     _owner.BeginInvoke(new Action(ShowSettings));
             };
+            form.FormClosed += handler;
             ShowMainForm(form);
         }
 
@@ -64,13 +67,16 @@ namespace DatevConnector.UI
             }
 
             var form = new SettingsForm(_bridgeService);
-            form.FormClosed += (s, args) =>
+            FormClosedEventHandler handler = null;
+            handler = (s, args) =>
             {
+                ((Form)s).FormClosed -= handler;
                 var f = s as SettingsForm;
                 SaveLocationAndClear(f);
                 if (f?.RequestedAction == SettingsForm.Action.Status)
                     _owner.BeginInvoke(new Action(ShowStatus));
             };
+            form.FormClosed += handler;
             ShowMainForm(form);
         }
 
@@ -89,13 +95,16 @@ namespace DatevConnector.UI
             var form = new CallHistoryForm(
                 _bridgeService.CallHistory,
                 (entry, note) => _bridgeService.SendHistoryJournal(entry, note));
-            form.FormClosed += (s, args) =>
+            FormClosedEventHandler handler = null;
+            handler = (s, args) =>
             {
+                ((Form)s).FormClosed -= handler;
                 var f = s as CallHistoryForm;
                 SaveLocationAndClear(f);
                 if (f?.RequestedAction == CallHistoryForm.Action.Back)
                     _owner.BeginInvoke(new Action(ShowStatus));
             };
+            form.FormClosed += handler;
             ShowMainForm(form);
         }
 

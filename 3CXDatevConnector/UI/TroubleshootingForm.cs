@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using DatevConnector.Core;
 using DatevConnector.Datev.Managers;
 using DatevConnector.UI.Strings;
 using DatevConnector.UI.Theme;
@@ -12,13 +13,16 @@ namespace DatevConnector.UI
     /// <summary>
     /// Help form showing common problems and solutions.
     /// Provides quick access to log files and troubleshooting guidance.
+    /// Dynamically shows sections based on the active TelephonyMode.
     /// </summary>
     public class TroubleshootingForm : Form
     {
         private readonly Panel _contentPanel;
+        private readonly TelephonyMode _selectedMode;
 
-        public TroubleshootingForm()
+        public TroubleshootingForm(TelephonyMode selectedMode)
         {
+            _selectedMode = selectedMode;
             InitializeForm();
             _contentPanel = CreateContentPanel();
             Controls.Add(_contentPanel);
@@ -79,15 +83,26 @@ namespace DatevConnector.UI
                 AutoSize = true
             };
             _contentPanel.Controls.Add(lblHeader);
-            y += 35;
+            y += 25;
 
-            // TAPI Problems Section
-            y = CreateSection(y, UIStrings.Troubleshooting.TapiProblems, UITheme.AccentIncoming, new[]
+            // Environment badge
+            var lblEnv = new Label
             {
-                (UIStrings.Troubleshooting.TapiNotConnected, UIStrings.Troubleshooting.TapiNotConnectedDesc),
-                (UIStrings.Troubleshooting.TapiIniNotFound, UIStrings.Troubleshooting.TapiIniNotFoundDesc),
-                (UIStrings.Troubleshooting.TapiNoLines, UIStrings.Troubleshooting.TapiNoLinesDesc)
-            });
+                Text = string.Format(UIStrings.Troubleshooting.DetectedEnvironmentFormat, GetEnvironmentLabel()),
+                Font = UITheme.FontItalic,
+                ForeColor = UITheme.TextMuted,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblEnv);
+            y += 25;
+
+            // 3CX section — dynamic based on TelephonyMode
+            string cxHeader = _selectedMode == TelephonyMode.Auto
+                ? UIStrings.Troubleshooting.CxProblems
+                : string.Format("{0} ({1})", UIStrings.Troubleshooting.CxProblems, GetEnvironmentLabel());
+
+            y = CreateCxSection(y, cxHeader, UITheme.AccentIncoming);
 
             // DATEV Problems Section
             y = CreateSection(y, UIStrings.Troubleshooting.DatevProblems, UITheme.AccentDatev, new[]
@@ -105,13 +120,6 @@ namespace DatevConnector.UI
                 (UIStrings.Troubleshooting.FewerContacts, UIStrings.Troubleshooting.FewerContactsDesc)
             });
 
-            // Terminal Server Problems Section
-            y = CreateSection(y, UIStrings.Troubleshooting.TerminalServerProblems, UITheme.AccentTapi, new[]
-            {
-                (UIStrings.Troubleshooting.TsNoConnection, UIStrings.Troubleshooting.TsNoConnectionDesc),
-                (UIStrings.Troubleshooting.TsRestartOrder, UIStrings.Troubleshooting.TsRestartOrderDesc)
-            });
-
             // General tip
             y += LayoutConstants.SpaceSM;
             var lblTip = new Label
@@ -123,6 +131,47 @@ namespace DatevConnector.UI
                 AutoSize = true
             };
             _contentPanel.Controls.Add(lblTip);
+        }
+
+        private int CreateCxSection(int startY, string title, Color accentColor)
+        {
+            var items = new System.Collections.Generic.List<(string problem, string solution)>();
+
+            bool showTapi = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.Tapi;
+            bool showPipe = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.Pipe;
+            bool showWebClient = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.WebClient;
+
+            if (showTapi)
+            {
+                items.Add((UIStrings.Troubleshooting.TapiNotConnected, UIStrings.Troubleshooting.TapiNotConnectedDesc));
+                items.Add((UIStrings.Troubleshooting.TapiDriverNotFound, UIStrings.Troubleshooting.TapiDriverNotFoundDesc));
+                items.Add((UIStrings.Troubleshooting.TapiNoLines, UIStrings.Troubleshooting.TapiNoLinesDesc));
+            }
+
+            if (showPipe)
+            {
+                items.Add((UIStrings.Troubleshooting.TsNoConnection, UIStrings.Troubleshooting.TsNoConnectionDesc));
+                items.Add((UIStrings.Troubleshooting.TsRestartOrder, UIStrings.Troubleshooting.TsRestartOrderDesc));
+            }
+
+            if (showWebClient)
+            {
+                items.Add((UIStrings.Troubleshooting.WebclientNoExtension, UIStrings.Troubleshooting.WebclientNoExtensionDesc));
+                items.Add((UIStrings.Troubleshooting.WebclientTimeout, UIStrings.Troubleshooting.WebclientTimeoutDesc));
+            }
+
+            return CreateSection(startY, title, accentColor, items.ToArray());
+        }
+
+        private string GetEnvironmentLabel()
+        {
+            switch (_selectedMode)
+            {
+                case TelephonyMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case TelephonyMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case TelephonyMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
+                default: return UIStrings.Troubleshooting.EnvAuto;
+            }
         }
 
         private int CreateSection(int startY, string title, Color accentColor, (string problem, string solution)[] items)
@@ -232,9 +281,9 @@ namespace DatevConnector.UI
         /// <summary>
         /// Show the troubleshooting form as a modal dialog.
         /// </summary>
-        public static void ShowHelp()
+        public static void ShowHelp(TelephonyMode selectedMode)
         {
-            using (var form = new TroubleshootingForm())
+            using (var form = new TroubleshootingForm(selectedMode))
             {
                 form.ShowDialog();
             }

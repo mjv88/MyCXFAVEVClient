@@ -53,6 +53,11 @@ namespace DatevConnector.Core
         public event Action<ConnectorStatus> StatusChanged;
 
         /// <summary>
+        /// Event fired when the selected telephony mode changes (for immediate UI updates).
+        /// </summary>
+        public event Action<TelephonyMode> ModeChanged;
+
+        /// <summary>
         /// Current connection status (thread-safe)
         /// </summary>
         public ConnectorStatus Status
@@ -313,7 +318,7 @@ namespace DatevConnector.Core
                 {
                     try
                     {
-                        await Task.Delay(interval, _cts.Token);
+                        await Task.Delay(interval, _cts.Token).ConfigureAwait(false);
                     }
                     catch (TaskCanceledException) { break; }
 
@@ -716,6 +721,9 @@ namespace DatevConnector.Core
                 progressText?.Invoke("3CX TAPI getrennt");
             }
 
+            // Immediately update status so UI reflects disconnected state
+            Status = ConnectorStatus.Disconnected;
+
             progressText?.Invoke("Warte auf Neuverbindung...");
 
             // The ConnectWithRetryAsync loop will automatically reconnect
@@ -815,6 +823,15 @@ namespace DatevConnector.Core
 
             // DATEV Active contacts filter
             DatevContactManager.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
+
+            // Telephony mode — update immediately for UI feedback
+            var newMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            if (newMode != _configuredTelephonyMode)
+            {
+                _configuredTelephonyMode = newMode;
+                _selectedMode = newMode;
+                ModeChanged?.Invoke(_selectedMode);
+            }
 
             LogManager.Log("Settings applied live: History={0}/{1}/{2}, ActiveOnly={3}",
                 histIn, histOut, histMax, DatevContactManager.FilterActiveContactsOnly);

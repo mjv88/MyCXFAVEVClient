@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(find:*)",
+      "Bash(git log:*)",
+      "Bash(for class in \"TapiLineMonitor\" \"PipeTelephonyProvider\" \"WebclientTelephonyProvider\")",
+      "Bash(do echo \"=== Checking $class ===\")",
+      "Bash(done)",
+      "Bash(dotnet build:*)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" \"C:\\\\Users\\\\tatia\\\\Source\\\\Repos\\\\3CXDATEVConnector\\\\3CXDatevConnector\\\\3CXDatevConnector.csproj\" -nologo -v:minimal)",
+      "Bash(git add:*)"
+    ]
+  }
+}

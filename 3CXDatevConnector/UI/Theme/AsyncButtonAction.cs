@@ -63,7 +63,7 @@ namespace DatevConnector.UI.Theme
             {
                 success = await operation(updateProgress);
             }
-            catch
+            catch (Exception)
             {
                 success = false;
             }
@@ -136,7 +136,7 @@ namespace DatevConnector.UI.Theme
             {
                 await operation(updateProgress);
             }
-            catch
+            catch (Exception)
             {
                 // Swallow — caller handles error state
             }

@@ -64,6 +64,7 @@ namespace DatevConnector.UI
 
         // Telephony Mode
         private ComboBox _cboTelephonyMode;
+        private Label _lblMode;
 
         // Popup - Journaling
         private CheckBox _chkJournaling;
@@ -83,6 +84,47 @@ namespace DatevConnector.UI
             InitializeComponent();
             LoadSettings();
             RefreshOverviewStatus();
+
+            if (_bridgeService != null)
+            {
+                _bridgeService.ModeChanged += OnModeChanged;
+                _bridgeService.StatusChanged += OnStatusChanged;
+            }
+
+            Disposed += (s, e) =>
+            {
+                if (_bridgeService != null)
+                {
+                    _bridgeService.ModeChanged -= OnModeChanged;
+                    _bridgeService.StatusChanged -= OnStatusChanged;
+                }
+            };
+        }
+
+        private void OnModeChanged(TelephonyMode mode)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new System.Action(() => OnModeChanged(mode)));
+                return;
+            }
+
+            RefreshOverviewStatus();
+        }
+
+        private void OnStatusChanged(ConnectorStatus status)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new System.Action(() => OnStatusChanged(status)));
+                return;
+            }
+
+            RefreshOverviewStatus();
         }
 
         private void InitializeComponent()
@@ -90,7 +132,7 @@ namespace DatevConnector.UI
             // ThemedForm base class handles: BackColor, ForeColor, FormBorderStyle,
             // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Overview;
-            Size = new Size(540, 554);
+            Size = new Size(540, 576);
 
             var root = new Panel
             {
@@ -259,7 +301,7 @@ namespace DatevConnector.UI
             _lblExtension = new Label
             {
                 Text = string.Format(UIStrings.SettingsLabels.Extension, _bridgeService?.Extension ?? "\u2014"),
-                AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
+                AutoSize = true, ForeColor = UITheme.TextPrimary, Font = UITheme.FontLabel,
                 Location = new Point(UITheme.SpacingM, y)
             };
             card.Controls.Add(_lblExtension);
@@ -268,12 +310,13 @@ namespace DatevConnector.UI
             var modeText = _bridgeService != null
                 ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
                 : "\u2014";
-            card.Controls.Add(new Label
+            _lblMode = new Label
             {
                 Text = modeText,
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
                 Location = new Point(UITheme.SpacingM, y)
-            });
+            };
+            card.Controls.Add(_lblMode);
             y += 16;
 
             _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
@@ -543,7 +586,15 @@ namespace DatevConnector.UI
                 SetBadge(_lblBridgeBadge, UIStrings.Status.Unavailable, UITheme.StatusBad);
 
             _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount);
-            _lblExtension.Text = string.Format(UIStrings.SettingsLabels.Extension, _bridgeService.Extension ?? "\u2014");
+
+            // Show extension only when connected, "—" when disconnected
+            string ext = _bridgeService.Extension;
+            bool showExt = tapiOk && !string.IsNullOrEmpty(ext);
+            _lblExtension.Text = string.Format(UIStrings.SettingsLabels.Extension, showExt ? ext : "");
+
+            _lblMode.Text = tapiOk
+                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                : "";
         }
 
         private void BtnTestDatev_Click(object sender, EventArgs e)
@@ -706,7 +757,7 @@ namespace DatevConnector.UI
             DatevContactManager.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
 
             // Tray double-click - default to Call History
-            _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool("TrayDoubleClickCallHistory", true);
+            _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
 
             // Telephony Mode
             var telephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
@@ -797,7 +848,7 @@ namespace DatevConnector.UI
             DatevContactManager.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
 
             // Tray double-click behavior
-            AppConfig.SetBool("TrayDoubleClickCallHistory", _chkTrayDoubleClickCallHistory.Checked);
+            AppConfig.SetBool(ConfigKeys.TrayDoubleClickCallHistory, _chkTrayDoubleClickCallHistory.Checked);
 
             // Telephony Mode (requires restart to take effect)
             string[] modeValues = { "Auto", "Tapi", "Pipe", "WebClient" };
@@ -809,6 +860,7 @@ namespace DatevConnector.UI
 
             // Apply settings live to running service
             _bridgeService?.ApplySettings();
+            RefreshOverviewStatus();
 
             // Trigger contact reload if ActiveContactsOnly changed
             bool newActiveOnly = _chkActiveContactsOnly.Checked;

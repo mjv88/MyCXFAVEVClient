@@ -61,13 +61,13 @@ namespace DatevConnector.UI.Strings
             public const string Saved = "Gespeichert";
             public const string AllSystemsReady = "Alle Systeme bereit";
             public const string PartiallyReady = "Teilweise bereit";
-            public const string ConnectedExt = "Verbunden (Nst: {0})";
+            public const string ConnectedExt = "Verbunden ({0})";
             public const string LinesConnected = "{0}/{1} Leitungen verbunden";
-            public const string LineStatus = "Nst {0}: {1}";
+            public const string LineStatus = "{0}: {1}";
 
             // Tray icon tooltip formats
             public const string TrayConnecting = "3CX - DATEV Connector - Verbinde...";
-            public const string TrayReadyFormat = "3CX - DATEV Connector - Betriebsbereit (Nst: {0})";
+            public const string TrayReadyFormat = "3CX - DATEV Connector - Betriebsbereit ({0})";
             public const string TrayPartialFormat = "3CX - DATEV Connector - Teilweise ({0})";
             public const string TrayDisconnected = "3CX - DATEV Connector - Getrennt";
             public const string TrayRestarting = "3CX - DATEV Connector - Neustart...";
@@ -172,7 +172,7 @@ namespace DatevConnector.UI.Strings
             public const string NotInDatev = "Nicht in DATEV-Kontakten";
             public const string Recipient = "Adressaten";
             public const string Institution = "Institution";
-            public const string ExtensionFormat = "(Nst: {0})";
+            public const string ExtensionFormat = "({0})";
         }
 
         // ===== CONTACT SELECTION =====
@@ -331,7 +331,7 @@ namespace DatevConnector.UI.Strings
         public static class Troubleshooting
         {
             // Section headers
-            public const string TapiProblems = "TAPI-Probleme";
+            public const string CxProblems = "3CX";
             public const string DatevProblems = "DATEV-Probleme";
             public const string ContactProblems = "Kontakt-Probleme";
             public const string OpenLogFile = "Log-Datei öffnen";
@@ -339,8 +339,8 @@ namespace DatevConnector.UI.Strings
             // TAPI problems
             public const string TapiNotConnected = "TAPI nicht verbunden";
             public const string TapiNotConnectedDesc = "Stellen Sie sicher, dass der 3CX Windows App läuft und der TAPI-Treiber installiert ist.";
-            public const string TapiIniNotFound = "3CX TAPI INI nicht gefunden";
-            public const string TapiIniNotFoundDesc = "Installieren und konfigurieren Sie den 3CX Multi-Line TAPI-Treiber.";
+            public const string TapiDriverNotFound = "3CX TAPI-Treiber nicht gefunden";
+            public const string TapiDriverNotFoundDesc = "Installieren und konfigurieren Sie den 3CX Multi-Line TAPI-Treiber.";
             public const string TapiNoLines = "Keine TAPI-Leitungen gefunden";
             public const string TapiNoLinesDesc = "Prüfen Sie die TAPI-Konfiguration in der 3CX Windows App Verwaltung.";
 
@@ -350,29 +350,34 @@ namespace DatevConnector.UI.Strings
             public const string DatevCircuitBreaker = "DATEV-Verbindung pausiert";
             public const string DatevCircuitBreakerDesc = "Zu viele Fehler aufgetreten. Warten Sie einige Minuten oder starten Sie die Anwendung neu.";
             public const string DatevSddTimeout = "SDD-Zeitüberschreitung";
-            public const string DatevSddTimeoutDesc = "Erhöhen Sie SddMaxRetries oder SddRetryDelaySeconds in 3CXDATEVConnector.ini.";
+            public const string DatevSddTimeoutDesc = "Kontakt-Synchronisation ist gestört. Starten Sie die Anwendung neu oder prüfen Sie die Log-Datei.";
 
             // Contact problems
             public const string ContactNotFound = "Kontakt nicht gefunden";
-            public const string ContactNotFoundDesc = "Passen Sie MaxCompareLength an Ihr Nummernformat an.";
+            public const string ContactNotFoundDesc = "Passen Sie die Maximallänge (Einstellungen) an Ihr Nummernformat an.";
             public const string NoContactsLoaded = "Keine Kontakte geladen";
             public const string NoContactsLoadedDesc = "Prüfen Sie ob DATEV Arbeitsplatz läuft und Kontakte verfügbar sind.";
             public const string FewerContacts = "Weniger Kontakte als erwartet";
             public const string FewerContactsDesc = "Deaktivierte Kontakte (Status=0) werden standardmäßig gefiltert.";
 
             // Terminal Server problems
-            public const string TerminalServerProblems = "Terminal Server";
             public const string TsNoConnection = "3CX Softphone verbindet nicht";
             public const string TsNoConnectionDesc = "Deaktivieren und reaktivieren Sie TAPI in den 3CX Softphone-Einstellungen.";
             public const string TsRestartOrder = "Reihenfolge beim Start beachten";
             public const string TsRestartOrderDesc = "Starten Sie zuerst die Bridge, dann den 3CX Softphone (oder TAPI neu aktivieren).";
 
             // Webclient problems
-            public const string WebclientProblems = "Webclient-Probleme";
             public const string WebclientNoExtension = "Browser-Erweiterung nicht verbunden";
             public const string WebclientNoExtensionDesc = "Installieren Sie die 3CX DATEV Connector Browser-Erweiterung und stellen Sie sicher, dass Native Messaging aktiviert ist.";
             public const string WebclientTimeout = "Verbindungs-Timeout";
-            public const string WebclientTimeoutDesc = "Erhöhen Sie Webclient.ConnectTimeoutSec in 3CXDATEVConnector.ini.";
+            public const string WebclientTimeoutDesc = "Erhöhen Sie den Webclient Timeout in den Einstellungen oder der INI-Datei.";
+
+            // Environment badge
+            public const string DetectedEnvironmentFormat = "Erkannte Umgebung: {0}";
+            public const string EnvDesktopTapi = "Desktop (TAPI)";
+            public const string EnvTerminalServer = "Terminal Server";
+            public const string EnvWebClient = "WebClient";
+            public const string EnvAuto = "Automatisch";
 
             // General
             public const string CommonProblems = "Häufige Probleme";
@@ -417,7 +422,7 @@ namespace DatevConnector.UI.Strings
             public const string Count = "Anzahl:";
             public const string ActiveContacts = "Aktive Kontakte";
             public const string Contacts = "Kontakte: {0}";
-            public const string Extension = "Nst. {0}";
+            public const string Extension = "{0}";
             public const string Sync = "Sync: {0}";
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
             public const string TelephonyMode = "Telefonie-Modus:";

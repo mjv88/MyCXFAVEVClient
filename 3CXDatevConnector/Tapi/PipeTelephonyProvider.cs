@@ -93,37 +93,18 @@ namespace DatevConnector.Tapi
             _lines.Clear();
             _lines.Add(_virtualLine);
 
+            if (_server != null)
+            {
+                _server.ClientConnected -= OnServerClientConnected;
+                _server.ClientDisconnected -= OnServerClientDisconnected;
+                _server.MessageReceived -= OnPipeMessage;
+                _server.Dispose();
+            }
+
             _server = new TapiPipeServer(_extension);
 
-            // When softphone connects
-            _server.ClientConnected += () =>
-            {
-                _connected = true;
-                _virtualLine.Handle = PipeConnectedHandle;
-
-                LogManager.Log("PipeTelephonyProvider: 3CX Softphone connected");
-                progressText?.Invoke($"3CX Softphone verbunden (Nst: {_extension})");
-
-                LineConnected?.Invoke(_virtualLine);
-                Connected?.Invoke();
-            };
-
-            // When softphone disconnects
-            _server.ClientDisconnected += () =>
-            {
-                _connected = false;
-                _virtualLine.Handle = IntPtr.Zero;
-                _activeCalls.Clear();
-
-                LogManager.Log("PipeTelephonyProvider: 3CX Softphone disconnected, waiting for reconnect...");
-                progressText?.Invoke("Warte auf 3CX Softphone...");
-
-                LineDisconnected?.Invoke(_virtualLine);
-                // Don't fire Disconnected — the server loop keeps running
-                // and will accept the next connection automatically
-            };
-
-            // Route incoming messages
+            _server.ClientConnected += OnServerClientConnected;
+            _server.ClientDisconnected += OnServerClientDisconnected;
             _server.MessageReceived += OnPipeMessage;
 
             try
@@ -150,6 +131,30 @@ namespace DatevConnector.Tapi
                 SetLineDisconnected();
                 Disconnected?.Invoke();
             }
+        }
+
+        private void OnServerClientConnected()
+        {
+            _connected = true;
+            _virtualLine.Handle = PipeConnectedHandle;
+
+            LogManager.Log("PipeTelephonyProvider: 3CX Softphone connected");
+
+            LineConnected?.Invoke(_virtualLine);
+            Connected?.Invoke();
+        }
+
+        private void OnServerClientDisconnected()
+        {
+            _connected = false;
+            _virtualLine.Handle = IntPtr.Zero;
+            _activeCalls.Clear();
+
+            LogManager.Log("PipeTelephonyProvider: 3CX Softphone disconnected, waiting for reconnect...");
+
+            LineDisconnected?.Invoke(_virtualLine);
+            // Don't fire Disconnected — the server loop keeps running
+            // and will accept the next connection automatically
         }
 
         /// <summary>
@@ -447,6 +452,9 @@ namespace DatevConnector.Tapi
 
             if (_server != null)
             {
+                _server.ClientConnected -= OnServerClientConnected;
+                _server.ClientDisconnected -= OnServerClientDisconnected;
+                _server.MessageReceived -= OnPipeMessage;
                 _server.Dispose();
                 _server = null;
             }

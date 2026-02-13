@@ -369,7 +369,7 @@ The TAPI `lineMakeCall` function can initiate calls, but the 3CX TAPI driver use
 
 ### Why a Single ConnectorService Orchestrator?
 
-At ~1,300 lines, `ConnectorService.cs` is large but serves as the single orchestration point. The domain logic is delegated to focused managers:
+At ~1,300 lines, `ConnectorService.cs` is large but serves as the single orchestration point. It exposes `StatusChanged` and `ModeChanged` events so UI forms can react immediately to connection and telephony mode changes. The domain logic is delegated to focused managers:
 
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
@@ -420,7 +420,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
-│   ├── ConnectorService.cs                Central orchestrator (~1,300 lines)
+│   ├── ConnectorService.cs                Central orchestrator (~1,300 lines, events: StatusChanged, ModeChanged)
 │   ├── ConnectorStatus.cs                 Connection status enum
 │   ├── CallTracker.cs                  Active/pending call management
 │   ├── CallStateMachine.cs             TAPI state transition validation
@@ -647,11 +647,32 @@ The MV3 browser extension in `Extension/` performs:
 
 - `page-hook.js` — Monkey-patches `window.WebSocket` to intercept the 3CX `wss://` connection; posts binary frames (base64) and text frames to the content script
 - `content.js` — Relays page-hook signals to the service worker; reads `localStorage.wc.provision` to auto-detect extension number; detects 3CX pages via path, hash route, or localStorage presence
-- `background.js` — Connects to bridge via `ws://127.0.0.1:19800`; decodes protobuf `GenericMessage` + `MyExtensionInfo` (MessageId 201); maps `LocalConnection` deltas to bridge `CALL_EVENT` messages; persists provision to `chrome.storage.local`
+- `background.js` — Connects to bridge via `ws://127.0.0.1:19800`; decodes protobuf `GenericMessage` + `MyExtensionInfo` (MessageId 201); maps `LocalConnection` deltas to bridge `CALL_EVENT` messages; persists provision to `chrome.storage.local`; responds to `GET_STATUS` messages from popup with `{ wsState, helloAcked, extension }`
+- `popup.html` / `popup.js` — Dark-themed extension popup matching main app (`#2D2D30` background). Shows live WebSocket connection status (green/yellow/red dot), bold extension number, DATEV Auto-DIAL delay input, Save and Reload buttons
 
 If 3CX changes protobuf field numbers in future builds, adjust parser mappings in
 `Extension/scripts/background.js` (`parseGenericMessage`, `parseMyExtensionInfo`,
 `parseLocalConnection`).
+
+### Auto-Detection: TryAcceptAsync Loop
+
+During auto-detection (`TelephonyMode=Auto`), the WebSocket server's `TryAcceptAsync` method accepts connections in a loop within the configured timeout. This is necessary because the browser extension sends an HTTP probe (plain GET request) before the real WebSocket upgrade. The loop handles this by:
+
+1. Accepting a TCP connection
+2. Attempting the WebSocket handshake
+3. If the handshake fails (HTTP probe), closing the connection and accepting the next one
+4. If the handshake succeeds, waiting for the HELLO message within the remaining timeout
+
+This ensures auto-detection works reliably even when the browser extension probes the port before establishing the real WebSocket connection.
+
+### Disconnect Propagation
+
+When the browser extension disconnects (e.g., tab closed, browser closed), the `WebclientTelephonyProvider` fires both `LineDisconnected` and the provider-level `Disconnected` event. This ensures:
+
+- `ConnectorService.Status` transitions to `Disconnected`
+- `StatusChanged` event fires, updating all subscribed UI forms (StatusForm, SettingsForm, tray icon)
+- Tray balloon notification is shown (if notifications are enabled)
+- The provider enters its reconnect loop, waiting for the extension to reconnect
 
 ### Troubleshooting
 
@@ -662,6 +683,8 @@ If 3CX changes protobuf field numbers in future builds, adjust parser mappings i
 | HELLO has empty extension | Content script not injected or PWA not detected | Check `localStorage.wc.provision` exists; reload extension |
 | Calls not appearing in DATEV | State mapping issue | Check logs for "WebClient Connector" entries |
 | Timeout during auto-detection | Extension takes too long | Increase `Webclient.ConnectTimeoutSec` in INI |
+| Auto-detection fails with "Handshake failed" | Browser extension HTTP probe consumed the connection | Fixed in current version — `TryAcceptAsync` loops to handle probes |
+| UI not updating on extension disconnect | Missing disconnect event propagation | Fixed in current version — `OnTransportDisconnected` fires both `LineDisconnected` and `Disconnected` |
 
 ---
 

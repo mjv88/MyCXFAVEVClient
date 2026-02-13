@@ -62,6 +62,9 @@ namespace DatevConnector.Core
         // ===== DATEV Contacts =====
         public const string ActiveContactsOnly = "ActiveContactsOnly";
 
+        // ===== Tray Behavior =====
+        public const string TrayDoubleClickCallHistory = "TrayDoubleClickCallHistory";
+
         // ===== Notifications =====
         public const string MuteNotifications = "MuteNotifications";
 

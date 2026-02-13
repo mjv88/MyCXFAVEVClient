@@ -24,8 +24,9 @@ namespace DatevConnector.Core
                     return key?.GetValue(AutoStartValue) != null;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                LogManager.Debug("AutoStartManager: Error checking autostart: {0}", ex.Message);
                 return false;
             }
         }

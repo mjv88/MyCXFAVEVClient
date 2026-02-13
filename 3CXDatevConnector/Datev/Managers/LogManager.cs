@@ -284,7 +284,7 @@ namespace DatevConnector.Datev.Managers
                     }
 
                     // Wait before next batch
-                    await Task.Delay(100, cancellationToken);
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {

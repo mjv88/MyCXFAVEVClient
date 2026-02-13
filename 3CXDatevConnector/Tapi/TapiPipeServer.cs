@@ -378,8 +378,8 @@ namespace DatevConnector.Tapi
         {
             if (_pipe != null)
             {
-                try { _pipe.Close(); } catch { }
-                try { _pipe.Dispose(); } catch { }
+                try { _pipe.Dispose(); }
+                catch (Exception ex) { LogManager.Debug("PipeServer: Pipe dispose error - {0}", ex.Message); }
                 _pipe = null;
             }
         }

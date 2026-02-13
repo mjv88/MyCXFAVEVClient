@@ -25,6 +25,8 @@ namespace DatevConnector.UI
         public enum Action { None, CallHistory, Settings }
 
         private readonly ConnectorService _bridgeService;
+        private Label _lblMode;
+        private Label _lblExtBold;
         private Label _lblDatevStatus;
         private Label _lblTapiStatus;
         private Label _lblConnectorStatus;
@@ -65,6 +67,7 @@ namespace DatevConnector.UI
             if (_bridgeService != null)
             {
                 _bridgeService.StatusChanged += OnConnectorStatusChanged;
+                _bridgeService.ModeChanged += OnModeChanged;
             }
 
             Disposed += (s, e) =>
@@ -72,6 +75,7 @@ namespace DatevConnector.UI
                 if (_bridgeService != null)
                 {
                     _bridgeService.StatusChanged -= OnConnectorStatusChanged;
+                    _bridgeService.ModeChanged -= OnModeChanged;
                 }
             };
         }
@@ -118,10 +122,17 @@ namespace DatevConnector.UI
 
             // Update TAPI status
             bool tapiOk = _bridgeService?.TapiConnected ?? false;
-            string ext = _bridgeService?.Extension ?? "\u2014";
-            _lblTapiStatus.Text = tapiOk ? string.Format(UIStrings.Status.ConnectedExt, ext) : UIStrings.Status.Disconnected;
-            _lblTapiStatus.ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad;
+            string rawExt = _bridgeService?.Extension;
+            UpdateTapiDisplay(tapiOk, rawExt);
             _btnReconnectTapi.Enabled = !tapiOk;
+
+            // Update mode label — clear when disconnected
+            if (_lblMode != null && _bridgeService != null)
+            {
+                _lblMode.Text = tapiOk
+                    ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                    : "";
+            }
 
             // Reset button state if reconnecting
             if (_btnReconnectTapi.Text == UIStrings.Status.TestPending)
@@ -140,6 +151,22 @@ namespace DatevConnector.UI
             }
 
             UpdateConnectorStatus();
+        }
+
+        private void OnModeChanged(TelephonyMode mode)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new System.Action(() => OnModeChanged(mode)));
+                return;
+            }
+
+            if (_lblMode != null)
+            {
+                _lblMode.Text = TelephonyProviderSelector.GetModeShortName(mode);
+            }
         }
 
         private void InitializeComponent()
@@ -233,9 +260,9 @@ namespace DatevConnector.UI
             bool tapiOk = _bridgeService?.TapiConnected ?? false;
 
             // Active mode label (shown in both single and multi-line)
-            var activeModeName = _bridgeService != null
+            var activeModeName = (_bridgeService != null && tapiOk)
                 ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
-                : "\u2014";
+                : "";
 
             if (lineCount <= 1)
             {
@@ -244,7 +271,7 @@ namespace DatevConnector.UI
 
                 _lblTapiStatus = new Label
                 {
-                    Text = tapiOk ? string.Format(UIStrings.Status.ConnectedExt, ext) : UIStrings.Status.Disconnected,
+                    Text = tapiOk ? UIStrings.Status.Connected : UIStrings.Status.Disconnected,
                     ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad,
                     Font = UITheme.FontBody,
                     Location = new Point(12, 28),
@@ -252,14 +279,25 @@ namespace DatevConnector.UI
                 };
                 _tapiCard.Controls.Add(_lblTapiStatus);
 
-                _tapiCard.Controls.Add(new Label
+                _lblExtBold = new Label
+                {
+                    Text = (tapiOk && !string.IsNullOrEmpty(_bridgeService?.Extension)) ? ext : "",
+                    ForeColor = UITheme.TextPrimary,
+                    Font = UITheme.FontLabel,
+                    Location = new Point(90, 28),
+                    AutoSize = true
+                };
+                _tapiCard.Controls.Add(_lblExtBold);
+
+                _lblMode = new Label
                 {
                     Text = activeModeName,
                     ForeColor = UITheme.TextMuted,
                     Font = UITheme.FontSmall,
                     Location = new Point(12, 48),
                     AutoSize = true
-                });
+                };
+                _tapiCard.Controls.Add(_lblMode);
 
                 // Buttons aligned to the right
                 _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Connect, btnWidth);
@@ -287,14 +325,15 @@ namespace DatevConnector.UI
                 };
                 _tapiCard.Controls.Add(_lblTapiStatus);
 
-                _tapiCard.Controls.Add(new Label
+                _lblMode = new Label
                 {
                     Text = activeModeName,
                     ForeColor = UITheme.TextMuted,
                     Font = UITheme.FontSmall,
                     Location = new Point(12, 48),
                     AutoSize = true
-                });
+                };
+                _tapiCard.Controls.Add(_lblMode);
 
                 // "Neuverbinden" button for reconnecting all lines
                 _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.ReconnectShort, 90);
@@ -564,8 +603,7 @@ namespace DatevConnector.UI
 
             if (IsDisposed || !IsHandleCreated) return;
 
-            _lblTapiStatus.Text = isConnected ? string.Format(UIStrings.Status.ConnectedExt, extension ?? "—") : UIStrings.Status.Disconnected;
-            _lblTapiStatus.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
+            UpdateTapiDisplay(isConnected, extension);
 
             // Show visual feedback
             _btnTestTapi.Text = isConnected ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
@@ -604,9 +642,8 @@ namespace DatevConnector.UI
             if (_btnReconnectTapi.Text == UIStrings.Status.TestPending)
             {
                 bool tapiOk = _bridgeService?.TapiConnected ?? false;
-                string ext = _bridgeService?.Extension ?? "\u2014";
-                _lblTapiStatus.Text = tapiOk ? string.Format(UIStrings.Status.ConnectedExt, ext) : UIStrings.Status.Disconnected;
-                _lblTapiStatus.ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad;
+                string ext = _bridgeService?.Extension;
+                UpdateTapiDisplay(tapiOk, ext);
                 _btnReconnectTapi.Text = UIStrings.Labels.Connect;
                 _btnReconnectTapi.Enabled = !tapiOk;
                 UpdateConnectorStatus();
@@ -767,9 +804,8 @@ namespace DatevConnector.UI
             else
             {
                 bool tapiOk = _bridgeService?.TapiConnected ?? false;
-                string ext = _bridgeService?.Extension ?? "—";
-                _lblTapiStatus.Text = tapiOk ? string.Format(UIStrings.Status.ConnectedExt, ext) : UIStrings.Status.Disconnected;
-                _lblTapiStatus.ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad;
+                string ext = _bridgeService?.Extension;
+                UpdateTapiDisplay(tapiOk, ext);
             }
 
             // Update individual line statuses
@@ -840,9 +876,8 @@ namespace DatevConnector.UI
             if (_btnReconnectAll.Text == UIStrings.Status.TestPending)
             {
                 bool tapiOk = _bridgeService?.TapiConnected ?? false;
-                string ext = _bridgeService?.Extension ?? "\u2014";
-                _lblTapiStatus.Text = tapiOk ? string.Format(UIStrings.Status.ConnectedExt, ext) : UIStrings.Status.Disconnected;
-                _lblTapiStatus.ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad;
+                string ext = _bridgeService?.Extension;
+                UpdateTapiDisplay(tapiOk, ext);
                 if (_btnTestTapi != null) _btnTestTapi.Enabled = true;
                 _btnReconnectTapi.Enabled = !tapiOk;
                 _btnReconnectAll.Text = UIStrings.Labels.Test;
@@ -877,6 +912,14 @@ namespace DatevConnector.UI
             _lblSyncTime.Text = syncTs.HasValue
                 ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
                 : UIStrings.Status.LastSyncNone;
+        }
+
+        private void UpdateTapiDisplay(bool connected, string ext)
+        {
+            _lblTapiStatus.Text = connected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
+            _lblTapiStatus.ForeColor = connected ? UITheme.StatusOk : UITheme.StatusBad;
+            if (_lblExtBold != null)
+                _lblExtBold.Text = (connected && !string.IsNullOrEmpty(ext)) ? ext : "";
         }
 
         private void UpdateConnectorStatus()

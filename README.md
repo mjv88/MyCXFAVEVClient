@@ -45,6 +45,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Command Line Options** | Silent mode, custom config paths, verbose logging for deployment |
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
 | **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
+| **Extension Popup** | Dark-themed browser extension popup with live WebSocket connection status (green/yellow/red dot), bold extension number, configurable DATEV Auto-DIAL delay |
 | **Auto-Detection** | Automatic telephony mode selection (TAPI, Pipe, or WebClient) based on environment |
 
 ## Requirements
@@ -310,7 +311,8 @@ The configured value is used as a floor; if the extension is longer, the length 
                    │   ├─> Valid: apply new config
                    │   └─> Invalid: log warning, keep last known good config
                    ├─> [Debug] → takes effect immediately
-                   ├─> [Connection] → takes effect on next connection attempt
+                   ├─> [Connection] TelephonyMode → immediate UI update (ModeChanged event), provider switch on next reconnect
+                   ├─> [Connection] other values → takes effect on next connection attempt
                    └─> [Settings] → takes effect on next lookup/call event
 ```
 
@@ -360,6 +362,7 @@ Double-clicking the tray icon opens the **Call History** (Anrufliste) by default
 The **Status Overview** (StatusForm) is accessible via the Status menu item and shows:
 - Card-based layout with DATEV (green), 3CX TAPI (blue), and Connector (purple) sections
 - Real-time status updates via event subscription
+- Bold extension number display (separate label next to status)
 - Per-line TAPI status with individual "Testen" buttons and progress feedback
 - Reconnect buttons for TAPI and "Testen" for full reconnect
 - Test DATEV button with visual feedback (checkmark/X)
@@ -385,7 +388,7 @@ The Settings dialog (right-click -> Einstellungen) is a single-page dashboard wi
 
 | Section | Settings |
 |---------|----------|
-| **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + Nebenstelle, Connector combined status |
+| **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + bold extension number, Connector combined status |
 | **Pop-Up-Verhalten** | Journaling toggle, Eingehende/Ausgehende Anrufe, Journal-Popup, Ausgehende Journal-Popup, Modus selector (Beide/Formular/Balloon), Kontakt erneut delay |
 | **Erweitert** | Anrufer-ID Mindestlänge/Max. Vergleich, Anrufliste (Eingehend/Ausgehend) + Anzahl, DATEV "Aktive Kontakte" filter |
 
@@ -399,7 +402,7 @@ When enabled, a notification appears for incoming and outgoing calls:
 - Shows phone number and source (Adressaten/Institution)
 - Shows contact type (Person/Firma)
 - **Stays open until call is answered (Connected)** — no Dismiss button
-- Balloon notification includes extension number (e.g., "Nst. 122")
+- Balloon notification includes extension number (e.g., "122")
 - Balloon notification also shown via system tray (configurable via Modus)
 
 ### Contact Selection & Reshow
@@ -543,7 +546,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |      DarkMenuRenderer.cs         - Dark theme for context menus      |
 +----------------------------------------------------------------------+
 |  Core/                                                               |
-|    ConnectorService.cs          - Main orchestrator                 |
+|    ConnectorService.cs          - Main orchestrator (events: StatusChanged, ModeChanged) |
 |    ConnectorStatus.cs           - Connection status enum            |
 |    CallTracker.cs                - Active call management            |
 |    CallStateMachine.cs           - State transition validation       |
@@ -1115,6 +1118,8 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 | WebClient: connection refused | Bridge not running or port 19800 blocked; check `Webclient.WebSocketPort` in INI |
 | Sync timestamp not updating | Reload contacts via Laden button — timestamp updates on successful load |
 | StatusForm shows disconnected after reconnect | Wait for event-based update (up to 6 seconds) or status will auto-refresh |
+| Mode label not updating after save | Mode updates immediately via `ModeChanged` event — reopen form if still stale |
+| WebClient still shows connected after extension closed | Disconnect propagates to tray, StatusForm, and SettingsForm automatically |
 
 ## License
 
@@ -1137,6 +1142,7 @@ Proprietary — Internal use only
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2.0 | 2026-02 | **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. |
 | 1.1.9 | 2026-01 | **Memory Optimization**: Filter Communications to phone-only (`Medium == Phone`), reducing objects from ~68K to ~17K. Cached `EffectiveNormalizedNumber` property to eliminate ~68K repeated Regex allocations. Compiled `PhoneNumberNormalizer` Regex. Replaced LINQ `GroupBy`/`ToDictionary` with direct `SortedDictionary` build loop. Pre-load GC releases old cache before XML deserialization. Post-load forced double-collect GC with LOH compaction and `SetProcessWorkingSetSize` P/Invoke to trim OS working set. Added `UITheme.Cleanup()` in shutdown path, `TrayApplication._currentMainForm` disposal, `Array.Empty<T>()` replacements. Post-cache GC diagnostics log (working set before/after, managed heap). |
 | 1.1.8 | 2026-01 | **Core Infrastructure**: Added `IniConfig` (typed config access), `IntegrationConstants` (centralized TAPI/DATEV/timeout constants), `TapiException`/`DatevException` (categorized errors for retry decisions) |
 | 1.1.8 | 2026-01 | **Setup Wizard** for first-run configuration (TAPI line selection, DATEV connection test, Windows autostart toggle), **Troubleshooting Form** with categorized help for TAPI/DATEV/Contact issues and quick log access, **UIStrings centralization** (all German UI text in single location), **Form refactoring** (consistent theme usage across all forms with Layout constants) |

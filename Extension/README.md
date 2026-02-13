@@ -47,6 +47,21 @@ Normalized shape handled by the mapper:
 }
 ```
 
+## Extension Popup
+
+The toolbar popup (`popup.html` + `popup.js`) uses a dark theme matching the main app:
+
+- **Title bar:** "3CX DATEV Connector" (white, bold)
+- **Status bar:** Live WebSocket connection status via `GET_STATUS` message to background worker
+  - Green dot: Connected (WebSocket OPEN + HELLO acknowledged)
+  - Yellow dot: Connecting (WebSocket OPEN but HELLO not yet acknowledged)
+  - Red dot: Disconnected (WebSocket CLOSED or null)
+  - Bold extension number (right-aligned), or "—" if none detected
+- **Settings:** DATEV Auto-DIAL delay input (number, ms) saved to `chrome.storage.local`
+- **Actions:** Save (primary blue) + Reload Extension (secondary)
+
+The background service worker handles `GET_STATUS` requests via a dedicated `chrome.runtime.onMessage` listener that responds with `{ wsState, helloAcked, extension }`.
+
 ## Installation (Chrome / Edge)
 
 ## Tab vs PWA behavior
@@ -109,3 +124,7 @@ Then inspect:
 
 > Decoder status: `parse3cxFrame` includes a protobuf parser for `GenericMessage` + `MyExtensionInfo` (MessageId `201`) and extracts `LocalConnection` updates (`Action`, `State`, `IsIncoming`, `OtherPartyDn`, `OtherPartyDisplayName`).
 > If future 3CX versions change protobuf schema fields, update parser field mappings in `scripts/background.js`.
+
+## Auto-Detection Note
+
+During auto-detection (`TelephonyMode=Auto`), the connector's WebSocket server accepts connections in a loop. The browser extension may send an HTTP probe (plain GET request) before the actual WebSocket upgrade. The server handles this gracefully by retrying the accept within the configured timeout, ensuring reliable auto-detection.

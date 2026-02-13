@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using DatevConnector.Core.Config;
 
 namespace DatevConnector.Core.Config
 {
@@ -100,7 +99,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.CallHistoryMaxEntries, SectionSettings },
             { ConfigKeys.ActiveContactsOnly, SectionSettings },
             { ConfigKeys.TapiLineFilter, SectionSettings },
-            { "TrayDoubleClickCallHistory", SectionSettings },
+            { ConfigKeys.TrayDoubleClickCallHistory, SectionSettings },
 
             // Connection
             { ConfigKeys.ReconnectIntervalSeconds, SectionConnection },

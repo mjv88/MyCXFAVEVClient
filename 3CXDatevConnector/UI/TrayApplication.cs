@@ -107,10 +107,10 @@ namespace DatevConnector.UI
             _contextMenu.Items["exitItem"].Click += (s, e) => { _cts.Cancel(); Application.Exit(); };
 
             // Help submenu items
-            var helpMenu = _contextMenu.Items[6] as ToolStripMenuItem; // Help is the 7th item
+            var helpMenu = _contextMenu.Items["helpMenu"] as ToolStripMenuItem;
             if (helpMenu != null)
             {
-                helpMenu.DropDownItems["helpItem"].Click += (s, e) => TroubleshootingForm.ShowHelp();
+                helpMenu.DropDownItems["helpItem"].Click += (s, e) => TroubleshootingForm.ShowHelp(_bridgeService.SelectedTelephonyMode);
                 helpMenu.DropDownItems["logItem"].Click += (s, e) => OnOpenLogFile();
                 helpMenu.DropDownItems["wizardItem"].Click += (s, e) => SetupWizardForm.ShowWizard(_bridgeService);
             }
@@ -273,7 +273,7 @@ namespace DatevConnector.UI
 
         private void OnNotifyIconDoubleClick(object sender, EventArgs e)
         {
-            bool showCallHistory = AppConfig.GetBool("TrayDoubleClickCallHistory", true);
+            bool showCallHistory = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
             if (showCallHistory)
                 _navigator.ShowCallHistory();
             else

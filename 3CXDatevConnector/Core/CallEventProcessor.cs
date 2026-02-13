@@ -270,7 +270,7 @@ namespace DatevConnector.Core
                 int reshowDelay = DebugConfigWatcher.GetInt(
                     DebugConfigWatcher.Instance?.ContactReshowDelaySeconds,
                     "ContactReshowDelaySeconds", _contactReshowDelaySeconds);
-                if (reshowDelay > 0 && string.IsNullOrEmpty(record.CallData.SyncID))
+                if (reshowDelay > 0)
                     ScheduleContactReshow(record, reshowDelay);
             }
         }
@@ -293,41 +293,46 @@ namespace DatevConnector.Core
             LogManager.Debug("Connector: Scheduling contact reshow in {0}s for call {1} ({2} contacts)",
                 reshowDelaySeconds, callId, contacts.Count);
 
-            Task.Delay(delayMs).ContinueWith(t =>
+            _ = ContactReshowAfterDelayAsync(callId, remoteNumber, contacts, record.IsIncoming, delayMs);
+        }
+
+        private async Task ContactReshowAfterDelayAsync(string callId, string remoteNumber,
+            List<DatevContactInfo> contacts, bool isIncoming, int delayMs)
+        {
+            try
             {
-                try
+                await Task.Delay(delayMs);
+
+                var currentRecord = _callTracker.GetCall(callId);
+                if (currentRecord == null || currentRecord.TapiState != TapiCallState.Connected)
+                    return;
+
+                var selectedContact = ContactSelectionForm.SelectContact(
+                    remoteNumber, contacts, isIncoming);
+
+                if (selectedContact != null && currentRecord.CallData != null)
                 {
-                    var currentRecord = _callTracker.GetCall(callId);
-                    if (currentRecord == null || currentRecord.TapiState != TapiCallState.Connected)
-                        return;
+                    string existingSyncId = currentRecord.CallData.SyncID;
+                    string previousId = currentRecord.CallData.AdressatenId;
 
-                    var selectedContact = ContactSelectionForm.SelectContact(
-                        remoteNumber, contacts, record.IsIncoming);
+                    CallDataManager.Fill(currentRecord.CallData, remoteNumber, selectedContact);
 
-                    if (selectedContact != null && currentRecord.CallData != null)
+                    if (!string.IsNullOrEmpty(existingSyncId))
+                        currentRecord.CallData.SyncID = existingSyncId;
+
+                    if (currentRecord.CallData.AdressatenId != previousId)
                     {
-                        string existingSyncId = currentRecord.CallData.SyncID;
-                        string previousId = currentRecord.CallData.AdressatenId;
-
-                        CallDataManager.Fill(currentRecord.CallData, remoteNumber, selectedContact);
-
-                        if (!string.IsNullOrEmpty(existingSyncId))
-                            currentRecord.CallData.SyncID = existingSyncId;
-
-                        if (currentRecord.CallData.AdressatenId != previousId)
-                        {
-                            LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
-                                callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
-                            _notificationManager.CallAdressatChanged(currentRecord.CallData);
-                            ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
-                        }
+                        LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
+                            callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
+                        _notificationManager.CallAdressatChanged(currentRecord.CallData);
+                        ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
                     }
                 }
-                catch (Exception ex)
-                {
-                    LogManager.Log("Contact reshow error for call {0}: {1}", callId, ex.Message);
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                LogManager.Log("Contact reshow error for call {0}: {1}", callId, ex.Message);
+            }
         }
 
         private void HandleDisconnected(string callId, TapiCallEvent callEvent)
