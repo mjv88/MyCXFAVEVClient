@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DatevConnector.Core;
 using DatevConnector.Datev.Managers;
-using DatevConnector.Interop;
 using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
@@ -85,23 +84,22 @@ namespace DatevConnector.Tapi
 
     /// <summary>
     /// Monitors TAPI lines for call events using the Windows TAPI 2.x API.
-    /// Opens all matching 3CX TSP lines in monitor mode to receive call state notifications.
-    /// Supports multiple lines within a single TAPI session for efficient resource usage.
+    /// Thin facade that delegates to TapiInitializer, TapiLineManager, and TapiOperations.
     /// </summary>
     public class TapiLineMonitor : ITelephonyProvider
     {
-        private IntPtr _hLineApp;
-        private IntPtr _hEvent;
-        private int _numDevices;
         private bool _disposed;
         private volatile bool _disposing;
-        private readonly string _lineNameFilter;
-        private readonly string _extensionFilter;
         private readonly ConcurrentDictionary<IntPtr, TapiCallEvent> _activeCalls = new ConcurrentDictionary<IntPtr, TapiCallEvent>();
 
         // Multi-line support: track all discovered and opened lines (thread-safe for background message loop)
         private readonly ConcurrentDictionary<int, TapiLineInfo> _lines = new ConcurrentDictionary<int, TapiLineInfo>();
         private readonly ConcurrentDictionary<IntPtr, TapiLineInfo> _linesByHandle = new ConcurrentDictionary<IntPtr, TapiLineInfo>();
+
+        // Extracted helpers
+        private readonly TapiInitializer _initializer;
+        private readonly TapiLineManager _lineManager;
+        private readonly TapiOperations _operations;
 
         /// <summary>
         /// Fired when a call state changes (includes line info via Extension property)
@@ -162,8 +160,15 @@ namespace DatevConnector.Tapi
         /// If null/empty, opens all lines matching the name filter.</param>
         public TapiLineMonitor(string lineNameFilter = "3CX", string extensionFilter = null)
         {
-            _lineNameFilter = lineNameFilter;
-            _extensionFilter = extensionFilter;
+            _initializer = new TapiInitializer(lineNameFilter, extensionFilter);
+            _lineManager = new TapiLineManager(
+                _lines, _linesByHandle,
+                () => _initializer.LineAppHandle,
+                line => SafeInvokeEvent(LineConnected, line),
+                line => SafeInvokeEvent(LineDisconnected, line));
+            _operations = new TapiOperations(
+                _lines, _activeCalls, _linesByHandle,
+                line => SafeInvokeEvent(LineDisconnected, line));
         }
 
         /// <summary>
@@ -197,11 +202,10 @@ namespace DatevConnector.Tapi
         /// <summary>
         /// Initialize TAPI and start monitoring with progress callback
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="progressText">Optional callback for progress text updates</param>
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
-            Initialize(progressText);
+            _initializer.Initialize(progressText);
+            _initializer.FindLines(_lines, progressText);
 
             if (_lines.Count == 0)
             {
@@ -210,7 +214,7 @@ namespace DatevConnector.Tapi
             }
 
             // Open all discovered lines
-            OpenAllLines(progressText);
+            _lineManager.OpenAllLines(progressText);
 
             int connectedCount = _lines.Values.Count(l => l.IsConnected);
             if (connectedCount == 0)
@@ -244,459 +248,47 @@ namespace DatevConnector.Tapi
             await Task.Run(() => MessageLoop(cancellationToken), cancellationToken);
         }
 
-        /// <summary>
-        /// Reconnect a specific line by extension
-        /// </summary>
-        /// <param name="extension">Extension to reconnect</param>
-        /// <param name="progressText">Optional progress callback</param>
-        /// <returns>True if reconnected successfully</returns>
+        // ===== ITelephonyProvider delegations =====
+
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
-            var line = _lines.Values.FirstOrDefault(l => l.Extension == extension);
-            if (line == null)
-            {
-                LogManager.Log("TAPI: Cannot reconnect - extension {0} not found", extension);
-                return false;
-            }
-
-            // Close existing handle if open
-            if (line.Handle != IntPtr.Zero)
-            {
-                progressText?.Invoke($"Trenne Leitung {extension}...");
-                _linesByHandle.TryRemove(line.Handle, out _);
-                lineClose(line.Handle);
-                line.Handle = IntPtr.Zero;
-                SafeInvokeEvent(LineDisconnected, line);
-            }
-
-            // Reopen the line
-            progressText?.Invoke($"Öffne Leitung {extension}...");
-            return OpenSingleLine(line, progressText);
+            return _lineManager.ReconnectLine(extension, progressText);
         }
 
-        /// <summary>
-        /// Test a specific line by extension to verify it's actually connected and responsive.
-        /// Includes automatic retry for transient errors with exponential backoff.
-        /// </summary>
-        /// <param name="extension">Extension to test</param>
-        /// <param name="progressText">Optional progress callback</param>
-        /// <param name="maxRetries">Maximum retry attempts for transient errors (default: 3)</param>
-        /// <returns>True if line is connected and responsive</returns>
-        public bool TestLine(string extension, Action<string> progressText = null, int maxRetries = 3)
-        {
-            var line = _lines.Values.FirstOrDefault(l => l.Extension == extension);
-            if (line == null)
-            {
-                progressText?.Invoke($"Leitung {extension} nicht gefunden");
-                LogManager.Log("TAPI TestLine: Extension {0} not found", extension);
-                return false;
-            }
-
-            progressText?.Invoke($"Prüfe Leitung {extension}...");
-
-            // First check: is the handle valid?
-            if (line.Handle == IntPtr.Zero)
-            {
-                progressText?.Invoke($"Leitung {extension} nicht verbunden");
-                LogManager.Log("TAPI TestLine: Line {0} has no valid handle", extension);
-                return false;
-            }
-
-            // Execute test with retry logic for transient errors
-            int attempt = 0;
-            int delayMs = 500; // Start with 500ms delay
-
-            while (attempt <= maxRetries)
-            {
-                var result = TestLineInternal(line, progressText, attempt > 0);
-
-                switch (result.Category)
-                {
-                    case TapiErrorCategory.Success:
-                        return result.IsConnected;
-
-                    case TapiErrorCategory.Transient:
-                        if (attempt < maxRetries)
-                        {
-                            attempt++;
-                            progressText?.Invoke($"Wiederhole ({attempt}/{maxRetries})...");
-                            LogManager.Log("TAPI TestLine {0}: Transient error, retry {1}/{2} in {3}ms",
-                                extension, attempt, maxRetries, delayMs);
-                            Thread.Sleep(delayMs);
-                            delayMs *= 2; // Exponential backoff
-                            continue;
-                        }
-                        LogManager.Log("TAPI TestLine {0}: Transient error, max retries reached", extension);
-                        progressText?.Invoke($"Fehler nach {maxRetries} Versuchen");
-                        return false;
-
-                    case TapiErrorCategory.LineClosed:
-                        progressText?.Invoke("Leitung getrennt - Neuverbindung erforderlich");
-                        LogManager.Log("TAPI TestLine {0}: Line closed/invalid, reconnect required", extension);
-                        // Mark the line as disconnected
-                        if (line.Handle != IntPtr.Zero)
-                        {
-                            _linesByHandle.TryRemove(line.Handle, out _);
-                            line.Handle = IntPtr.Zero;
-                            SafeInvokeEvent(LineDisconnected, line);
-                        }
-                        return false;
-
-                    case TapiErrorCategory.Shutdown:
-                        progressText?.Invoke("TAPI wird heruntergefahren");
-                        LogManager.Log("TAPI TestLine {0}: TAPI shutdown/reinit required", extension);
-                        return false;
-
-                    case TapiErrorCategory.Permanent:
-                    default:
-                        // Don't retry permanent errors
-                        return false;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Internal test result with error category
-        /// </summary>
-        private struct TestLineResult
-        {
-            public TapiErrorCategory Category;
-            public bool IsConnected;
-            public int ErrorCode;
-        }
-
-        /// <summary>
-        /// Internal method to perform the actual TAPI line test
-        /// </summary>
-        private TestLineResult TestLineInternal(TapiLineInfo line, Action<string> progressText, bool isRetry)
-        {
-            if (!isRetry)
-                progressText?.Invoke("Abfrage TAPI Status...");
-
-            int bufferSize = 256;
-            IntPtr pDevStatus = IntPtr.Zero;
-
-            try
-            {
-                pDevStatus = Marshal.AllocHGlobal(bufferSize);
-                Marshal.WriteInt32(pDevStatus, bufferSize); // dwTotalSize
-
-                int result = lineGetLineDevStatus(line.Handle, pDevStatus);
-
-                if (result != LINEERR_OK)
-                {
-                    var category = CategorizeError(result);
-                    var errorDesc = GetErrorDescription(result);
-
-                    progressText?.Invoke($"TAPI: {errorDesc}");
-                    LogManager.Log("TAPI TestLine {0}: lineGetLineDevStatus failed: {1} (0x{2:X8})",
-                        line.Extension, errorDesc, result);
-
-                    return new TestLineResult
-                    {
-                        Category = category,
-                        IsConnected = false,
-                        ErrorCode = result
-                    };
-                }
-
-                // Parse the LINEDEVSTATUS structure
-                var devStatus = (LINEDEVSTATUS)Marshal.PtrToStructure(pDevStatus, typeof(LINEDEVSTATUS));
-
-                // Check INSERVICE flag
-                bool inService = (devStatus.dwDevStatusFlags & LINEDEVSTATUSFLAGS_INSERVICE) != 0;
-                bool connected = (devStatus.dwDevStatusFlags & LINEDEVSTATUSFLAGS_CONNECTED) != 0;
-                int activeCalls = devStatus.dwNumActiveCalls;
-                int numOpens = devStatus.dwNumOpens;
-
-                LogManager.Log("TAPI TestLine {0}: Opens={1}, ActiveCalls={2}, InService={3}, Connected={4}",
-                    line.Extension, numOpens, activeCalls, inService, connected);
-
-                // Build status message
-                string statusMsg;
-                bool isConnected;
-
-                if (inService)
-                {
-                    if (activeCalls > 0)
-                        statusMsg = $"Verbunden ({activeCalls} Anruf{(activeCalls > 1 ? "e" : "")})";
-                    else
-                        statusMsg = "Verbunden (bereit)";
-                    isConnected = true;
-                }
-                else if (connected)
-                {
-                    statusMsg = "Verbunden (außer Betrieb)";
-                    isConnected = true; // Handle is valid even if not in service
-                }
-                else
-                {
-                    statusMsg = "Nicht verbunden";
-                    isConnected = false;
-                }
-
-                progressText?.Invoke(statusMsg);
-
-                return new TestLineResult
-                {
-                    Category = TapiErrorCategory.Success,
-                    IsConnected = isConnected,
-                    ErrorCode = LINEERR_OK
-                };
-            }
-            catch (Exception ex)
-            {
-                progressText?.Invoke($"Fehler: {ex.Message}");
-                LogManager.Log("TAPI TestLine {0}: Exception: {1}", line.Extension, ex.Message);
-
-                return new TestLineResult
-                {
-                    Category = TapiErrorCategory.Transient, // Treat exceptions as potentially transient
-                    IsConnected = false,
-                    ErrorCode = -1
-                };
-            }
-            finally
-            {
-                if (pDevStatus != IntPtr.Zero)
-                    Marshal.FreeHGlobal(pDevStatus);
-            }
-        }
-
-        /// <summary>
-        /// Reconnect all lines
-        /// </summary>
-        /// <param name="progressText">Optional progress callback</param>
         public void ReconnectAllLines(Action<string> progressText = null)
         {
-            // Close all open lines
-            foreach (var line in _lines.Values.Where(l => l.IsConnected).ToList())
-            {
-                progressText?.Invoke($"Trenne Leitung {line.Extension}...");
-                _linesByHandle.TryRemove(line.Handle, out _);
-                lineClose(line.Handle);
-                line.Handle = IntPtr.Zero;
-                SafeInvokeEvent(LineDisconnected, line);
-            }
+            _lineManager.ReconnectAllLines(progressText);
+        }
 
-            // Reopen all lines
-            OpenAllLines(progressText);
+        public bool TestLine(string extension, Action<string> progressText = null, int maxRetries = 3)
+        {
+            return _operations.TestLine(extension, progressText, maxRetries);
+        }
+
+        public int MakeCall(string destination)
+        {
+            return _operations.MakeCall(destination);
         }
 
         /// <summary>
-        /// Initialize TAPI subsystem
+        /// Make an outbound call on a specific line
         /// </summary>
-        private void Initialize(Action<string> progressText = null)
+        public int MakeCall(string destination, string extension)
         {
-            progressText?.Invoke("Initialisiere TAPI...");
-
-            var initParams = new LINEINITIALIZEEXPARAMS();
-            initParams.dwTotalSize = Marshal.SizeOf(typeof(LINEINITIALIZEEXPARAMS));
-            initParams.dwOptions = LINEINITIALIZEEXOPTION_USEEVENT;
-
-            int apiVersion = TAPI_VERSION_2_2;
-
-            int result = lineInitializeEx(
-                out _hLineApp,
-                IntPtr.Zero,
-                IntPtr.Zero,  // No callback - using events
-                "DatevConnector",
-                out _numDevices,
-                ref apiVersion,
-                ref initParams);
-
-            if (result != LINEERR_OK)
-            {
-                progressText?.Invoke("TAPI Initialisierung fehlgeschlagen");
-                throw new InvalidOperationException($"lineInitializeEx failed: 0x{result:X8}");
-            }
-
-            _hEvent = initParams.hEvent;
-            LogManager.Log("TAPI initialized: {0} line devices", _numDevices);
-            progressText?.Invoke($"{_numDevices} TAPI Leitungen gefunden");
-
-            // Find the 3CX line
-            FindLine(progressText);
+            return _operations.MakeCall(destination, extension);
         }
 
-        /// <summary>
-        /// Find ALL matching line devices by name filter
-        /// </summary>
-        private void FindLine(Action<string> progressText = null)
+        public int DropCall(IntPtr hCall)
         {
-            progressText?.Invoke("Suche 3CX TAPI Leitungen...");
-            _lines.Clear();
-
-            for (int i = 0; i < _numDevices; i++)
-            {
-                LINEEXTENSIONID extensionId;
-                int negotiatedVersion;
-
-                int result = lineNegotiateAPIVersion(
-                    _hLineApp, i,
-                    TAPI_VERSION_1_0, TAPI_VERSION_2_2,
-                    out negotiatedVersion, out extensionId);
-
-                if (result != LINEERR_OK)
-                    continue;
-
-                string lineName = GetLineName(i, negotiatedVersion);
-                if (lineName == null)
-                    continue;
-
-                bool matches = string.IsNullOrEmpty(_lineNameFilter) ||
-                               lineName.IndexOf(_lineNameFilter, StringComparison.OrdinalIgnoreCase) >= 0;
-
-                string lineExtension = TapiLineInfo.ParseExtension(lineName);
-
-                // Also filter by extension number if specified
-                if (matches && !string.IsNullOrEmpty(_extensionFilter))
-                {
-                    if (lineExtension != _extensionFilter)
-                    {
-                        LogManager.Log("Skipping TAPI line {0}: \"{1}\" (Ext: {2}) - does not match configured extension {3}",
-                            i, lineName, lineExtension, _extensionFilter);
-                        continue;
-                    }
-                }
-
-                if (matches)
-                {
-                    var lineInfo = new TapiLineInfo
-                    {
-                        DeviceId = i,
-                        LineName = lineName,
-                        Extension = lineExtension,
-                        ApiVersion = negotiatedVersion,
-                        Handle = IntPtr.Zero
-                    };
-
-                    _lines[i] = lineInfo;
-                    LogManager.Log("Discovered 3CX TAPI line {0}: \"{1}\" (Ext: {2})", i, lineName, lineInfo.Extension);
-                    progressText?.Invoke($"3CX Leitung gefunden: {lineInfo.Extension}");
-                }
-            }
-
-            if (_lines.Count == 0)
-            {
-                if (!string.IsNullOrEmpty(_extensionFilter))
-                    LogManager.Warning("No TAPI line found for extension {0} (filter=\"{1}\", {2} devices scanned)",
-                        _extensionFilter, _lineNameFilter ?? "(any)", _numDevices);
-                else
-                    LogManager.Log("No TAPI line matching \"{0}\" found", _lineNameFilter ?? "(any)");
-            }
+            return _operations.DropCall(hCall);
         }
 
-        /// <summary>
-        /// Get the name of a line device
-        /// </summary>
-        private string GetLineName(int deviceId, int apiVersion)
+        public TapiCallEvent FindCallById(int callId)
         {
-            // Start with reasonable buffer
-            int bufferSize = 1024;
-            IntPtr pDevCaps = IntPtr.Zero;
-
-            try
-            {
-                for (int attempt = 0; attempt < 3; attempt++)
-                {
-                    if (pDevCaps != IntPtr.Zero)
-                        Marshal.FreeHGlobal(pDevCaps);
-
-                    pDevCaps = Marshal.AllocHGlobal(bufferSize);
-                    Marshal.WriteInt32(pDevCaps, bufferSize); // dwTotalSize
-
-                    int result = lineGetDevCaps(_hLineApp, deviceId, apiVersion, 0, pDevCaps);
-                    if (result != LINEERR_OK)
-                        return null;
-
-                    int neededSize = Marshal.ReadInt32(pDevCaps, 4); // dwNeededSize
-                    if (neededSize <= bufferSize)
-                    {
-                        // Read line name
-                        var devCaps = (LINEDEVCAPS)Marshal.PtrToStructure(pDevCaps, typeof(LINEDEVCAPS));
-                        if (devCaps.dwLineNameSize > 0 && devCaps.dwLineNameOffset > 0)
-                        {
-                            IntPtr namePtr = IntPtr.Add(pDevCaps, devCaps.dwLineNameOffset);
-                            return Marshal.PtrToStringAuto(namePtr, devCaps.dwLineNameSize / 2).TrimEnd('\0');
-                        }
-                        return null;
-                    }
-
-                    bufferSize = neededSize;
-                }
-            }
-            finally
-            {
-                if (pDevCaps != IntPtr.Zero)
-                    Marshal.FreeHGlobal(pDevCaps);
-            }
-
-            return null;
+            return _operations.FindCallById(callId);
         }
 
-        /// <summary>
-        /// Open all discovered lines in monitor mode
-        /// </summary>
-        private void OpenAllLines(Action<string> progressText = null)
-        {
-            foreach (var line in _lines.Values)
-            {
-                progressText?.Invoke($"Öffne Leitung: {line.Extension}...");
-                OpenSingleLine(line, progressText);
-            }
-        }
-
-        /// <summary>
-        /// Open a single line in monitor mode
-        /// </summary>
-        /// <returns>True if opened successfully</returns>
-        private bool OpenSingleLine(TapiLineInfo line, Action<string> progressText = null)
-        {
-            IntPtr hLine;
-            int result = lineOpen(
-                _hLineApp,
-                line.DeviceId,
-                out hLine,
-                line.ApiVersion,
-                0,          // dwExtVersion
-                IntPtr.Zero, // dwCallbackInstance
-                LINECALLPRIVILEGE_MONITOR,
-                LINEMEDIAMODE_INTERACTIVEVOICE | LINEMEDIAMODE_UNKNOWN,
-                IntPtr.Zero); // lpCallParams
-
-            if (result != LINEERR_OK)
-            {
-                var errorDesc = GetErrorDescription(result);
-                LogManager.Warning("lineOpen failed for device {0} ({1}): {2} (0x{3:X8})",
-                    line.DeviceId, line.Extension, errorDesc, result);
-                progressText?.Invoke($"Fehler: Leitung {line.Extension} - {errorDesc}");
-
-                // LINEERR_NOTREGISTERED: 3CX TSP needs the dialer app running
-                if (result == LINEERR_NOTREGISTERED)
-                {
-                    SessionManager.Log3CXTapiDiagnostics(line.Extension);
-                    if (!SessionManager.Is3CXProcessRunning())
-                        progressText?.Invoke("Warte auf 3CX Desktop App...");
-                }
-
-                return false;
-            }
-
-            line.Handle = hLine;
-            _linesByHandle[hLine] = line;
-
-            // Request line device state notifications (call states come automatically with MONITOR privilege)
-            lineSetStatusMessages(hLine, LINEDEVSTATE_RINGING, 0);
-
-            LogManager.Log("TAPI line connected: {0}", line.Extension);
-            progressText?.Invoke($"Leitung {line.Extension} verbunden");
-
-            SafeInvokeEvent(LineConnected, line);
-            return true;
-        }
+        // ===== Message loop and event processing =====
 
         /// <summary>
         /// Message loop - waits for TAPI events and processes them
@@ -708,7 +300,7 @@ namespace DatevConnector.Tapi
             while (!cancellationToken.IsCancellationRequested)
             {
                 // Wait for event with 500ms timeout (allows cancellation checks)
-                int waitResult = WaitForSingleObject(_hEvent, 500);
+                int waitResult = WaitForSingleObject(_initializer.EventHandle, 500);
 
                 if (waitResult == WAIT_TIMEOUT)
                     continue;
@@ -720,7 +312,7 @@ namespace DatevConnector.Tapi
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     var msg = new LINEMESSAGE();
-                    int result = lineGetMessage(_hLineApp, ref msg, 0); // Non-blocking
+                    int result = lineGetMessage(_initializer.LineAppHandle, ref msg, 0); // Non-blocking
 
                     if (result != LINEERR_OK)
                         break; // No more messages
@@ -936,7 +528,6 @@ namespace DatevConnector.Tapi
 
         /// <summary>
         /// Extract a string field from a TAPI buffer if offset and size are valid.
-        /// Eliminates the repeated if (size > 0 && offset > 0) pattern.
         /// </summary>
         private string ExtractField(IntPtr basePtr, int offset, int size)
         {
@@ -957,97 +548,6 @@ namespace DatevConnector.Tapi
             return value?.TrimEnd('\0');
         }
 
-        /// <summary>
-        /// Make an outbound call on the first connected line
-        /// </summary>
-        /// <returns>Positive request ID on success, negative TAPI error code on failure</returns>
-        public int MakeCall(string destination)
-        {
-            return MakeCall(destination, null);
-        }
-
-        /// <summary>
-        /// Make an outbound call on a specific line
-        /// </summary>
-        /// <param name="destination">Number to dial</param>
-        /// <param name="extension">Extension to use (null = first connected line)</param>
-        /// <returns>Positive request ID on success, negative TAPI error code on failure</returns>
-        public int MakeCall(string destination, string extension)
-        {
-            TapiLineInfo line;
-
-            if (extension != null)
-            {
-                line = _lines.Values.FirstOrDefault(l => l.Extension == extension && l.IsConnected);
-                if (line == null)
-                {
-                    LogManager.Log("TAPI MakeCall: Extension {0} not found or not connected", extension);
-                    return -1;
-                }
-            }
-            else
-            {
-                line = _lines.Values.FirstOrDefault(l => l.IsConnected);
-                if (line == null)
-                {
-                    LogManager.Log("TAPI MakeCall: No line connected");
-                    return -1;
-                }
-            }
-
-            IntPtr hCall;
-            int result = lineMakeCall(line.Handle, out hCall, destination, 0, IntPtr.Zero);
-
-            if (result > 0)
-            {
-                // Positive = async request ID
-                LogManager.Log("TAPI MakeCall: Dialing {0} on line {1} (requestId={2})",
-                    destination, line.Extension, result);
-            }
-            else
-            {
-                LogManager.Log("TAPI MakeCall: Failed for {0} on line {1} (error=0x{2:X8})",
-                    destination, line.Extension, result);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Drop/end a call by handle
-        /// </summary>
-        public int DropCall(IntPtr hCall)
-        {
-            if (hCall == IntPtr.Zero)
-                return -1;
-
-            int result = lineDrop(hCall, IntPtr.Zero, 0);
-
-            if (result > 0)
-            {
-                LogManager.Log("TAPI DropCall: 0x{0:X} (requestId={1})", hCall.ToInt64(), result);
-            }
-            else
-            {
-                LogManager.Log("TAPI DropCall: Failed for 0x{0:X} (error=0x{1:X8})", hCall.ToInt64(), result);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Find an active call by its TAPI call ID
-        /// </summary>
-        public TapiCallEvent FindCallById(int callId)
-        {
-            foreach (var kvp in _activeCalls)
-            {
-                if (kvp.Value.CallId == callId)
-                    return kvp.Value;
-            }
-            return null;
-        }
-
         public void Dispose()
         {
             if (_disposed)
@@ -1058,26 +558,7 @@ namespace DatevConnector.Tapi
             _disposed = true;
             GC.SuppressFinalize(this);
 
-            // Close all open lines
-            foreach (var line in _lines.Values.Where(l => l.IsConnected).ToList())
-            {
-                LogManager.Log("TAPI: Closing line {0} ({1})", line.DeviceId, line.Extension);
-                lineClose(line.Handle);
-                line.Handle = IntPtr.Zero;
-            }
-
-            _linesByHandle.Clear();
-
-            if (_hLineApp != IntPtr.Zero)
-            {
-                lineShutdown(_hLineApp);
-                _hLineApp = IntPtr.Zero;
-            }
-
-            // Note: _hEvent is owned by TAPI, closed by lineShutdown
-            _hEvent = IntPtr.Zero;
-
-            LogManager.Log("TAPI line monitor disposed ({0} lines)", _lines.Count);
+            _initializer.Shutdown(_lines, _linesByHandle);
         }
     }
 }

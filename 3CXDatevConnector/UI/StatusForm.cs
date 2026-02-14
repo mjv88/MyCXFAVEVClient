@@ -25,28 +25,19 @@ namespace DatevConnector.UI
         public enum Action { None, CallHistory, Settings }
 
         private readonly ConnectorService _bridgeService;
-        private Label _lblMode;
-        private Label _lblExtBold;
         private Label _lblDatevStatus;
-        private Label _lblTapiStatus;
-        private Label _lblConnectorStatus;
         private Label _lblContacts;
         private Label _lblSyncTime;
         private Label _lblDatevProgress;
-        private Label _lblTapiProgress;
+        private Label _lblConnectorStatus;
         private Label _lblBridgeProgress;
         private Button _btnTestDatev;
         private Button _btnReloadContacts;
-        private Button _btnTestTapi;
-        private Button _btnReconnectTapi;
         private Button _btnReconnectAll;
 
-        // Multi-line TAPI support
-        private Panel _tapiCard;
-        private readonly Dictionary<string, Label> _lineStatusLabels = new Dictionary<string, Label>();
-        private readonly Dictionary<string, Label> _lineProgressLabels = new Dictionary<string, Label>();
-        private readonly Dictionary<string, Button> _lineTestButtons = new Dictionary<string, Button>();
-        private readonly Dictionary<string, Button> _lineReconnectButtons = new Dictionary<string, Button>();
+        // TAPI section panels (one or the other is set)
+        private SingleLineStatusPanel _singleLinePanel;
+        private MultiLineStatusPanel _multiLinePanel;
 
         /// <summary>
         /// The action requested by the user (check after ShowDialog returns).
@@ -111,62 +102,42 @@ namespace DatevConnector.UI
 
         private void OnConnectorStatusChanged(ConnectorStatus status)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            // Marshal to UI thread
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                BeginInvoke(new System.Action(() => OnConnectorStatusChanged(status)));
-                return;
-            }
+                bool tapiOk = _bridgeService?.TapiConnected ?? false;
 
-            // Update TAPI status
-            bool tapiOk = _bridgeService?.TapiConnected ?? false;
-            string rawExt = _bridgeService?.Extension;
-            UpdateTapiDisplay(tapiOk, rawExt);
-            _btnReconnectTapi.Enabled = !tapiOk;
+                // Delegate TAPI section update to the active panel
+                if (_singleLinePanel != null)
+                {
+                    string ext = _bridgeService?.Extension;
+                    string modeName = TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode);
+                    _singleLinePanel.HandleStatusChanged(tapiOk, ext, modeName);
+                }
+                else if (_multiLinePanel != null)
+                {
+                    string modeName = TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode);
+                    _multiLinePanel.HandleStatusChanged(modeName);
+                }
 
-            // Update mode label — clear when disconnected
-            if (_lblMode != null && _bridgeService != null)
-            {
-                _lblMode.Text = tapiOk
-                    ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
-                    : "";
-            }
+                // Reset bridge test button state if reconnecting
+                if (_btnReconnectAll.Text == UIStrings.Status.TestPending)
+                {
+                    _btnReconnectAll.Text = UIStrings.Labels.Test;
+                    _btnReconnectAll.Enabled = true;
+                }
 
-            // Reset button state if reconnecting
-            if (_btnReconnectTapi.Text == UIStrings.Status.TestPending)
-            {
-                _btnReconnectTapi.Text = UIStrings.Labels.Connect;
-            }
-            if (_btnTestTapi != null && _btnTestTapi.Text == UIStrings.Status.TestPending)
-            {
-                _btnTestTapi.Text = UIStrings.Labels.Test;
-                _btnTestTapi.Enabled = true;
-            }
-            if (_btnReconnectAll.Text == UIStrings.Status.TestPending)
-            {
-                _btnReconnectAll.Text = UIStrings.Labels.Test;
-                _btnReconnectAll.Enabled = true;
-            }
-
-            UpdateConnectorStatus();
+                UpdateConnectorStatus();
+            });
         }
 
         private void OnModeChanged(TelephonyMode mode)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                BeginInvoke(new System.Action(() => OnModeChanged(mode)));
-                return;
-            }
-
-            if (_lblMode != null)
-            {
-                _lblMode.Text = TelephonyProviderSelector.GetModeShortName(mode);
-            }
+                string modeName = TelephonyProviderSelector.GetModeShortName(mode);
+                _singleLinePanel?.UpdateMode(modeName);
+                _multiLinePanel?.UpdateMode(modeName);
+            });
         }
 
         private void InitializeComponent()
@@ -217,7 +188,7 @@ namespace DatevConnector.UI
             datevCard.Controls.Add(_lblContacts);
 
             // Contact sync time
-            var syncTs = DatevContactManager.LastSyncTimestamp;
+            var syncTs = DatevContactRepository.LastSyncTimestamp;
             string syncText = syncTs.HasValue
                 ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
                 : UIStrings.Status.LastSyncNone;
@@ -250,161 +221,29 @@ namespace DatevConnector.UI
 
             y += datevCardHeight + UITheme.SpacingM;
 
-            // ==================== 3CX Section ====================
-            // Calculate card height based on number of lines (reuse tapiLines/lineCount from above)
+            // ==================== 3CX Section (delegated to panels) ====================
             int tapiCardHeight = lineCount > 1 ? 88 + (lineCount * 24) : cardHeight + 18;
 
-            _tapiCard = CreateSectionCard(UIStrings.Sections.Tapi, UITheme.AccentIncoming, y, cardWidth, tapiCardHeight);
-            Controls.Add(_tapiCard);
-
-            bool tapiOk = _bridgeService?.TapiConnected ?? false;
-
-            // Active mode label (shown in both single and multi-line)
-            var activeModeName = (_bridgeService != null && tapiOk)
-                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
-                : "";
+            var tapiCard = CreateSectionCard(UIStrings.Sections.Tapi, UITheme.AccentIncoming, y, cardWidth, tapiCardHeight);
+            Controls.Add(tapiCard);
 
             if (lineCount <= 1)
             {
-                // Single line mode
-                string ext = _bridgeService?.Extension ?? "—";
-
-                _lblTapiStatus = new Label
-                {
-                    Text = tapiOk ? UIStrings.Status.Connected : UIStrings.Status.Disconnected,
-                    ForeColor = tapiOk ? UITheme.StatusOk : UITheme.StatusBad,
-                    Font = UITheme.FontBody,
-                    Location = new Point(12, 28),
-                    AutoSize = true
-                };
-                _tapiCard.Controls.Add(_lblTapiStatus);
-
-                _lblExtBold = new Label
-                {
-                    Text = (tapiOk && !string.IsNullOrEmpty(_bridgeService?.Extension)) ? ext : "",
-                    ForeColor = UITheme.TextPrimary,
-                    Font = UITheme.FontLabel,
-                    Location = new Point(90, 28),
-                    AutoSize = true
-                };
-                _tapiCard.Controls.Add(_lblExtBold);
-
-                _lblMode = new Label
-                {
-                    Text = activeModeName,
-                    ForeColor = UITheme.TextMuted,
-                    Font = UITheme.FontSmall,
-                    Location = new Point(12, 48),
-                    AutoSize = true
-                };
-                _tapiCard.Controls.Add(_lblMode);
-
-                // Buttons aligned to the right
-                _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Connect, btnWidth);
-                _btnReconnectTapi.Location = new Point(cardWidth - 12 - btnWidth, 58);
-                _btnReconnectTapi.Click += BtnReconnectTapi_Click;
-                _btnReconnectTapi.Enabled = !tapiOk;
-                _tapiCard.Controls.Add(_btnReconnectTapi);
-
-                _btnTestTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
-                _btnTestTapi.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 58);
-                _btnTestTapi.Click += BtnTestTapi_Click;
-                _tapiCard.Controls.Add(_btnTestTapi);
+                _singleLinePanel = new SingleLineStatusPanel(
+                    _bridgeService, tapiCard, cardWidth,
+                    () => IsAlive, () => UpdateConnectorStatus());
             }
             else
             {
-                // Multi-line mode - show each line with its own status, progress, and buttons
-                _lblTapiStatus = new Label
-                {
-                    Text = string.Format(UIStrings.Status.LinesConnected, _bridgeService.ConnectedLineCount, lineCount),
-                    ForeColor = _bridgeService.ConnectedLineCount == lineCount ? UITheme.StatusOk :
-                               (_bridgeService.ConnectedLineCount > 0 ? UITheme.StatusWarn : UITheme.StatusBad),
-                    Font = UITheme.FontBody,
-                    Location = new Point(12, 28),
-                    AutoSize = true
-                };
-                _tapiCard.Controls.Add(_lblTapiStatus);
-
-                _lblMode = new Label
-                {
-                    Text = activeModeName,
-                    ForeColor = UITheme.TextMuted,
-                    Font = UITheme.FontSmall,
-                    Location = new Point(12, 48),
-                    AutoSize = true
-                };
-                _tapiCard.Controls.Add(_lblMode);
-
-                // "Neuverbinden" button for reconnecting all lines
-                _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.ReconnectShort, 90);
-                _btnReconnectTapi.Location = new Point(cardWidth - 12 - 90, 24);
-                _btnReconnectTapi.Click += BtnReconnectAllLines_Click;
-                _tapiCard.Controls.Add(_btnReconnectTapi);
-
-                // Individual line rows: Status | Progress | Testen | Verb.
-                int lineY = 70;
-                int btnTestWidth = 50;
-                int btnVerbWidth = 45;
-                int btnGap = 4;
-
-                foreach (var line in tapiLines)
-                {
-                    // Status label (left)
-                    string lineStatusText = line.IsConnected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
-                    var lblLine = new Label
-                    {
-                        Text = string.Format(UIStrings.Status.LineStatus, line.Extension, lineStatusText),
-                        ForeColor = line.IsConnected ? UITheme.StatusOk : UITheme.StatusBad,
-                        Font = UITheme.FontSmall,
-                        Location = new Point(20, lineY),
-                        Size = new Size(120, 18)
-                    };
-                    _tapiCard.Controls.Add(lblLine);
-                    _lineStatusLabels[line.Extension] = lblLine;
-
-                    // Progress label (middle) with styled background (hidden by default)
-                    int progressWidth = cardWidth - 145 - btnTestWidth - btnVerbWidth - btnGap - 16;
-                    var lblProgress = UITheme.CreateProgressLabel(progressWidth);
-                    lblProgress.Location = new Point(145, lineY);
-                    lblProgress.Visible = false;
-                    _tapiCard.Controls.Add(lblProgress);
-                    _lineProgressLabels[line.Extension] = lblProgress;
-
-                    // Test button
-                    var btnTest = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnTestWidth);
-                    btnTest.Font = UITheme.FontSmall;
-                    btnTest.Location = new Point(cardWidth - 12 - btnVerbWidth - btnGap - btnTestWidth, lineY - 2);
-                    btnTest.Tag = line.Extension;
-                    btnTest.Click += BtnTestSingleLine_Click;
-                    _tapiCard.Controls.Add(btnTest);
-                    _lineTestButtons[line.Extension] = btnTest;
-
-                    // Reconnect button
-                    var btnReconnect = UITheme.CreateSecondaryButton(UIStrings.Labels.ConnectShort, btnVerbWidth);
-                    btnReconnect.Font = UITheme.FontSmall;
-                    btnReconnect.Location = new Point(cardWidth - 12 - btnVerbWidth, lineY - 2);
-                    btnReconnect.Tag = line.Extension;
-                    btnReconnect.Enabled = !line.IsConnected;
-                    btnReconnect.Click += BtnReconnectSingleLine_Click;
-                    _tapiCard.Controls.Add(btnReconnect);
-                    _lineReconnectButtons[line.Extension] = btnReconnect;
-
-                    lineY += 24;
-                }
-            }
-
-            // Progress label (only for single-line mode, multi-line has per-line progress)
-            if (lineCount <= 1)
-            {
-                _lblTapiProgress = UITheme.CreateProgressLabel(cardWidth - 24);
-                _lblTapiProgress.Location = new Point(12, 96);
-                _lblTapiProgress.Visible = false;
-                _tapiCard.Controls.Add(_lblTapiProgress);
+                _multiLinePanel = new MultiLineStatusPanel(
+                    _bridgeService, tapiCard, cardWidth, tapiLines,
+                    () => IsAlive, () => UpdateConnectorStatus());
             }
 
             y += tapiCardHeight + UITheme.SpacingM;
 
             // ==================== Bridge Section ====================
+            bool tapiOk = _bridgeService?.TapiConnected ?? false;
             bool operational = datevOk && tapiOk;
             bool partial = datevOk || tapiOk;
             Color statusColor = operational ? UITheme.StatusOk : (partial ? UITheme.StatusWarn : UITheme.StatusBad);
@@ -503,32 +342,22 @@ namespace DatevConnector.UI
 
         private void UpdateProgressLabel(Label label, string text)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                BeginInvoke(new System.Action(() => UpdateProgressLabel(label, text)));
-                return;
-            }
-
-            label.Text = text;
-            // Show the label when there's text to display
-            if (!string.IsNullOrEmpty(text) && !label.Visible)
-                label.Visible = true;
+                label.Text = text;
+                // Show the label when there's text to display
+                if (!string.IsNullOrEmpty(text) && !label.Visible)
+                    label.Visible = true;
+            });
         }
 
         private void HideProgressLabel(Label label)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                BeginInvoke(new System.Action(() => HideProgressLabel(label)));
-                return;
-            }
-
-            label.Text = "";
-            label.Visible = false;
+                label.Text = "";
+                label.Visible = false;
+            });
         }
 
         private async void BtnTestDatev_Click(object sender, EventArgs e)
@@ -542,7 +371,7 @@ namespace DatevConnector.UI
             bool available = await Task.Run(() =>
                 DatevConnectionChecker.CheckAndLogDatevStatus(msg => UpdateProgressLabel(_lblDatevProgress, msg)));
 
-            if (IsDisposed || !IsHandleCreated) return;
+            if (!IsAlive) return;
 
             _lblDatevStatus.Text = available ? UIStrings.Status.Connected : UIStrings.Status.Unavailable;
             _lblDatevStatus.ForeColor = available ? UITheme.StatusOk : UITheme.StatusBad;
@@ -553,7 +382,7 @@ namespace DatevConnector.UI
 
             // Reset button after short delay
             await Task.Delay(1500);
-            if (IsDisposed || !IsHandleCreated) return;
+            if (!IsAlive) return;
 
             _btnTestDatev.Text = UIStrings.Labels.Test;
             _btnTestDatev.ForeColor = UITheme.TextPrimary;
@@ -574,7 +403,7 @@ namespace DatevConnector.UI
 
             await _bridgeService.ReloadContactsAsync(msg => UpdateProgressLabel(_lblDatevProgress, msg));
 
-            if (IsDisposed || !IsHandleCreated) return;
+            if (!IsAlive) return;
 
             int contacts = _bridgeService?.ContactCount ?? 0;
             _lblContacts.Text = string.Format(UIStrings.Messages.ContactsFormat, contacts);
@@ -585,252 +414,13 @@ namespace DatevConnector.UI
             HideProgressLabel(_lblDatevProgress);
         }
 
-        private async void BtnTestTapi_Click(object sender, EventArgs e)
-        {
-            _btnTestTapi.Enabled = false;
-            _btnReconnectTapi.Enabled = false;
-            _btnTestTapi.Text = UIStrings.Status.TestPending;
-            if (_lblTapiProgress != null)
-            {
-                _lblTapiProgress.Visible = true;
-                _lblTapiProgress.Text = "";
-            }
-
-            string extension = _bridgeService?.Extension;
-            bool isConnected = await Task.Run(() =>
-                _bridgeService?.TestTapiLine(extension,
-                    msg => { if (_lblTapiProgress != null) UpdateProgressLabel(_lblTapiProgress, msg); }) ?? false);
-
-            if (IsDisposed || !IsHandleCreated) return;
-
-            UpdateTapiDisplay(isConnected, extension);
-
-            // Show visual feedback
-            _btnTestTapi.Text = isConnected ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
-            _btnTestTapi.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Reset button after short delay
-            await Task.Delay(1500);
-            if (IsDisposed || !IsHandleCreated) return;
-
-            _btnTestTapi.Text = UIStrings.Labels.Test;
-            _btnTestTapi.ForeColor = UITheme.TextPrimary;
-            _btnTestTapi.Enabled = true;
-            _btnReconnectTapi.Enabled = !isConnected;
-            if (_lblTapiProgress != null) HideProgressLabel(_lblTapiProgress);
-
-            UpdateConnectorStatus();
-        }
-
-        private async void BtnReconnectTapi_Click(object sender, EventArgs e)
-        {
-            _btnReconnectTapi.Enabled = false;
-            _btnReconnectTapi.Text = UIStrings.Status.TestPending;
-            if (_lblTapiProgress != null)
-            {
-                _lblTapiProgress.Visible = true;
-                _lblTapiProgress.Text = "";
-            }
-
-            await _bridgeService.ReconnectTapiAsync(msg => { if (_lblTapiProgress != null) UpdateProgressLabel(_lblTapiProgress, msg); });
-
-            // StatusChanged event will update UI when connection establishes
-            // But ensure button is restored if no status change occurs within timeout
-            await Task.Delay(6000);
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (_btnReconnectTapi.Text == UIStrings.Status.TestPending)
-            {
-                bool tapiOk = _bridgeService?.TapiConnected ?? false;
-                string ext = _bridgeService?.Extension;
-                UpdateTapiDisplay(tapiOk, ext);
-                _btnReconnectTapi.Text = UIStrings.Labels.Connect;
-                _btnReconnectTapi.Enabled = !tapiOk;
-                UpdateConnectorStatus();
-            }
-            if (_lblTapiProgress != null) HideProgressLabel(_lblTapiProgress);
-        }
-
-        private async void BtnReconnectAllLines_Click(object sender, EventArgs e)
-        {
-            _btnReconnectTapi.Enabled = false;
-            _btnReconnectTapi.Text = UIStrings.Status.TestPending;
-
-            // Disable all individual line buttons and show/clear progress
-            foreach (var ext in _lineReconnectButtons.Keys)
-            {
-                _lineReconnectButtons[ext].Enabled = false;
-                if (_lineProgressLabels.TryGetValue(ext, out var lbl))
-                {
-                    lbl.Visible = true;
-                    lbl.Text = "";
-                }
-            }
-
-            // Reconnect each line with per-line progress
-            var tapiLines = _bridgeService?.TapiLines;
-            if (tapiLines != null)
-            {
-                foreach (var line in tapiLines)
-                {
-                    string ext = line.Extension;
-                    Label progressLabel = null;
-                    _lineProgressLabels.TryGetValue(ext, out progressLabel);
-
-                    await Task.Run(() => _bridgeService.ReconnectTapiLine(ext,
-                        msg => { if (progressLabel != null) UpdateProgressLabel(progressLabel, msg); }));
-
-                    if (IsDisposed || !IsHandleCreated) return;
-                }
-            }
-
-            await Task.Delay(1000);
-            if (IsDisposed || !IsHandleCreated) return;
-
-            UpdateTapiLineStatuses();
-            _btnReconnectTapi.Text = UIStrings.Labels.ReconnectShort;
-            _btnReconnectTapi.Enabled = true;
-            UpdateConnectorStatus();
-
-            // Hide all per-line progress labels
-            foreach (var lbl in _lineProgressLabels.Values)
-                HideProgressLabel(lbl);
-        }
-
-        private async void BtnTestSingleLine_Click(object sender, EventArgs e)
-        {
-            var btn = sender as Button;
-            if (btn == null) return;
-
-            string extension = btn.Tag as string;
-            if (string.IsNullOrEmpty(extension)) return;
-
-            btn.Enabled = false;
-            btn.Text = UIStrings.Status.TestPending;
-
-            // Get the per-line progress label and show it
-            Label progressLabel = null;
-            _lineProgressLabels.TryGetValue(extension, out progressLabel);
-            if (progressLabel != null)
-            {
-                progressLabel.Visible = true;
-                progressLabel.Text = "";
-            }
-
-            // Perform actual TAPI line test with detailed progress
-            bool isConnected = await Task.Run(() =>
-                _bridgeService?.TestTapiLine(extension,
-                    msg => { if (progressLabel != null) UpdateProgressLabel(progressLabel, msg); }) ?? false);
-
-            if (IsDisposed || !IsHandleCreated) return;
-
-            // Show visual feedback on button
-            btn.Text = isConnected ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
-            btn.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Update line status label
-            if (_lineStatusLabels.TryGetValue(extension, out var statusLabel))
-            {
-                string lineStatusText = isConnected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
-                statusLabel.Text = string.Format(UIStrings.Status.LineStatus, extension, lineStatusText);
-                statusLabel.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
-            }
-
-            await Task.Delay(1500);
-            if (IsDisposed || !IsHandleCreated) return;
-
-            btn.Text = UIStrings.Labels.Test;
-            btn.ForeColor = UITheme.TextPrimary;
-            btn.Enabled = true;
-            if (progressLabel != null) HideProgressLabel(progressLabel);
-        }
-
-        private async void BtnReconnectSingleLine_Click(object sender, EventArgs e)
-        {
-            var btn = sender as Button;
-            if (btn == null) return;
-
-            string extension = btn.Tag as string;
-            if (string.IsNullOrEmpty(extension)) return;
-
-            btn.Enabled = false;
-            btn.Text = UIStrings.Status.TestPending;
-
-            // Get the per-line progress label and show it
-            Label progressLabel = null;
-            _lineProgressLabels.TryGetValue(extension, out progressLabel);
-            if (progressLabel != null)
-            {
-                progressLabel.Visible = true;
-                progressLabel.Text = "";
-            }
-
-            bool success = await Task.Run(() =>
-                _bridgeService.ReconnectTapiLine(extension,
-                    msg => { if (progressLabel != null) UpdateProgressLabel(progressLabel, msg); }));
-
-            await Task.Delay(1500);
-            if (IsDisposed || !IsHandleCreated) return;
-
-            UpdateTapiLineStatuses();
-            btn.Text = UIStrings.Labels.ConnectShort;
-            UpdateConnectorStatus();
-            if (progressLabel != null) HideProgressLabel(progressLabel);
-        }
-
-        private void UpdateTapiLineStatuses()
-        {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            // Marshal to UI thread if needed
-            if (InvokeRequired)
-            {
-                BeginInvoke(new System.Action(UpdateTapiLineStatuses));
-                return;
-            }
-
-            var tapiLines = _bridgeService?.TapiLines;
-            if (tapiLines == null) return;
-
-            int connectedCount = tapiLines.Count(l => l.IsConnected);
-            int totalCount = tapiLines.Count;
-
-            if (totalCount > 1)
-            {
-                _lblTapiStatus.Text = string.Format(UIStrings.Status.LinesConnected, connectedCount, totalCount);
-                _lblTapiStatus.ForeColor = connectedCount == totalCount ? UITheme.StatusOk :
-                                          (connectedCount > 0 ? UITheme.StatusWarn : UITheme.StatusBad);
-            }
-            else
-            {
-                bool tapiOk = _bridgeService?.TapiConnected ?? false;
-                string ext = _bridgeService?.Extension;
-                UpdateTapiDisplay(tapiOk, ext);
-            }
-
-            // Update individual line statuses
-            foreach (var line in tapiLines)
-            {
-                if (_lineStatusLabels.TryGetValue(line.Extension, out var lbl))
-                {
-                    string lineStatusText = line.IsConnected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
-                    lbl.Text = string.Format(UIStrings.Status.LineStatus, line.Extension, lineStatusText);
-                    lbl.ForeColor = line.IsConnected ? UITheme.StatusOk : UITheme.StatusBad;
-                }
-                if (_lineReconnectButtons.TryGetValue(line.Extension, out var btn))
-                {
-                    btn.Enabled = !line.IsConnected;
-                }
-            }
-        }
-
         private async void BtnReconnectAll_Click(object sender, EventArgs e)
         {
             _btnReconnectAll.Enabled = false;
             _btnTestDatev.Enabled = false;
             _btnReloadContacts.Enabled = false;
-            if (_btnTestTapi != null) _btnTestTapi.Enabled = false;
-            _btnReconnectTapi.Enabled = false;
+            _singleLinePanel?.DisableButtons();
+            _multiLinePanel?.DisableButtons();
             _btnReconnectAll.Text = UIStrings.Status.TestPending;
 
             // Show all progress labels
@@ -838,17 +428,13 @@ namespace DatevConnector.UI
             _lblBridgeProgress.Text = "";
             _lblDatevProgress.Visible = true;
             _lblDatevProgress.Text = "";
-            if (_lblTapiProgress != null)
-            {
-                _lblTapiProgress.Visible = true;
-                _lblTapiProgress.Text = "";
-            }
+            _singleLinePanel?.ShowProgress("");
 
             // Test DATEV first
             _lblBridgeProgress.Text = UIStrings.Messages.CheckingDatev;
             bool datevOk = await Task.Run(() =>
                 DatevConnectionChecker.CheckAndLogDatevStatus(msg => UpdateProgressLabel(_lblDatevProgress, msg)));
-            if (IsDisposed || !IsHandleCreated) return;
+            if (!IsAlive) return;
 
             _lblDatevStatus.Text = datevOk ? UIStrings.Status.Connected : UIStrings.Status.Unavailable;
             _lblDatevStatus.ForeColor = datevOk ? UITheme.StatusOk : UITheme.StatusBad;
@@ -858,7 +444,7 @@ namespace DatevConnector.UI
             {
                 _lblBridgeProgress.Text = UIStrings.Messages.LoadingContacts;
                 await _bridgeService.ReloadContactsAsync(msg => UpdateProgressLabel(_lblDatevProgress, msg));
-                if (IsDisposed || !IsHandleCreated) return;
+                if (!IsAlive) return;
 
                 int contacts = _bridgeService?.ContactCount ?? 0;
                 _lblContacts.Text = string.Format(UIStrings.Messages.ContactsFormat, contacts);
@@ -867,19 +453,22 @@ namespace DatevConnector.UI
 
             // Reconnect TAPI - StatusChanged event will update UI
             _lblBridgeProgress.Text = UIStrings.Messages.ConnectingTapi;
-            await _bridgeService.ReconnectTapiAsync(msg => { if (_lblTapiProgress != null) UpdateProgressLabel(_lblTapiProgress, msg); });
+            await _bridgeService.ReconnectTapiAsync(msg => _singleLinePanel?.UpdateProgressSafe(msg));
 
             // Ensure button is restored after timeout if no status change
             await Task.Delay(6000);
-            if (IsDisposed || !IsHandleCreated) return;
+            if (!IsAlive) return;
 
             if (_btnReconnectAll.Text == UIStrings.Status.TestPending)
             {
                 bool tapiOk = _bridgeService?.TapiConnected ?? false;
                 string ext = _bridgeService?.Extension;
-                UpdateTapiDisplay(tapiOk, ext);
-                if (_btnTestTapi != null) _btnTestTapi.Enabled = true;
-                _btnReconnectTapi.Enabled = !tapiOk;
+
+                if (_singleLinePanel != null)
+                    _singleLinePanel.OnTestAllComplete(tapiOk, ext);
+                else
+                    _multiLinePanel?.OnTestAllComplete();
+
                 _btnReconnectAll.Text = UIStrings.Labels.Test;
                 _btnReconnectAll.Enabled = true;
                 _btnTestDatev.Enabled = true;
@@ -891,48 +480,31 @@ namespace DatevConnector.UI
 
                 // Hide progress labels after a short delay
                 await Task.Delay(2000);
-                if (IsDisposed || !IsHandleCreated) return;
+                if (!IsAlive) return;
                 HideProgressLabel(_lblDatevProgress);
-                if (_lblTapiProgress != null) HideProgressLabel(_lblTapiProgress);
+                _singleLinePanel?.HideProgress();
                 HideProgressLabel(_lblBridgeProgress);
             }
         }
 
         private void UpdateSyncTime()
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                BeginInvoke(new System.Action(UpdateSyncTime));
-                return;
-            }
-
-            var syncTs = DatevContactManager.LastSyncTimestamp;
-            _lblSyncTime.Text = syncTs.HasValue
-                ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
-                : UIStrings.Status.LastSyncNone;
-        }
-
-        private void UpdateTapiDisplay(bool connected, string ext)
-        {
-            _lblTapiStatus.Text = connected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
-            _lblTapiStatus.ForeColor = connected ? UITheme.StatusOk : UITheme.StatusBad;
-            if (_lblExtBold != null)
-                _lblExtBold.Text = (connected && !string.IsNullOrEmpty(ext)) ? ext : "";
+                var syncTs = DatevContactRepository.LastSyncTimestamp;
+                _lblSyncTime.Text = syncTs.HasValue
+                    ? string.Format(UIStrings.Status.LastSyncFormat, syncTs.Value)
+                    : UIStrings.Status.LastSyncNone;
+            });
         }
 
         private void UpdateConnectorStatus()
         {
-            if (IsDisposed || !IsHandleCreated) return;
+            SafeInvoke(UpdateConnectorStatusCore);
+        }
 
-            // Marshal to UI thread if needed
-            if (InvokeRequired)
-            {
-                BeginInvoke(new System.Action(UpdateConnectorStatus));
-                return;
-            }
-
+        private void UpdateConnectorStatusCore()
+        {
             bool datevOk = _bridgeService?.DatevAvailable ?? false;
             bool tapiOk = _bridgeService?.TapiConnected ?? false;
             bool operational = datevOk && tapiOk;

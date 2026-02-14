@@ -1,10 +1,8 @@
 using System;
 using System.Drawing;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows.Forms;
 using DatevConnector.Datev.Managers;
-using DatevConnector.Datev.PluginData;
 using DatevConnector.UI.Strings;
 using DatevConnector.UI.Theme;
 
@@ -22,17 +20,6 @@ namespace DatevConnector.UI
         private readonly Label _lblCharCount;
         private readonly Button _btnSend;
         private readonly Button _btnCancel;
-
-        // Capture UI SynchronizationContext at startup
-        private static SynchronizationContext _uiContext;
-
-        /// <summary>
-        /// Initialize the UI context. Call this from the main UI thread at startup.
-        /// </summary>
-        public static void InitializeUIContext()
-        {
-            _uiContext = SynchronizationContext.Current;
-        }
 
         /// <summary>
         /// The journal note text entered by the user
@@ -243,30 +230,7 @@ namespace DatevConnector.UI
                     }
                 };
 
-                if (_uiContext != null)
-                {
-                    _uiContext.Post(_ => showAction(), null);
-                    return;
-                }
-
-                if (Application.OpenForms.Count > 0)
-                {
-                    var mainForm = Application.OpenForms[0];
-                    if (mainForm.InvokeRequired)
-                    {
-                        mainForm.BeginInvoke(showAction);
-                        return;
-                    }
-                }
-
-                // Fallback: run on a new STA thread
-                var thread = new Thread(() =>
-                {
-                    Application.EnableVisualStyles();
-                    showAction();
-                });
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
+                FormDisplayHelper.PostToUIThread(showAction);
             }
             catch (Exception ex)
             {

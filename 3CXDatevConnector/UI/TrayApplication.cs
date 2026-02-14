@@ -38,9 +38,7 @@ namespace DatevConnector.UI
         public TrayApplication(string extension)
         {
             // Initialize UI context for popup forms (must be done on UI thread)
-            CallerPopupForm.InitializeUIContext();
-            ContactSelectionForm.InitializeUIContext();
-            JournalForm.InitializeUIContext();
+            FormDisplayHelper.InitializeUIContext();
 
             // Create tray icons with status ring colors
             _iconConnected = UITheme.CreateTrayIcon(UITheme.StatusOk);

@@ -66,6 +66,7 @@
     <Compile Include="Core\ConfigKeys.cs" />
     <Compile Include="Core\ContactRoutingCache.cs" />
     <Compile Include="Core\CircuitBreaker.cs" />
+    <Compile Include="Core\DatevCommandHandler.cs" />
     <Compile Include="Core\RetryHelper.cs" />
     <Compile Include="Core\DebugConfigWatcher.cs" />
     <Compile Include="Core\SessionManager.cs" />
@@ -90,6 +91,9 @@
     <!-- TAPI -->
     <Compile Include="Tapi\ITelephonyProvider.cs" />
     <Compile Include="Tapi\TapiLineMonitor.cs" />
+    <Compile Include="Tapi\TapiInitializer.cs" />
+    <Compile Include="Tapi\TapiLineManager.cs" />
+    <Compile Include="Tapi\TapiOperations.cs" />
     <Compile Include="Tapi\PipeTelephonyProvider.cs" />
     <Compile Include="Tapi\TapiMessage.cs" />
     <Compile Include="Tapi\TapiPipeServer.cs" />
@@ -109,13 +113,14 @@
     <Compile Include="Datev\Managers\NotificationManager.cs" />
     <Compile Include="Datev\Managers\AdapterManager.cs" />
     <Compile Include="Datev\Managers\CallDataManager.cs" />
-    <Compile Include="Datev\Managers\DatevContactManager.cs" />
+    <!-- DatevContactManager merged into DatevContactRepository -->
     <Compile Include="Datev\Managers\LogManager.cs" />
     <!-- DATEV Constants -->
     <Compile Include="Datev\Constants\CommonParameters.cs" />
     <Compile Include="Datev\Constants\DatevDataSource.cs" />
-    <!-- DATEV Cache & Connection -->
-    <Compile Include="Datev\DatevCache.cs" />
+    <!-- DATEV Cache, Contact Repository & Connection -->
+    <Compile Include="Datev\DatevContactRepository.cs" />
+    <Compile Include="Datev\DatevContactDiagnostics.cs" />
     <Compile Include="Datev\DatevConnectionChecker.cs" />
     <!-- DATEV Data Models -->
     <Compile Include="Datev\DatevData\Communication.cs" />
@@ -143,6 +148,8 @@
     </Compile>
     <!-- UI - Strings -->
     <Compile Include="UI\Strings\UIStrings.cs" />
+    <!-- UI - Helpers -->
+    <Compile Include="UI\FormDisplayHelper.cs" />
     <!-- UI - Forms -->
     <Compile Include="UI\AboutForm.cs">
       <SubType>Form</SubType>
@@ -161,6 +168,8 @@
     <Compile Include="UI\StatusForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\SingleLineStatusPanel.cs" />
+    <Compile Include="UI\MultiLineStatusPanel.cs" />
     <Compile Include="UI\CallerPopupForm.cs">
       <SubType>Form</SubType>
     </Compile>

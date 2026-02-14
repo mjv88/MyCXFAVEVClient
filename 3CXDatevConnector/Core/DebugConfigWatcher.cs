@@ -216,7 +216,7 @@ namespace DatevConnector.Core
                 }
 
                 // Log config applied with cache statistics
-                var allContacts = DatevCache.GetAllContacts();
+                var allContacts = DatevContactRepository.GetAllContacts();
                 int addressatCount = allContacts.Count(c => c.DatevContact.IsRecipient);
                 int institutionCount = allContacts.Count(c => !c.DatevContact.IsRecipient);
                 LogManager.Debug("3CXDATEVConnector.ini applied: TAPIDebug={0}, DATEVDebug={1}, Cache={2} addressat/{3} institution",
@@ -366,7 +366,7 @@ namespace DatevConnector.Core
         {
             try
             {
-                var allContacts = DatevCache.GetAllContacts();
+                var allContacts = DatevContactRepository.GetAllContacts();
                 var contacts = filter != null ? allContacts.Where(filter).ToList() : allContacts;
 
                 using (var writer = new StreamWriter(filePath, false))

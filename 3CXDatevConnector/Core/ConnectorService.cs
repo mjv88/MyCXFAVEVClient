@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Datev.Cti.Buddylib;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev;
 using DatevConnector.Datev.COMs;
 using DatevConnector.Datev.Constants;
-using DatevConnector.Datev.Enums;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
 using DatevConnector.Tapi;
@@ -25,9 +23,11 @@ namespace DatevConnector.Core
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly DatevAdapter _datevAdapter;
+        private readonly DatevCommandHandler _datevCommandHandler;
         private readonly CallEventProcessor _callEventProcessor;
         private readonly object _statusLock = new object();
         private ConnectorStatus _status = ConnectorStatus.Disconnected;
+        private static readonly IReadOnlyList<TapiLineInfo> EmptyLineList = new List<TapiLineInfo>().AsReadOnly();
 
         // Thread-safe mutable state (volatile ensures visibility across threads)
         private volatile ITelephonyProvider _tapiMonitor;
@@ -93,7 +93,7 @@ namespace DatevConnector.Core
         /// <summary>
         /// All connected TAPI lines
         /// </summary>
-        public IReadOnlyList<TapiLineInfo> TapiLines => _tapiMonitor?.Lines ?? (IReadOnlyList<TapiLineInfo>)new List<TapiLineInfo>();
+        public IReadOnlyList<TapiLineInfo> TapiLines => _tapiMonitor?.Lines ?? EmptyLineList;
 
         /// <summary>
         /// Number of connected TAPI lines
@@ -124,7 +124,7 @@ namespace DatevConnector.Core
             }
         }
 
-        public int ContactCount => DatevCache.ContactCount;
+        public int ContactCount => DatevContactRepository.ContactCount;
 
         /// <summary>
         /// Call history store for re-journaling
@@ -144,7 +144,7 @@ namespace DatevConnector.Core
         /// <summary>
         /// Get all cached contacts (for developer diagnostics)
         /// </summary>
-        public List<DatevContactInfo> GetCachedContacts() => DatevCache.GetAllContacts();
+        public List<DatevContactInfo> GetCachedContacts() => DatevContactRepository.GetAllContacts();
 
         public ConnectorService(string extension)
         {
@@ -155,8 +155,9 @@ namespace DatevConnector.Core
             // Use base GUID - Windows ROT is already per-session on terminal servers
             _notificationManager = new NotificationManager(CommonParameters.ClsIdDatev);
 
-            // Create and register DatevAdapter for receiving Dial/Drop commands from DATEV
-            _datevAdapter = new DatevAdapter(DatevEventHandler);
+            // Create command handler and DatevAdapter for receiving Dial/Drop commands from DATEV
+            _datevCommandHandler = new DatevCommandHandler(_callTracker, () => _tapiMonitor);
+            _datevAdapter = new DatevAdapter(_datevCommandHandler.OnDatevEvent);
 
             // Call history
             bool histInbound = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
@@ -169,10 +170,10 @@ namespace DatevConnector.Core
                 _callTracker, _notificationManager, _callHistory, _extension, _minCallerIdLength);
 
             // Contact filter (must be set before LoadContactsAsync)
-            DatevContactManager.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
+            DatevContactRepository.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
             LogManager.Debug("Configuration: MinCallerIdLength={0}, ActiveContactsOnly={1}",
-                _minCallerIdLength, DatevContactManager.FilterActiveContactsOnly);
+                _minCallerIdLength, DatevContactRepository.FilterActiveContactsOnly);
         }
 
         /// <summary>
@@ -273,7 +274,7 @@ namespace DatevConnector.Core
                 LogManager.Log("========================================");
                 LogManager.Log("DATEV Kontaktsynchronisation");
                 LogManager.Log("========================================");
-                await DatevCache.StartLoadAsync();
+                await DatevContactRepository.StartLoadAsync();
             }
             catch (Exception ex)
             {
@@ -523,150 +524,8 @@ namespace DatevConnector.Core
             }
         }
 
-        #region DATEV Event Handlers (Click-to-Dial)
-
-        /// <summary>
-        /// Handle events from DATEV (Dial, Drop)
-        /// </summary>
-        private void DatevEventHandler(IDatevCtiData ctiData, DatevEventType eventType)
-        {
-            // Fire-and-forget with proper exception handling
-            _ = HandleDatevEventAsync(ctiData, eventType);
-        }
-
-        /// <summary>
-        /// Async handler for DATEV events with proper exception handling
-        /// </summary>
-        private async Task HandleDatevEventAsync(IDatevCtiData ctiData, DatevEventType eventType)
-        {
-            try
-            {
-                switch (eventType)
-                {
-                    case DatevEventType.Dial:
-                        await HandleDialCommandAsync(ctiData);
-                        break;
-
-                    case DatevEventType.Drop:
-                        await HandleDropCommandAsync(ctiData);
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("Error handling DATEV event {0}: {1}", eventType, ex);
-            }
-        }
-
-        /// <summary>
-        /// Handle Dial command from DATEV - initiate outgoing call via TAPI
-        /// </summary>
-        private Task HandleDialCommandAsync(IDatevCtiData ctiData)
-        {
-            string destination = ctiData.CalledNumber;
-
-            if (string.IsNullOrWhiteSpace(destination))
-            {
-                LogManager.Log("DATEV Dial: No destination number provided");
-                return Task.CompletedTask;
-            }
-
-            LogManager.Log("DATEV Dial: Initiating call to {0} (SyncID={1}, Contact={2})",
-                LogManager.Mask(destination), ctiData.SyncID ?? "null", ctiData.Adressatenname ?? "null");
-
-            if (_tapiMonitor == null || !_tapiMonitor.IsMonitoring)
-            {
-                LogManager.Log("DATEV Dial: Not connected (provider={0}, monitoring={1})",
-                    _tapiMonitor?.GetType().Name ?? "null",
-                    _tapiMonitor?.IsMonitoring.ToString() ?? "N/A");
-                return Task.CompletedTask;
-            }
-
-            // Preserve DATEV-provided data (SyncID, contact, datasource) for when TAPI event fires
-            ctiData.CallState = ENUM_CALLSTATE.eCSOffered;
-            ctiData.Direction = ENUM_DIRECTION.eDirOutgoing;
-            ctiData.Begin = DateTime.Now;
-            ctiData.End = DateTime.Now;
-
-            var preservedData = CallDataManager.CreateFromDatev(ctiData);
-
-            // Store as pending call so HandleRingback can find it by number
-            string tempId = _callTracker.GenerateTempCallId();
-            var pendingRecord = _callTracker.AddPendingCall(tempId, isIncoming: false);
-            pendingRecord.RemoteNumber = destination;
-            pendingRecord.CallData = preservedData;
-            _callTracker.UpdatePendingPhoneIndex(tempId, destination);
-
-            LogManager.Log("DATEV Dial: connected={0}", _tapiMonitor.IsMonitoring);
-            int result = _tapiMonitor.MakeCall(destination);
-            if (result <= 0)
-            {
-                LogManager.Log("DATEV Dial: MakeCall failed (result={0}, provider={1})",
-                    result, _tapiMonitor.GetType().Name);
-                _callTracker.RemovePendingCall(tempId);
-            }
-            else
-            {
-                LogManager.Log("DATEV Dial: MakeCall sent (result={0})", result);
-            }
-
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Handle Drop command from DATEV - terminate call via TAPI
-        /// </summary>
-        private Task HandleDropCommandAsync(IDatevCtiData ctiData)
-        {
-            string datevCallId = ctiData.CallID;
-
-            if (string.IsNullOrWhiteSpace(datevCallId))
-            {
-                LogManager.Log("DATEV Drop: No CallID provided");
-                return Task.CompletedTask;
-            }
-
-            LogManager.Log("DATEV Drop: Terminating call {0}", datevCallId);
-
-            var record = _callTracker.FindCallByDatevCallId(datevCallId);
-            if (record == null)
-            {
-                LogManager.Log("DATEV Drop: Call {0} not found", datevCallId);
-                return Task.CompletedTask;
-            }
-
-            if (_tapiMonitor == null || !_tapiMonitor.IsMonitoring)
-            {
-                LogManager.Log("DATEV Drop: TAPI not connected, cannot drop call");
-                return Task.CompletedTask;
-            }
-
-            // Find the TAPI call handle by call ID
-            int tapiCallId;
-            if (int.TryParse(record.TapiCallId, out tapiCallId))
-            {
-                var callEvent = _tapiMonitor.FindCallById(tapiCallId);
-                if (callEvent != null)
-                {
-                    _tapiMonitor.DropCall(callEvent.CallHandle);
-                    LogManager.Log("DATEV Drop: lineDrop called for {0} (tapiId={1})", datevCallId, tapiCallId);
-                }
-                else
-                {
-                    LogManager.Log("DATEV Drop: Call handle not found for tapiId={0}", tapiCallId);
-                }
-            }
-            else
-            {
-                LogManager.Log("DATEV Drop: Invalid TapiCallId: {0}", record.TapiCallId);
-            }
-
-            return Task.CompletedTask;
-        }
-
-        #endregion
-
         // Call event processing is delegated to CallEventProcessor
+        // DATEV command handling (Dial/Drop) is delegated to DatevCommandHandler
 
         /// <summary>
         /// Reload contacts from DATEV SDD
@@ -691,9 +550,9 @@ namespace DatevConnector.Core
             }
 
             LogManager.Log("Reloading contacts from DATEV SDD...");
-            await DatevCache.StartLoadAsync(null, progressText);
+            await DatevContactRepository.StartLoadAsync(null, progressText);
             LogManager.Log("Contacts reloaded: {0} contacts, {1} phone number keys",
-                DatevCache.ContactCount, DatevCache.PhoneNumberKeyCount);
+                DatevContactRepository.ContactCount, DatevContactRepository.PhoneNumberKeyCount);
         }
 
         /// <summary>
@@ -822,7 +681,7 @@ namespace DatevConnector.Core
             _callHistory.UpdateConfig(histMax, histIn, histOut);
 
             // DATEV Active contacts filter
-            DatevContactManager.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
+            DatevContactRepository.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
             // Telephony mode — update immediately for UI feedback
             var newMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
@@ -834,7 +693,7 @@ namespace DatevConnector.Core
             }
 
             LogManager.Log("Settings applied live: History={0}/{1}/{2}, ActiveOnly={3}",
-                histIn, histOut, histMax, DatevContactManager.FilterActiveContactsOnly);
+                histIn, histOut, histMax, DatevContactRepository.FilterActiveContactsOnly);
         }
 
         public void Dispose()

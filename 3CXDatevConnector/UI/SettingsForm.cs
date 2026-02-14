@@ -103,28 +103,12 @@ namespace DatevConnector.UI
 
         private void OnModeChanged(TelephonyMode mode)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new System.Action(() => OnModeChanged(mode)));
-                return;
-            }
-
-            RefreshOverviewStatus();
+            SafeInvoke(() => RefreshOverviewStatus());
         }
 
         private void OnStatusChanged(ConnectorStatus status)
         {
-            if (IsDisposed || !IsHandleCreated) return;
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new System.Action(() => OnStatusChanged(status)));
-                return;
-            }
-
-            RefreshOverviewStatus();
+            SafeInvoke(() => RefreshOverviewStatus());
         }
 
         private void InitializeComponent()
@@ -247,7 +231,7 @@ namespace DatevConnector.UI
 
             _lblContactCount = new Label
             {
-                Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount),
+                Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount),
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
                 Location = new Point(UITheme.SpacingM, y)
             };
@@ -255,8 +239,8 @@ namespace DatevConnector.UI
             y += 14;
 
             // Sync timestamp (under contacts)
-            string syncText = DatevContactManager.LastSyncTimestamp.HasValue
-                ? DatevContactManager.LastSyncTimestamp.Value.ToString("HH:mm")
+            string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
+                ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
                 : "\u2014";
             _lblLastSync = new Label
             {
@@ -585,7 +569,7 @@ namespace DatevConnector.UI
             else
                 SetBadge(_lblBridgeBadge, UIStrings.Status.Unavailable, UITheme.StatusBad);
 
-            _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount);
+            _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
 
             // Show extension only when connected, "—" when disconnected
             string ext = _bridgeService.Extension;
@@ -610,7 +594,7 @@ namespace DatevConnector.UI
                     SetBadge(_lblDatevBadge, connected ? UIStrings.Status.Available : UIStrings.Status.Unavailable,
                         connected ? UITheme.StatusOk : UITheme.StatusBad);
                     _btnTestDatev.Enabled = true;
-                    _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount);
+                    _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
                 }));
             });
         }
@@ -625,11 +609,11 @@ namespace DatevConnector.UI
             try
             {
                 await _bridgeService.ReloadContactsAsync();
-                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount);
+                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
 
                 // Update sync timestamp
-                string syncText = DatevContactManager.LastSyncTimestamp.HasValue
-                    ? DatevContactManager.LastSyncTimestamp.Value.ToString("HH:mm")
+                string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
+                    ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
                     : "\u2014";
                 _lblLastSync.Text = string.Format(UIStrings.SettingsLabels.Sync, syncText);
             }
@@ -688,9 +672,9 @@ namespace DatevConnector.UI
             if (datevOk)
             {
                 await _bridgeService.ReloadContactsAsync();
-                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevCache.ContactCount);
-                string syncText = DatevContactManager.LastSyncTimestamp.HasValue
-                    ? DatevContactManager.LastSyncTimestamp.Value.ToString("HH:mm")
+                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
+                string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
+                    ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
                     : "\u2014";
                 _lblLastSync.Text = string.Format(UIStrings.SettingsLabels.Sync, syncText);
             }
@@ -754,7 +738,7 @@ namespace DatevConnector.UI
 
             // DATEV Filter - default to false (all contacts)
             _chkActiveContactsOnly.Checked = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
-            DatevContactManager.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
+            DatevContactRepository.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
 
             // Tray double-click - default to Call History
             _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
@@ -845,7 +829,7 @@ namespace DatevConnector.UI
 
             // DATEV Filter
             AppConfig.SetBool(ConfigKeys.ActiveContactsOnly, _chkActiveContactsOnly.Checked);
-            DatevContactManager.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
+            DatevContactRepository.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;
 
             // Tray double-click behavior
             AppConfig.SetBool(ConfigKeys.TrayDoubleClickCallHistory, _chkTrayDoubleClickCallHistory.Checked);

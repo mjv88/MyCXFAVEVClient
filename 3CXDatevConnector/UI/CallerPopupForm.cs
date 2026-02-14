@@ -1,6 +1,5 @@
 using System;
 using System.Drawing;
-using System.Threading;
 using System.Windows.Forms;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
@@ -29,24 +28,12 @@ namespace DatevConnector.UI
     /// </summary>
     public class CallerPopupForm : Form
     {
-
-        // Capture UI SynchronizationContext at startup
-        private static SynchronizationContext _uiContext;
-
         // Track the current open popup for closing on connect
         private static CallerPopupForm _currentPopup;
         private static readonly object _popupLock = new object();
 
         // System tray icon reference for balloon notifications
         private static NotifyIcon _notifyIcon;
-
-        /// <summary>
-        /// Initialize the UI context. Call this from the main UI thread at startup.
-        /// </summary>
-        public static void InitializeUIContext()
-        {
-            _uiContext = SynchronizationContext.Current;
-        }
 
         /// <summary>
         /// Set the NotifyIcon reference for balloon tip notifications.
@@ -202,31 +189,8 @@ namespace DatevConnector.UI
             DatevContactInfo contactInfo,
             bool isIncoming)
         {
-            if (_uiContext != null)
-            {
-                _uiContext.Post(_ => ShowPopupInternal(callerNumber, callerName, contactInfo, isIncoming), null);
-                return;
-            }
-
-            if (Application.OpenForms.Count > 0)
-            {
-                var mainForm = Application.OpenForms[0];
-                if (mainForm.InvokeRequired)
-                {
-                    mainForm.BeginInvoke(new Action(() =>
-                        ShowPopupInternal(callerNumber, callerName, contactInfo, isIncoming)));
-                    return;
-                }
-            }
-
-            if (SynchronizationContext.Current != null)
-            {
-                ShowPopupInternal(callerNumber, callerName, contactInfo, isIncoming);
-            }
-            else
-            {
-                LogManager.Log("CallerPopup: Cannot show form - no UI context available");
-            }
+            FormDisplayHelper.PostToUIThread(() =>
+                ShowPopupInternal(callerNumber, callerName, contactInfo, isIncoming));
         }
 
         /// <summary>
@@ -246,32 +210,14 @@ namespace DatevConnector.UI
                     _currentPopup = null;
                 }
 
-                if (_uiContext != null)
+                FormDisplayHelper.PostToUIThread(() =>
                 {
-                    _uiContext.Post(_ =>
+                    if (!popupToClose.IsDisposed)
                     {
-                        if (!popupToClose.IsDisposed)
-                        {
-                            popupToClose.Close();
-                            popupToClose.Dispose();
-                        }
-                    }, null);
-                }
-                else if (Application.OpenForms.Count > 0)
-                {
-                    var mainForm = Application.OpenForms[0];
-                    if (mainForm.InvokeRequired)
-                    {
-                        mainForm.BeginInvoke(new Action(() =>
-                        {
-                            if (!popupToClose.IsDisposed)
-                            {
-                                popupToClose.Close();
-                                popupToClose.Dispose();
-                            }
-                        }));
+                        popupToClose.Close();
+                        popupToClose.Dispose();
                     }
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -312,22 +258,7 @@ namespace DatevConnector.UI
             };
 
             // ShowBalloonTip must be called on the UI thread
-            if (_uiContext != null)
-            {
-                _uiContext.Post(_ => showBalloon(), null);
-            }
-            else if (Application.OpenForms.Count > 0)
-            {
-                var mainForm = Application.OpenForms[0];
-                if (mainForm.InvokeRequired)
-                    mainForm.BeginInvoke(showBalloon);
-                else
-                    showBalloon();
-            }
-            else
-            {
-                showBalloon();
-            }
+            FormDisplayHelper.PostToUIThread(showBalloon);
         }
 
         private static void ShowPopupInternal(

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Threading;
 using System.Windows.Forms;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
@@ -23,17 +22,6 @@ namespace DatevConnector.UI
         // Track the current open dialog for closing on disconnect
         private static ContactSelectionForm _currentDialog;
 
-        // Capture UI SynchronizationContext at startup
-        private static SynchronizationContext _uiContext;
-
-        /// <summary>
-        /// Initialize the UI context. Call this from the main UI thread at startup.
-        /// </summary>
-        public static void InitializeUIContext()
-        {
-            _uiContext = SynchronizationContext.Current;
-        }
-
         /// <summary>
         /// Close the current contact selection dialog if one is open.
         /// Called when a call disconnects.
@@ -44,32 +32,14 @@ namespace DatevConnector.UI
             {
                 if (_currentDialog != null && !_currentDialog.IsDisposed)
                 {
-                    if (_uiContext != null)
+                    FormDisplayHelper.PostToUIThread(() =>
                     {
-                        _uiContext.Post(_ =>
+                        if (_currentDialog != null && !_currentDialog.IsDisposed)
                         {
-                            if (_currentDialog != null && !_currentDialog.IsDisposed)
-                            {
-                                _currentDialog.DialogResult = DialogResult.Cancel;
-                                _currentDialog.Close();
-                            }
-                        }, null);
-                    }
-                    else if (Application.OpenForms.Count > 0)
-                    {
-                        var mainForm = Application.OpenForms[0];
-                        if (mainForm.InvokeRequired)
-                        {
-                            mainForm.BeginInvoke(new Action(() =>
-                            {
-                                if (_currentDialog != null && !_currentDialog.IsDisposed)
-                                {
-                                    _currentDialog.DialogResult = DialogResult.Cancel;
-                                    _currentDialog.Close();
-                                }
-                            }));
+                            _currentDialog.DialogResult = DialogResult.Cancel;
+                            _currentDialog.Close();
                         }
-                    }
+                    });
                 }
             }
             catch (Exception ex)
@@ -209,35 +179,12 @@ namespace DatevConnector.UI
             {
                 DatevContactInfo result = null;
 
-                if (_uiContext != null)
+                FormDisplayHelper.SendToUIThread(() =>
                 {
-                    _uiContext.Send(_ =>
-                    {
-                        result = SelectContactInternal(phoneNumber, contacts, isIncoming);
-                    }, null);
-                    return result;
-                }
+                    result = SelectContactInternal(phoneNumber, contacts, isIncoming);
+                });
 
-                if (Application.OpenForms.Count > 0)
-                {
-                    var mainForm = Application.OpenForms[0];
-                    if (mainForm.InvokeRequired)
-                    {
-                        mainForm.Invoke(new Action(() =>
-                        {
-                            result = SelectContactInternal(phoneNumber, contacts, isIncoming);
-                        }));
-                        return result;
-                    }
-                }
-
-                if (SynchronizationContext.Current != null)
-                {
-                    return SelectContactInternal(phoneNumber, contacts, isIncoming);
-                }
-
-                LogManager.Log("ContactSelection: Cannot show dialog - no UI context, using first contact");
-                return contacts[0];
+                return result ?? contacts[0];
             }
             catch (Exception ex)
             {

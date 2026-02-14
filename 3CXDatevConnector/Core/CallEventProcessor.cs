@@ -129,7 +129,7 @@ namespace DatevConnector.Core
             DatevContactInfo contact = null;
             if (!string.IsNullOrEmpty(remoteNumber) && remoteNumber.Length >= _minCallerIdLength)
             {
-                List<DatevContactInfo> contacts = DatevCache.GetContactByNumber(remoteNumber);
+                List<DatevContactInfo> contacts = DatevContactRepository.GetContactByNumber(remoteNumber);
                 if (contacts.Count > 1)
                     contacts = ContactRoutingCache.ApplyRouting(remoteNumber, contacts);
                 if (contacts.Count > 0)
@@ -281,7 +281,7 @@ namespace DatevConnector.Core
             if (string.IsNullOrEmpty(remoteNumber) || remoteNumber.Length < _minCallerIdLength)
                 return;
 
-            var contacts = DatevCache.GetContactByNumber(remoteNumber);
+            var contacts = DatevContactRepository.GetContactByNumber(remoteNumber);
             if (contacts.Count <= 1)
                 return;
 

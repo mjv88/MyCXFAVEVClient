@@ -40,12 +40,13 @@ namespace DatevConnector.Core
         /// <param name="name">Name for logging</param>
         /// <param name="failureThreshold">Number of failures before opening circuit</param>
         /// <param name="openTimeoutSeconds">Seconds to wait before allowing test request</param>
-        public CircuitBreaker(string name, int failureThreshold = 3, int openTimeoutSeconds = 30)
+        /// <param name="halfOpenTestTimeoutSeconds">Seconds between test requests in half-open state</param>
+        public CircuitBreaker(string name, int failureThreshold = 3, int openTimeoutSeconds = 30, int halfOpenTestTimeoutSeconds = 5)
         {
             _name = name;
             _failureThreshold = failureThreshold;
             _openTimeout = TimeSpan.FromSeconds(openTimeoutSeconds);
-            _halfOpenTestTimeout = TimeSpan.FromSeconds(5);
+            _halfOpenTestTimeout = TimeSpan.FromSeconds(halfOpenTestTimeoutSeconds);
             _state = CircuitState.Closed;
             _failureCount = 0;
             _lastFailureTime = DateTime.MinValue;

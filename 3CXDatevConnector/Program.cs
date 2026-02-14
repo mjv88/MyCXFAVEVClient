@@ -46,38 +46,23 @@ namespace DatevConnector
                     return;
                 }
 
-                // Initialize INI-based configuration before anything else
+                // Register exception handlers BEFORE any initialization
+                Application.ThreadException += OnThreadException;
+                AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+                TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+                // Initialize INI-based configuration
                 AppConfig.Initialize();
 
                 LogManager.Log("========================================");
                 LogManager.Log("3CX - DATEV Connector Starting...");
                 LogManager.Log("========================================");
 
-                // Resolve extension: INI config -> 3CXTAPI.ini -> empty (auto-detect from TAPI line)
-                string extension = AppConfig.GetString(ConfigKeys.ExtensionNumber);
-                if (string.IsNullOrEmpty(extension))
-                {
-                    extension = TapiConfigReader.DetectExtension() ?? "";
-                }
-
-                // Auto-set MinCallerIdLength from extension length (desktop + TS)
-                if (!string.IsNullOrEmpty(extension))
-                {
-                    int currentMin = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
-                    if (extension.Length > currentMin)
-                    {
-                        LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)", currentMin, extension.Length);
-                        AppConfig.SetInt(ConfigKeys.MinCallerIdLength, extension.Length);
-                    }
-                }
+                string extension = ResolveExtension();
 
                 // Enable visual styles for modern look
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-
-                // Handle unhandled exceptions
-                Application.ThreadException += OnThreadException;
-                AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
                 try
                 {
@@ -99,6 +84,32 @@ namespace DatevConnector
 
                 LogManager.Log("3CX - DATEV Connector stopped.");
             }
+        }
+
+        /// <summary>
+        /// Resolve extension: INI config -> 3CXTAPI.ini -> empty (auto-detect from TAPI line).
+        /// Also auto-sets MinCallerIdLength from extension length.
+        /// </summary>
+        private static string ResolveExtension()
+        {
+            string extension = AppConfig.GetString(ConfigKeys.ExtensionNumber);
+            if (string.IsNullOrEmpty(extension))
+            {
+                extension = TapiConfigReader.DetectExtension() ?? "";
+            }
+
+            // Auto-set MinCallerIdLength from extension length (desktop + TS)
+            if (!string.IsNullOrEmpty(extension))
+            {
+                int currentMin = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
+                if (extension.Length > currentMin)
+                {
+                    LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)", currentMin, extension.Length);
+                    AppConfig.SetInt(ConfigKeys.MinCallerIdLength, extension.Length);
+                }
+            }
+
+            return extension;
         }
 
         /// <summary>
@@ -180,21 +191,10 @@ namespace DatevConnector
 
         /// <summary>
         /// Simulate a call event in the provider for test mode.
-        /// This invokes the provider's internal mapping handler so test behavior
-        /// stays aligned with production behavior.
         /// </summary>
         private static void SimulateCallEvent(WebclientTelephonyProvider provider, ExtensionMessage msg)
         {
-            var onExtensionCallEvent = typeof(WebclientTelephonyProvider)
-                .GetMethod("OnExtensionCallEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-
-            if (onExtensionCallEvent == null)
-            {
-                Console.WriteLine("[ERROR] Could not find WebclientTelephonyProvider.OnExtensionCallEvent");
-                return;
-            }
-
-            onExtensionCallEvent.Invoke(provider, new object[] { msg });
+            provider.SimulateCallEvent(msg);
         }
 
         /// <summary>
@@ -212,6 +212,15 @@ namespace DatevConnector
         {
             var ex = e.ExceptionObject as Exception;
             LogManager.Log("Unhandled Exception: {0}", ex);
+        }
+
+        /// <summary>
+        /// Handle unobserved task exceptions (fire-and-forget tasks)
+        /// </summary>
+        private static void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+        {
+            LogManager.Log("Unobserved Task Exception: {0}", e.Exception?.Flatten());
+            e.SetObserved();
         }
     }
 }
