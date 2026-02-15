@@ -205,6 +205,7 @@ LogAsync=true
 | `EnableCallerPopupOutbound` | false | [Settings] | Show popup notification for outgoing calls |
 | `CallerPopupMode` | Form | [Settings] | Notification type: `Form`, `Balloon`, or `Both` |
 | `MinCallerIdLength` | 2 | [Settings] | Minimum digits for contact lookup (auto-adjusted to extension length) |
+| `TapiLineFilter` | (empty) | [Settings] | TAPI line name filter pattern (only lines matching this string are used) |
 | `MaxCompareLength` | 10 | [Settings] | Number of digits to compare from end of phone number |
 | `ContactReshowDelaySeconds` | 3 | [Settings] | Seconds after connect before re-showing contact selection |
 | `LastContactRoutingMinutes` | 60 | [Settings] | Minutes to remember last-used contact per number (0 = disabled) |
@@ -227,6 +228,7 @@ LogAsync=true
 | `SddRetryDelaySeconds` | 1 | [Connection] | Base delay between SDD retries (doubles each attempt) |
 | `StaleCallTimeoutMinutes` | 240 | [Connection] | Minutes before active calls are cleaned up |
 | `StalePendingTimeoutSeconds` | 300 | [Connection] | Seconds before pending calls are cleaned up |
+| `ContactLoadTimeoutSeconds` | 120 | [Connection] | Timeout in seconds for DATEV SDD contact loading (range: 30–600) |
 | `LogLevel` | Info | [Logging] | Log level: Debug, Info, Warning, Error, Critical |
 | `LogMaxSizeMB` | 10 | [Logging] | Maximum log file size in MB |
 | `LogMaxFiles` | 5 | [Logging] | Number of log files to keep |
@@ -368,6 +370,7 @@ The Settings dialog (right-click -> Einstellungen) is a single-page dashboard wi
 | **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + bold extension number, Connector combined status |
 | **Pop-Up-Verhalten** | Journaling toggle, Eingehende/Ausgehende Anrufe, Journal-Popup, Ausgehende Journal-Popup, Modus selector (Beide/Formular/Balloon), Kontakt erneut delay |
 | **Erweitert** | Anrufer-ID Mindestlänge/Max. Vergleich, Anrufliste (Eingehend/Ausgehend) + Anzahl, DATEV "Aktive Kontakte" filter |
+| **Telefonie-Modus** | Telephony mode selector (Auto/Tapi/Pipe/WebClient) — changes take effect via ModeChanged event |
 
 ### Caller Popup (Anrufer-Popup)
 
@@ -451,31 +454,15 @@ The extension number is **not** a security principal — it is guessable, enumer
 
 #### B) Authorization (who may connect)
 
-**Access control is enforced via Windows security (DACL)** — the pipe is secured using a Discretionary Access Control List scoped to the **current user's SID**. Only the Windows user who owns the bridge process can read from or write to the pipe.
+**Access control is enforced via Windows security (DACL)** — the pipe is secured using a three-tier Discretionary Access Control List:
 
-If the bridge controls pipe server creation (or any IPC server), enforce DACL properly:
+| ACL Entry | Access | Purpose |
+|-----------|--------|---------|
+| Current user SID | FullControl | The Windows user who owns the bridge process |
+| ALL APPLICATION PACKAGES (`S-1-15-2-1`) | ReadWrite | Required for MSIX/AppContainer apps (3CX Softphone v20 runs in an AppContainer sandbox) |
+| Everyone (`WorldSid`) | ReadWrite | Fallback for broad compatibility |
 
-```csharp
-var ps = new PipeSecurity();
-var userSid = WindowsIdentity.GetCurrent().User;
-
-// Allow only current user
-ps.AddAccessRule(new PipeAccessRule(userSid,
-    PipeAccessRights.FullControl, AccessControlType.Allow));
-
-// Optional: allow LocalSystem
-ps.AddAccessRule(new PipeAccessRule(
-    new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
-    PipeAccessRights.FullControl, AccessControlType.Allow));
-
-// Optional: allow Administrators
-ps.AddAccessRule(new PipeAccessRule(
-    new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-    PipeAccessRights.ReadWrite, AccessControlType.Allow));
-
-var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
-    PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, ps);
-```
+The implementation in `TapiPipeServer.CreatePipeSecurity()` grants these three tiers to ensure the 3CX Softphone can connect regardless of its packaging model (classic desktop, MSIX, or AppContainer).
 
 **Note:** The bridge acts as the pipe **server** in this implementation, so it controls DACL enforcement. The 3CX Softphone connects as client.
 
@@ -506,6 +493,9 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 +----------------------------------------------------------------------+
 |  UI/                                                                 |
 |    TrayApplication.cs            - System tray, menu, status icons   |
+|    FormNavigator.cs              - Form navigation/lifecycle mgmt    |
+|    FormDisplayHelper.cs          - UI thread marshaling for non-modal|
+|    TrayContextMenuBuilder.cs     - Dark-themed tray context menu     |
 |    UITheme.cs                    - Dark theme, icon generation       |
 |    SettingsForm.cs               - Single-page settings dashboard    |
 |    CallerPopupForm.cs            - Caller notification popup         |
@@ -1113,7 +1103,7 @@ Proprietary — Internal use only
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.2.0 | 2026-02 | **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. **Dead Code Removal (Phase 1)**: Removed `CommandLineOptions`, `LogPrefixes`, `IntegrationConstants`, `TapiException`, `DatevException` (unused infrastructure classes and constants). Previously removed `DatevCache` and `DatevContactManager` were unified into `DatevContactRepository`. **Dead Code Removal (Phase 2)**: Removed ~150 lines of unused members across 11 files: 4 unused constants from `CommonParameters` (only DATEV COM GUID remains), `CircuitBreaker.State`/`Reset()`/`Execute()` overloads (circuit breaker now used via `IsOperationAllowed`/`RecordSuccess`/`RecordFailure` only), `NotificationManager.IsDatevAvailable`/`ResetCircuitBreaker()`, `DatevConnectionChecker.ClearCache()`, write-only properties `CallRecord.RemoteName`/`LocalNumber` and `CallHistoryEntry.CallID`/`SyncID`, unused getters `MaxEntries`/`MinCallerIdLength`/`RoutingWindowMinutes`, stray `Console.WriteLine` debug leftovers in log rotation, and 3 unused framework references (`Microsoft.CSharp`, `System.Data`, `System.Net.Http`). |
+| 1.2.0 | 2026-02 | **Non-Modal Dialog Conversion**: Converted all 5 modal dialogs (AboutForm, TroubleshootingForm, SetupWizardForm, JournalForm, ContactSelectionForm) from blocking `ShowDialog()` to non-modal `Show()`. Read-only forms (About, Troubleshooting, SetupWizard) use singleton activate-or-focus pattern. Interactive forms (Journal, ContactSelection) use close-and-replace pattern with callback-based result delivery (`Action<T>` callbacks replace synchronous `DialogResult`). All windows can now be closed/interacted with independently. **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. **Dead Code Removal (Phase 1)**: Removed `CommandLineOptions`, `LogPrefixes`, `IntegrationConstants`, `TapiException`, `DatevException` (unused infrastructure classes and constants). Previously removed `DatevCache` and `DatevContactManager` were unified into `DatevContactRepository`. **Dead Code Removal (Phase 2)**: Removed ~150 lines of unused members across 11 files: 4 unused constants from `CommonParameters` (only DATEV COM GUID remains), `CircuitBreaker.State`/`Reset()`/`Execute()` overloads (circuit breaker now used via `IsOperationAllowed`/`RecordSuccess`/`RecordFailure` only), `NotificationManager.IsDatevAvailable`/`ResetCircuitBreaker()`, `DatevConnectionChecker.ClearCache()`, write-only properties `CallRecord.RemoteName`/`LocalNumber` and `CallHistoryEntry.CallID`/`SyncID`, unused getters `MaxEntries`/`MinCallerIdLength`/`RoutingWindowMinutes`, stray `Console.WriteLine` debug leftovers in log rotation, and 3 unused framework references (`Microsoft.CSharp`, `System.Data`, `System.Net.Http`). |
 | 1.1.9 | 2026-01 | **Memory Optimization**: Filter Communications to phone-only (`Medium == Phone`), reducing objects from ~68K to ~17K. Cached `EffectiveNormalizedNumber` property to eliminate ~68K repeated Regex allocations. Compiled `PhoneNumberNormalizer` Regex. Replaced LINQ `GroupBy`/`ToDictionary` with direct `SortedDictionary` build loop. Pre-load GC releases old cache before XML deserialization. Post-load forced double-collect GC with LOH compaction and `SetProcessWorkingSetSize` P/Invoke to trim OS working set. Added `UITheme.Cleanup()` in shutdown path, `TrayApplication._currentMainForm` disposal, `Array.Empty<T>()` replacements. Post-cache GC diagnostics log (working set before/after, managed heap). |
 | 1.1.8 | 2026-01 | **Core Infrastructure**: Added `IniConfig` (typed config access). Originally added `IntegrationConstants`, `TapiException`, `DatevException` — later removed in v1.2.0 as dead code |
 | 1.1.8 | 2026-01 | **Setup Wizard** for first-run configuration (TAPI line selection, DATEV connection test, Windows autostart toggle), **Troubleshooting Form** with categorized help for TAPI/DATEV/Contact issues and quick log access, **UIStrings centralization** (all German UI text in single location), **Form refactoring** (consistent theme usage across all forms with Layout constants) |
