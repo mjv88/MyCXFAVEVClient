@@ -2,13 +2,12 @@ using System;
 using System.Diagnostics;
 using System.Runtime;
 using System.Runtime.InteropServices;
-using DatevConnector.Datev.Managers;
 
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Reusable memory optimization utilities extracted from DatevCache.
-    /// Handles aggressive GC and working set trimming after large batch operations.
+    /// Reusable memory optimization utilities for aggressive GC and working set trimming
+    /// after large batch operations.
     /// </summary>
     public static class MemoryOptimizer
     {

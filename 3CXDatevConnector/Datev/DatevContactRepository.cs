@@ -21,8 +21,7 @@ namespace DatevConnector.Datev
 {
     /// <summary>
     /// Unified repository for DATEV contacts: fetches from SDD, caches locally,
-    /// and provides phone-number lookup. Merges the responsibilities of the former
-    /// DatevCache and DatevContactManager classes.
+    /// and provides phone-number lookup.
     /// </summary>
     public static class DatevContactRepository
     {

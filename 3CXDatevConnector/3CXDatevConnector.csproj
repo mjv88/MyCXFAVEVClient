@@ -113,7 +113,6 @@
     <Compile Include="Datev\Managers\NotificationManager.cs" />
     <Compile Include="Datev\Managers\AdapterManager.cs" />
     <Compile Include="Datev\Managers\CallDataManager.cs" />
-    <!-- DatevContactManager merged into DatevContactRepository -->
     <Compile Include="Datev\Managers\LogManager.cs" />
     <!-- DATEV Constants -->
     <Compile Include="Datev\Constants\CommonParameters.cs" />
