@@ -297,7 +297,7 @@ The same normalization is applied to both incoming caller IDs and DATEV contact 
 
 ### Circuit Breaker
 
-`CircuitBreaker.cs` wraps all DATEV COM calls:
+`CircuitBreaker.cs` guards DATEV COM calls via `IsOperationAllowed()`, `RecordSuccess()`, and `RecordFailure()` — called directly by `NotificationManager`:
 
 ```
 Closed → (3 failures) → Open → (30s timeout) → Half-Open → (success) → Closed
@@ -463,7 +463,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   │   ├── CallData.cs                 IDatevCtiData implementation
 │   │   └── DatevAdapter.cs             COM adapter (ROT registration)
 │   ├── Constants/
-│   │   ├── CommonParameters.cs         Shared GUIDs and values
+│   │   ├── CommonParameters.cs         DATEV COM GUID
 │   │   └── DatevDataSource.cs          DataSource string constants
 │   ├── Enums/
 │   │   └── DatevEventType.cs           DATEV event types (Dial, Drop)
