@@ -10,7 +10,6 @@
       "Bash(for class in \"TapiLineMonitor\" \"PipeTelephonyProvider\" \"WebclientTelephonyProvider\")",
       "Bash(do echo \"=== Checking $class ===\")",
       "Bash(done)",
-      "Bash(dotnet build:*)",
       "Bash(where:*)",
       "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" \"C:\\\\Users\\\\tatia\\\\Source\\\\Repos\\\\3CXDATEVConnector\\\\3CXDatevConnector\\\\3CXDatevConnector.csproj\" -nologo -v:minimal)",
       "Bash(git add:*)",
@@ -31,7 +30,9 @@
       "Bash(\"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe\" \"3CXDatevConnector.sln\" -p:Configuration=Release -verbosity:minimal)",
       "Bash(comm:*)",
       "Bash(Extension \")",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(git reset:*)",
+      "Bash(\"/c/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe\" \"/c/Users/tatia/Source/Repos/3CXDATEVConnector/3CXDatevConnector.sln\" -p:Configuration=Debug -verbosity:minimal)"
     ]
   }
 }
