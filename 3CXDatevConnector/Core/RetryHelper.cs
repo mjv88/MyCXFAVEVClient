@@ -15,12 +15,12 @@ namespace DatevConnector.Core
         /// <summary>
         /// Default maximum retry attempts
         /// </summary>
-        public static int DefaultMaxRetries => AppConfig.GetInt(ConfigKeys.SddMaxRetries, 3);
+        public static int DefaultMaxRetries => AppConfig.GetIntClamped(ConfigKeys.SddMaxRetries, 3, 0, 10);
 
         /// <summary>
         /// Default initial delay in seconds
         /// </summary>
-        public static int DefaultInitialDelaySeconds => AppConfig.GetInt(ConfigKeys.SddRetryDelaySeconds, 1);
+        public static int DefaultInitialDelaySeconds => AppConfig.GetIntClamped(ConfigKeys.SddRetryDelaySeconds, 1, 1, 30);
 
         /// <summary>
         /// Executes an operation with retry logic and exponential backoff.

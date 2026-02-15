@@ -64,7 +64,7 @@ namespace DatevConnector.Webclient
         {
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
             _connectTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
-            _wsPort = AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800);
+            _wsPort = AppConfig.GetIntClamped(ConfigKeys.WebclientWebSocketPort, 19800, 1024, 65535);
         }
 
         /// <summary>

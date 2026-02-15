@@ -18,8 +18,8 @@ namespace DatevConnector.Datev.Managers
             _clsIdDatev = clsIdDatev;
 
             // Configure circuit breaker from settings
-            int failureThreshold = AppConfig.GetInt(ConfigKeys.DatevCircuitBreakerThreshold, 3);
-            int openTimeout = AppConfig.GetInt(ConfigKeys.DatevCircuitBreakerTimeoutSeconds, 30);
+            int failureThreshold = AppConfig.GetIntClamped(ConfigKeys.DatevCircuitBreakerThreshold, 3, 1, 10);
+            int openTimeout = AppConfig.GetIntClamped(ConfigKeys.DatevCircuitBreakerTimeoutSeconds, 30, 10, 300);
 
             _circuitBreaker = new CircuitBreaker("DATEV", failureThreshold, openTimeout);
         }

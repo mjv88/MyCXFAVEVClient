@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using DatevConnector.Datev.Managers;
 
 namespace DatevConnector.Core.Config
 {
@@ -55,6 +56,9 @@ namespace DatevConnector.Core.Config
             // Call Tracking
             { ConfigKeys.StaleCallTimeoutMinutes, "240" },
             { ConfigKeys.StalePendingTimeoutSeconds, "300" },
+
+            // Contact Loading
+            { ConfigKeys.ContactLoadTimeoutSeconds, "120" },
 
             // Logging
             { ConfigKeys.LogLevel, "Info" },
@@ -112,6 +116,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.SddRetryDelaySeconds, SectionConnection },
             { ConfigKeys.StaleCallTimeoutMinutes, SectionConnection },
             { ConfigKeys.StalePendingTimeoutSeconds, SectionConnection },
+            { ConfigKeys.ContactLoadTimeoutSeconds, SectionConnection },
 
             // Logging
             { ConfigKeys.LogLevel, SectionLogging },
@@ -191,6 +196,22 @@ namespace DatevConnector.Core.Config
             string section = GetSection(key);
             string value = IniConfig.GetString(section, key, "");
             return !string.IsNullOrEmpty(value) && int.TryParse(value, out int result) ? result : fallback;
+        }
+
+        /// <summary>
+        /// Get an integer value with range clamping. Logs a warning if the value is out of range.
+        /// </summary>
+        public static int GetIntClamped(string key, int defaultValue, int min, int max)
+        {
+            int raw = GetInt(key, defaultValue);
+            if (raw < min || raw > max)
+            {
+                int clamped = Math.Max(min, Math.Min(raw, max));
+                LogManager.Warning("Config '{0}' value {1} out of range [{2}..{3}], using {4}",
+                    key, raw, min, max, clamped);
+                return clamped;
+            }
+            return raw;
         }
 
         /// <summary>

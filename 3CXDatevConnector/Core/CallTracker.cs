@@ -36,8 +36,8 @@ namespace DatevConnector.Core
             _phoneNumberToPendingId = new ConcurrentDictionary<string, string>();
 
             // Read timeout configuration (defaults: 4 hours for active, 5 minutes for pending)
-            int staleMinutes = AppConfig.GetInt(ConfigKeys.StaleCallTimeoutMinutes, 240);
-            int stalePendingSeconds = AppConfig.GetInt(ConfigKeys.StalePendingTimeoutSeconds, 300);
+            int staleMinutes = AppConfig.GetIntClamped(ConfigKeys.StaleCallTimeoutMinutes, 240, 30, 1440);
+            int stalePendingSeconds = AppConfig.GetIntClamped(ConfigKeys.StalePendingTimeoutSeconds, 300, 30, 3600);
 
             _staleCallTimeout = TimeSpan.FromMinutes(staleMinutes);
             _stalePendingTimeout = TimeSpan.FromSeconds(stalePendingSeconds);

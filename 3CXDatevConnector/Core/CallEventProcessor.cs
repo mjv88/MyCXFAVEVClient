@@ -60,7 +60,7 @@ namespace DatevConnector.Core
             _enableCallerPopup = AppConfig.GetBool(ConfigKeys.EnableCallerPopup, true);
             _enableCallerPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableCallerPopupOutbound, false);
             _callerPopupMode = AppConfig.GetEnum(ConfigKeys.CallerPopupMode, CallerPopupMode.Form);
-            _contactReshowDelaySeconds = AppConfig.GetInt(ConfigKeys.ContactReshowDelaySeconds, 3);
+            _contactReshowDelaySeconds = AppConfig.GetIntClamped(ConfigKeys.ContactReshowDelaySeconds, 3, 0, 30);
         }
 
         /// <summary>
@@ -435,7 +435,7 @@ namespace DatevConnector.Core
             _enableCallerPopup = AppConfig.GetBool(ConfigKeys.EnableCallerPopup, true);
             _enableCallerPopupOutbound = AppConfig.GetBool(ConfigKeys.EnableCallerPopupOutbound, false);
             _callerPopupMode = AppConfig.GetEnum(ConfigKeys.CallerPopupMode, CallerPopupMode.Form);
-            _contactReshowDelaySeconds = AppConfig.GetInt(ConfigKeys.ContactReshowDelaySeconds, 3);
+            _contactReshowDelaySeconds = AppConfig.GetIntClamped(ConfigKeys.ContactReshowDelaySeconds, 3, 0, 30);
         }
     }
 }

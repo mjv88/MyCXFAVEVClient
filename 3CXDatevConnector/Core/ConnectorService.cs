@@ -150,7 +150,7 @@ namespace DatevConnector.Core
         {
             _extension = extension;
             _callTracker = new CallTracker();
-            _minCallerIdLength = AppConfig.GetInt(ConfigKeys.MinCallerIdLength, 2);
+            _minCallerIdLength = AppConfig.GetIntClamped(ConfigKeys.MinCallerIdLength, 2, 1, 20);
 
             // Use base GUID - Windows ROT is already per-session on terminal servers
             _notificationManager = new NotificationManager(CommonParameters.ClsIdDatev);
@@ -162,7 +162,7 @@ namespace DatevConnector.Core
             // Call history
             bool histInbound = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
             bool histOutbound = AppConfig.GetBool(ConfigKeys.CallHistoryOutbound, false);
-            int histMax = AppConfig.GetInt(ConfigKeys.CallHistoryMaxEntries, 5);
+            int histMax = AppConfig.GetIntClamped(ConfigKeys.CallHistoryMaxEntries, 5, 1, 100);
             _callHistory = new CallHistoryStore(histMax, histInbound, histOutbound);
 
             // Call event processing (handles all TAPI state transitions + DATEV notifications + UI popups)
@@ -274,7 +274,18 @@ namespace DatevConnector.Core
                 LogManager.Log("========================================");
                 LogManager.Log("DATEV Kontaktsynchronisation");
                 LogManager.Log("========================================");
-                await DatevContactRepository.StartLoadAsync();
+
+                int timeoutSec = AppConfig.GetIntClamped(ConfigKeys.ContactLoadTimeoutSeconds, 120, 30, 600);
+                var loadTask = DatevContactRepository.StartLoadAsync();
+                var completed = await Task.WhenAny(loadTask, Task.Delay(TimeSpan.FromSeconds(timeoutSec)));
+
+                if (completed != loadTask)
+                {
+                    LogManager.Warning("Contact load timed out after {0}s - continuing without contacts", timeoutSec);
+                    return;
+                }
+
+                await loadTask; // propagate exceptions
             }
             catch (Exception ex)
             {
@@ -677,7 +688,7 @@ namespace DatevConnector.Core
             // Update call history store live
             bool histIn = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
             bool histOut = AppConfig.GetBool(ConfigKeys.CallHistoryOutbound, false);
-            int histMax = AppConfig.GetInt(ConfigKeys.CallHistoryMaxEntries, 5);
+            int histMax = AppConfig.GetIntClamped(ConfigKeys.CallHistoryMaxEntries, 5, 1, 100);
             _callHistory.UpdateConfig(histMax, histIn, histOut);
 
             // DATEV Active contacts filter

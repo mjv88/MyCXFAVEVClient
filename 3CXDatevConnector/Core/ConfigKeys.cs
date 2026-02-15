@@ -42,6 +42,9 @@ namespace DatevConnector.Core
         public const string ReadTimeoutSeconds = "ReadTimeoutSeconds";
         public const string WriteTimeoutSeconds = "WriteTimeoutSeconds";
 
+        // ===== Contact Loading =====
+        public const string ContactLoadTimeoutSeconds = "ContactLoadTimeoutSeconds";
+
         // ===== Retry / Resilience =====
         public const string SddMaxRetries = "SddMaxRetries";
         public const string SddRetryDelaySeconds = "SddRetryDelaySeconds";

@@ -22,7 +22,7 @@ namespace DatevConnector.Core
 
         static ContactRoutingCache()
         {
-            _routingWindowMinutes = AppConfig.GetInt(ConfigKeys.LastContactRoutingMinutes, 60);
+            _routingWindowMinutes = AppConfig.GetIntClamped(ConfigKeys.LastContactRoutingMinutes, 60, 0, 1440);
         }
 
         /// <summary>

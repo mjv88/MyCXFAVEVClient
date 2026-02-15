@@ -139,7 +139,12 @@ namespace DatevConnector.Core
                 CircuitState oldState = _state;
                 _state = newState;
                 _lastStateChange = DateTime.UtcNow;
-                LogManager.Log("[{0}] Circuit state: {1} -> {2}", _name, oldState, newState);
+
+                if (newState == CircuitState.Open)
+                    LogManager.Log("[{0}] Circuit: {1} -> {2} (failures={3}/{4}, retry in {5}s)",
+                        _name, oldState, newState, _failureCount, _failureThreshold, _openTimeout.TotalSeconds);
+                else
+                    LogManager.Log("[{0}] Circuit: {1} -> {2}", _name, oldState, newState);
             }
         }
     }

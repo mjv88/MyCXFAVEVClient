@@ -170,7 +170,7 @@ namespace DatevConnector.Datev
         private static void Init(bool isForceReload = false, IProgress<int> progress = null, Action<string> progressText = null)
         {
             _debugLogging = AppConfig.GetBool(ConfigKeys.DebugLogging, false);
-            int configMaxCompareLength = AppConfig.GetInt(ConfigKeys.MaxCompareLength, 10);
+            int configMaxCompareLength = AppConfig.GetIntClamped(ConfigKeys.MaxCompareLength, 10, 4, 20);
             bool contactListUpdated = false;
 
             if (isForceReload || _datevContacts == null)
