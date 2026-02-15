@@ -70,21 +70,14 @@
     <Compile Include="Core\RetryHelper.cs" />
     <Compile Include="Core\DebugConfigWatcher.cs" />
     <Compile Include="Core\SessionManager.cs" />
-    <Compile Include="Core\LogPrefixes.cs" />
     <Compile Include="Core\ShortcutManager.cs" />
     <Compile Include="Core\AutoStartManager.cs" />
-    <Compile Include="Core\CommandLineOptions.cs" />
     <Compile Include="Core\EventHelper.cs" />
     <Compile Include="Core\MemoryOptimizer.cs" />
     <!-- Core - Config -->
     <Compile Include="Core\Config\AppConfig.cs" />
     <Compile Include="Core\Config\ConfigParser.cs" />
     <Compile Include="Core\Config\IniConfig.cs" />
-    <!-- Core - Constants -->
-    <Compile Include="Core\Constants\IntegrationConstants.cs" />
-    <!-- Core - Exceptions -->
-    <Compile Include="Core\Exceptions\TapiException.cs" />
-    <Compile Include="Core\Exceptions\DatevException.cs" />
     <!-- Core - Telephony Mode -->
     <Compile Include="Core\TelephonyMode.cs" />
     <Compile Include="Core\TelephonyProviderSelector.cs" />

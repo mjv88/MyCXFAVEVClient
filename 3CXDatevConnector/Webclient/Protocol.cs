@@ -40,9 +40,6 @@ namespace DatevConnector.Webclient
 
         // End reasons
         public const string ReasonHangup = "hangup";
-        public const string ReasonBusy = "busy";
-        public const string ReasonFailed = "failed";
-        public const string ReasonUnknown = "unknown";
     }
 
     /// <summary>
