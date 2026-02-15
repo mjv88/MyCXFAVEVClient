@@ -143,7 +143,7 @@ The same structure applies to Institutions with `TELEFONIE` as the root element 
 
 ### Phone Filtering
 
-Only communications with `Medium == 1` (Phone) are loaded. Email, fax, internet, and other medium types are filtered out in `DatevContactManager.FilterPhoneCommunications()`. This reduces loaded objects from ~68,000 to ~17,000.
+Only communications with `Medium == 1` (Phone) are loaded. Email, fax, internet, and other medium types are filtered out in `DatevContactRepository` during contact loading. This reduces loaded objects from ~68,000 to ~17,000.
 
 ---
 
@@ -317,7 +317,7 @@ This prevents the connector from hanging on DATEV COM timeouts when DATEV is una
 
 ### TAPI Error Categories
 
-`TapiException.cs` categorizes TAPI errors for intelligent handling:
+`TapiInterop.cs` categorizes TAPI errors for intelligent handling:
 
 | Category | Action | Examples |
 |----------|--------|---------|
@@ -374,7 +374,7 @@ At ~1,300 lines, `ConnectorService.cs` is large but serves as the single orchest
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
 - `CallDataManager` — data preparation
-- `DatevContactManager` — SDD access
+- `DatevContactRepository` — SDD access & contact lookup
 - `CallStateMachine` — state validation
 
 Splitting ConnectorService would mainly shuffle code and add inter-class communication without reducing complexity.
@@ -422,6 +422,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 ├── Core/
 │   ├── ConnectorService.cs                Central orchestrator (~1,300 lines, events: StatusChanged, ModeChanged)
 │   ├── ConnectorStatus.cs                 Connection status enum
+│   ├── CallEventProcessor.cs           Call event processing logic
 │   ├── CallTracker.cs                  Active/pending call management
 │   ├── CallStateMachine.cs             TAPI state transition validation
 │   ├── CallRecord.cs                   Call data record model
@@ -430,24 +431,21 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── CallHistoryStore.cs             Circular buffer (in/out)
 │   ├── ConfigKeys.cs                   INI key constants
 │   ├── ContactRoutingCache.cs          Last-contact routing
+│   ├── DatevCommandHandler.cs          DATEV command handling (Dial/Drop)
 │   ├── DebugConfigWatcher.cs           INI hot-reload (FileSystemWatcher)
+│   ├── EventHelper.cs                  Event helper utilities
 │   ├── CircuitBreaker.cs               Circuit breaker pattern
+│   ├── MemoryOptimizer.cs              GC and working set management
 │   ├── RetryHelper.cs                  Retry with exponential backoff
 │   ├── SessionManager.cs               Terminal server detection
 │   ├── ShortcutManager.cs              Keyboard shortcuts
 │   ├── AutoStartManager.cs             HKCU Run key management
-│   ├── CommandLineOptions.cs           CLI argument parser
-│   ├── LogPrefixes.cs                  Structured log prefixes
 │   ├── TelephonyMode.cs               Telephony mode enum
 │   ├── TelephonyProviderSelector.cs   Auto-detection logic
 │   ├── Config/
 │   │   ├── AppConfig.cs                Configuration defaults & typed access
+│   │   ├── ConfigParser.cs             Configuration parsing utilities
 │   │   └── IniConfig.cs                INI file reader (Windows API)
-│   ├── Constants/
-│   │   └── IntegrationConstants.cs     TAPI/DATEV/timeout constants
-│   └── Exceptions/
-│       ├── TapiException.cs            TAPI error with category
-│       └── DatevException.cs           DATEV error with category
 ├── Tapi/
 │   ├── ITelephonyProvider.cs           Provider interface (3 implementations)
 │   ├── TapiLineMonitor.cs             TAPI 2.x implementation
@@ -458,7 +456,8 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── TapiCallState.cs               Call state definitions
 │   └── TapiCommands.cs                Protocol command constants
 ├── Datev/
-│   ├── DatevCache.cs                   Contact cache + phone lookup
+│   ├── DatevContactRepository.cs       Unified contact repo with lookup
+│   ├── DatevContactDiagnostics.cs      Contact diagnostic utilities
 │   ├── DatevConnectionChecker.cs       DATEV availability checks
 │   ├── COMs/
 │   │   ├── CallData.cs                 IDatevCtiData implementation
@@ -471,7 +470,6 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── Managers/
 │   │   ├── AdapterManager.cs           COM lifecycle (ROT register/unregister)
 │   │   ├── CallDataManager.cs          Call data preparation
-│   │   ├── DatevContactManager.cs      SDD contact loading (with retry)
 │   │   ├── LogManager.cs              Structured logging + rotation
 │   │   └── NotificationManager.cs      DATEV notifications (with circuit breaker)
 │   ├── DatevData/                      XML deserialization models

@@ -357,7 +357,7 @@ The application registers itself at:
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 
-Value: `"<path>\3cxDatevConnector.exe" /minimized /silent`
+Value: `"<path>\3cxDatevConnector.exe"`
 
 Toggle via tray menu → **Autostart** or during the Setup Wizard.
 
@@ -366,26 +366,8 @@ Toggle via tray menu → **Autostart** or during the Setup Wizard.
 Create a per-user logon task with a 30–60 second delay (useful when DATEV needs time to start):
 
 ```
-3cxDatevConnector.exe /minimized /silent
+3cxDatevConnector.exe
 ```
-
----
-
-## Command Line Options
-
-```
-3cxDatevConnector.exe [Options]
-
-  /minimized    Start without showing status window
-  /silent       Start without tray balloon notification
-  /config=PATH  Use custom INI configuration file path
-  /logdir=PATH  Override log directory location
-  /verbose      Enable verbose/debug logging
-  /reset        Reset all settings to defaults and exit
-  /help         Show help information
-```
-
-Options can start with `/`, `-`, or `--`.
 
 ---
 

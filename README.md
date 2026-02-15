@@ -42,7 +42,6 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Active Contacts Filter** | Optional filter to load only active contacts (Status ≠ 0), disabled by default |
 | **Setup Wizard** | First-run wizard for TAPI line selection, DATEV connection test, and optional autostart |
 | **Troubleshooting Help** | Built-in help dialog with common problems and solutions |
-| **Command Line Options** | Silent mode, custom config paths, verbose logging for deployment |
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
 | **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
 | **Extension Popup** | Dark-themed browser extension popup with live WebSocket connection status (green/yellow/red dot), bold extension number, configurable DATEV Auto-DIAL delay |
@@ -97,30 +96,8 @@ The application reads this file on startup. See the [Configuration](#configurati
 
 | Method | Details |
 |--------|---------|
-| **HKCU Run** (recommended) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `3CXDATEVConnector` = `"<path>\3cxDatevConnector.exe" /minimized /silent` |
-| **Task Scheduler** (alternative) | Create a per-user logon task that runs `3cxDatevConnector.exe /minimized /silent` — useful when DATEV needs time to start (configure 30–60s delay) |
-
-## Admin Options (Optional)
-
-```
-3cxDatevConnector.exe [Options]
-
-Options:
-  /minimized    Start without showing status window
-  /silent       Start without tray balloon notification
-  /config=PATH  Use custom INI configuration file path
-  /logdir=PATH  Override log directory location
-  /verbose      Enable verbose/debug logging
-  /reset        Reset all settings to defaults and exit
-  /help         Show help information
-
-Examples:
-  3cxDatevConnector.exe /minimized /silent
-  3cxDatevConnector.exe /config="%AppData%\3CXDATEVConnector\3CXDATEVConnector.ini"
-  3cxDatevConnector.exe /logdir="D:\Logs\3cxDatevConnector"
-
-Note: Options can start with /, - or --
-```
+| **HKCU Run** (recommended) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `3CXDATEVConnector` = `"<path>\3cxDatevConnector.exe"` |
+| **Task Scheduler** (alternative) | Create a per-user logon task that runs `3cxDatevConnector.exe` — useful when DATEV needs time to start (configure 30–60s delay) |
 
 ## Configuration
 
@@ -548,6 +525,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |  Core/                                                               |
 |    ConnectorService.cs          - Main orchestrator (events: StatusChanged, ModeChanged) |
 |    ConnectorStatus.cs           - Connection status enum            |
+|    CallEventProcessor.cs         - Call event processing logic       |
 |    CallTracker.cs                - Active call management            |
 |    CallStateMachine.cs           - State transition validation       |
 |    CallRecord.cs                 - Call data record model            |
@@ -556,24 +534,21 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    CallHistoryStore.cs           - Circular buffer store (in/out)    |
 |    ConfigKeys.cs                 - Centralized INI key constants     |
 |    ContactRoutingCache.cs        - Last-contact routing memory       |
+|    DatevCommandHandler.cs        - DATEV command handling (Dial/Drop)|
 |    DebugConfigWatcher.cs         - 3CXDATEVConnector.ini hot-reload     |
+|    EventHelper.cs                - Event helper utilities            |
 |    CircuitBreaker.cs             - Circuit breaker pattern           |
+|    MemoryOptimizer.cs            - GC and working set management     |
 |    RetryHelper.cs                - Retry with exponential backoff    |
 |    SessionManager.cs             - Terminal server session detection  |
 |    ShortcutManager.cs            - Keyboard shortcut definitions     |
 |    AutoStartManager.cs           - Windows autostart (HKCU Run)     |
-|    CommandLineOptions.cs         - Command line argument parser      |
-|    LogPrefixes.cs                - Structured log message prefixes   |
 |    TelephonyMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/WebClient) |
 |    TelephonyProviderSelector.cs - Auto-detection logic              |
 |    Config/                                                           |
 |      AppConfig.cs                - Configuration defaults & access   |
+|      ConfigParser.cs             - Configuration parsing utilities   |
 |      IniConfig.cs                - INI file reader (Windows API)     |
-|    Constants/                                                        |
-|      IntegrationConstants.cs     - TAPI/DATEV/timeout constants      |
-|    Exceptions/                                                       |
-|      TapiException.cs            - TAPI error with category          |
-|      DatevException.cs           - DATEV error with category         |
 +----------------------------------------------------------------------+
 |  Tapi/                                                               |
 |    ITelephonyProvider.cs         - Telephony provider interface       |
@@ -595,7 +570,8 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    TapiInterop.cs                - TAPI P/Invoke and error handling  |
 +----------------------------------------------------------------------+
 |  Datev/                                                              |
-|    DatevCache.cs                 - Contact cache with lookup         |
+|    DatevContactRepository.cs     - Unified contact repo with lookup  |
+|    DatevContactDiagnostics.cs    - Contact diagnostic utilities      |
 |    DatevConnectionChecker.cs     - DATEV availability checks         |
 |    COMs/                                                             |
 |      CallData.cs                 - IDatevCtiData implementation      |
@@ -608,7 +584,6 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    Managers/                                                         |
 |      AdapterManager.cs           - COM adapter lifecycle (ROT)       |
 |      CallDataManager.cs          - Call data handling                |
-|      DatevContactManager.cs      - Contact management (with retry)   |
 |      LogManager.cs               - Structured logging                |
 |      NotificationManager.cs      - DATEV notifications (w/ breaker)  |
 |    DatevData/                                                        |
@@ -653,7 +628,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
    └─> TapiLineMonitor detects incoming call
        └─> ConnectorService.OnCallStateChanged()
            ├─> CallTracker.Add() - create CallRecord
-           ├─> DatevCache.Lookup(callerNumber) - find contact
+           ├─> DatevContactRepository.GetContactByNumber(callerNumber) - find contact
            ├─> ContactRoutingCache.ApplyRouting() - apply last-contact preference
            ├─> NotificationManager.NewCall() - notify DATEV
            └─> CallerPopupForm.Show() - display popup
@@ -707,17 +682,13 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 1. Startup / Manual Reload
    └─> ConnectorService.ReloadContactsAsync()
        └─> RetryHelper.ExecuteWithRetry()
-           └─> DatevContactManager.GetContacts()
+           └─> DatevContactRepository.LoadContacts()
                ├─> GetRecipients() - fetch from SDD with filter
                │   └─> Filter: @Status NOT EQUAL TO "0" (if ActiveContactsOnly)
                ├─> GetInstitutions() - fetch from SDD
-               ├─> FilterPhoneCommunications() - keep only phone numbers
-               └─> Return combined list
-
-2. Cache Update
-   └─> DatevCache.Initialize(contacts)
-       ├─> Build SortedDictionary by normalized phone number
-       └─> Create suffix lookup indexes for partial matching
+               ├─> Filter to phone-only communications
+               ├─> Build SortedDictionary by normalized phone number
+               └─> Create suffix lookup indexes for partial matching
 ```
 
 ## 3CX TAPI Integration
@@ -962,7 +933,7 @@ Introduced comprehensive memory optimization across the DATEV contact cache pipe
 - Only phone-type communications (`Medium == Phone`) are loaded from DATEV SDD
 - Email, fax, website, and other communication types are filtered out
 - Reduces Communication objects from ~68,000 to ~17,000 (~4MB savings)
-- Applied in `DatevContactManager.FilterPhoneCommunications()`
+- Applied in `DatevContactRepository` during contact loading
 
 #### Cache Normalization & Allocation Reduction
 - **Cached `EffectiveNormalizedNumber`** — the computed property on `Communication` is now cached on first access, avoiding repeated Regex allocations during cache build (~68K+ string allocations eliminated)
@@ -1019,7 +990,7 @@ VerboseLogging=true
 
 ### Log Prefixes
 
-The following prefixes are used for structured logging (defined in `LogPrefixes.cs`):
+The following prefixes are used for structured logging (inline string prefixes in log messages):
 
 | Prefix | Description |
 |--------|-------------|
@@ -1142,9 +1113,9 @@ Proprietary — Internal use only
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.2.0 | 2026-02 | **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. |
+| 1.2.0 | 2026-02 | **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. **Dead Code Removal**: Removed `CommandLineOptions`, `LogPrefixes`, `IntegrationConstants`, `TapiException`, `DatevException` (unused infrastructure classes and constants). Previously removed `DatevCache` and `DatevContactManager` were unified into `DatevContactRepository`. |
 | 1.1.9 | 2026-01 | **Memory Optimization**: Filter Communications to phone-only (`Medium == Phone`), reducing objects from ~68K to ~17K. Cached `EffectiveNormalizedNumber` property to eliminate ~68K repeated Regex allocations. Compiled `PhoneNumberNormalizer` Regex. Replaced LINQ `GroupBy`/`ToDictionary` with direct `SortedDictionary` build loop. Pre-load GC releases old cache before XML deserialization. Post-load forced double-collect GC with LOH compaction and `SetProcessWorkingSetSize` P/Invoke to trim OS working set. Added `UITheme.Cleanup()` in shutdown path, `TrayApplication._currentMainForm` disposal, `Array.Empty<T>()` replacements. Post-cache GC diagnostics log (working set before/after, managed heap). |
-| 1.1.8 | 2026-01 | **Core Infrastructure**: Added `IniConfig` (typed config access), `IntegrationConstants` (centralized TAPI/DATEV/timeout constants), `TapiException`/`DatevException` (categorized errors for retry decisions) |
+| 1.1.8 | 2026-01 | **Core Infrastructure**: Added `IniConfig` (typed config access). Originally added `IntegrationConstants`, `TapiException`, `DatevException` — later removed in v1.2.0 as dead code |
 | 1.1.8 | 2026-01 | **Setup Wizard** for first-run configuration (TAPI line selection, DATEV connection test, Windows autostart toggle), **Troubleshooting Form** with categorized help for TAPI/DATEV/Contact issues and quick log access, **UIStrings centralization** (all German UI text in single location), **Form refactoring** (consistent theme usage across all forms with Layout constants) |
 | 1.1.7 | 2026-01 | **Multi-line TAPI support** with per-line status indicators and test buttons, **TAPI error categorization** (transient, line closed, shutdown, permanent) with intelligent retry, **Thread safety improvements** (ConcurrentDictionary for line tracking, UI thread marshaling via InvokeRequired, volatile modifiers for cross-thread settings access), **ConfigKeys centralization** (all INI keys as compile-time constants), **IDisposable pattern completion** (GC.SuppressFinalize, proper CancellationTokenSource disposal), **ConfigWatcher improvements** (debounce timer instead of Thread.Sleep, consolidated DumpContacts methods), consistent progress label styling, UITheme cleanup (removed unused CreateCard, improved font disposal), YAGNI cleanup (removed unused async retry methods) |
 | 1.1.6 | 2026-01 | **German localization** throughout all UI (menus, forms, buttons, labels), StatusForm improvements (TopMost=false, Test button visual feedback with ✓/✗, event-based TAPI status updates with 6s timeout fallback, purple AccentBridge color), CallHistoryForm redesign (larger size, 5-second auto-refresh, clearer journal status: "✓ Ja"/"Offen"/"—"), **Active contacts filter** (`@Status NOT EQUAL TO "0"` for DATEV SDD), sync timestamp display in SettingsForm, improved button layouts |

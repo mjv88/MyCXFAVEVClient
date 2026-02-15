@@ -44,8 +44,7 @@ The connector is a .NET Framework 4.8 WinForms system tray application (x86) tha
 | **DatevAdapter** | `Datev/COMs/DatevAdapter.cs` | COM adapter registered in ROT |
 | **NotificationManager** | `Datev/Managers/NotificationManager.cs` | Connector → DATEV notifications (with circuit breaker) |
 | **CallDataManager** | `Datev/Managers/CallDataManager.cs` | Call data handling and SyncID management |
-| **DatevCache** | `Datev/DatevCache.cs` | Contact cache with phone number lookup |
-| **DatevContactManager** | `Datev/Managers/DatevContactManager.cs` | SDD contact loading |
+| **DatevContactRepository** | `Datev/DatevContactRepository.cs` | Unified contact repository with phone lookup |
 | **WebclientTelephonyProvider** | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider for browser extension |
 | **WebSocketBridgeServer** | `Webclient/WebSocketBridgeServer.cs` | WebSocket server for extension (port 19800) |
 | **TelephonyProviderSelector** | `Core/TelephonyProviderSelector.cs` | Auto-detection of telephony mode |
@@ -163,12 +162,6 @@ DebugLogging=true
 ```ini
 [Debug]
 VerboseLogging=true
-```
-
-**Method 3 — Command line (one-time):**
-
-```
-3cxDatevConnector.exe /verbose
 ```
 
 ### Log Prefixes
