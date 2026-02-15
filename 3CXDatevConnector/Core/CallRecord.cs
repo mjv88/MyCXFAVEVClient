@@ -26,16 +26,6 @@ namespace DatevConnector.Core
         public string RemoteNumber { get; set; }
 
         /// <summary>
-        /// Remote party name (if provided by 3CX)
-        /// </summary>
-        public string RemoteName { get; set; }
-
-        /// <summary>
-        /// Local extension number
-        /// </summary>
-        public string LocalNumber { get; set; }
-
-        /// <summary>
         /// When the call started (ringing/dialing)
         /// </summary>
         public DateTime StartTime { get; set; }

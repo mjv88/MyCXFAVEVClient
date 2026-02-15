@@ -20,8 +20,6 @@ namespace DatevConnector.Core
         // Preserved CallData fields for re-sending journal
         public string AdressatenId { get; set; }
         public string DataSource { get; set; }
-        public string CallID { get; set; }
-        public string SyncID { get; set; }
         public string CalledNumber { get; set; }
 
         /// <summary>
@@ -70,8 +68,6 @@ namespace DatevConnector.Core
                 entry.ContactName = record.CallData.Adressatenname;
                 entry.AdressatenId = record.CallData.AdressatenId;
                 entry.DataSource = record.CallData.DataSource;
-                entry.CallID = record.CallData.CallID;
-                entry.SyncID = record.CallData.SyncID;
                 entry.CalledNumber = record.CallData.CalledNumber;
             }
 

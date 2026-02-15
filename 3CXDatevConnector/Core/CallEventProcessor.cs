@@ -40,7 +40,6 @@ namespace DatevConnector.Core
         private bool _isMuted;
 
         public bool IsMuted { get => _isMuted; set => _isMuted = value; }
-        public int MinCallerIdLength => _minCallerIdLength;
 
         public CallEventProcessor(
             CallTracker callTracker,
@@ -159,8 +158,6 @@ namespace DatevConnector.Core
             var record = _callTracker.AddCall(callId, isIncoming: true);
             CallStateMachine.TryTransition(record, TapiCallState.Ringing);
             record.RemoteNumber = callerNumber;
-            record.RemoteName = callEvent.CallerName;
-            record.LocalNumber = callEvent.CalledNumber ?? _extension;
 
             var callData = CreateCallData(record, ENUM_DIRECTION.eDirIncoming);
             var contact = LookupAndFillContact(record, callData, callerNumber);
@@ -198,8 +195,6 @@ namespace DatevConnector.Core
                     record = _callTracker.AddCall(callId, isIncoming: false);
                 CallStateMachine.TryTransition(record, TapiCallState.Ringback);
                 record.RemoteNumber = calledNumber;
-                record.RemoteName = callEvent.CalledName;
-                record.LocalNumber = callEvent.CallerNumber ?? _extension;
                 record.CallData.Begin = record.StartTime;
                 record.CallData.End = record.StartTime;
 
@@ -213,8 +208,6 @@ namespace DatevConnector.Core
             record = _callTracker.AddCall(callId, isIncoming: false);
             CallStateMachine.TryTransition(record, TapiCallState.Ringback);
             record.RemoteNumber = calledNumber;
-            record.RemoteName = callEvent.CalledName;
-            record.LocalNumber = callEvent.CallerNumber ?? _extension;
 
             var callData = CreateCallData(record, ENUM_DIRECTION.eDirOutgoing);
             var contact = LookupAndFillContact(record, callData, calledNumber);
@@ -241,8 +234,6 @@ namespace DatevConnector.Core
                 record = _callTracker.AddCall(callId, isIncoming);
                 string remoteNumber = isIncoming ? callEvent.CallerNumber : callEvent.CalledNumber;
                 record.RemoteNumber = remoteNumber;
-                record.RemoteName = isIncoming ? callEvent.CallerName : callEvent.CalledName;
-                record.LocalNumber = isIncoming ? (callEvent.CalledNumber ?? _extension) : (callEvent.CallerNumber ?? _extension);
 
                 var callData = CreateCallData(record, isIncoming ? ENUM_DIRECTION.eDirIncoming : ENUM_DIRECTION.eDirOutgoing);
                 LookupAndFillContact(record, callData, remoteNumber);

@@ -13,11 +13,6 @@ namespace DatevConnector.Datev.Managers
         private Guid _clsIdDatev;
         private readonly CircuitBreaker _circuitBreaker;
 
-        /// <summary>
-        /// Indicates whether DATEV connection is currently available
-        /// </summary>
-        internal bool IsDatevAvailable => _circuitBreaker.State != CircuitState.Open;
-
         internal NotificationManager(Guid clsIdDatev)
         {
             _clsIdDatev = clsIdDatev;
@@ -27,16 +22,6 @@ namespace DatevConnector.Datev.Managers
             int openTimeout = AppConfig.GetInt(ConfigKeys.DatevCircuitBreakerTimeoutSeconds, 30);
 
             _circuitBreaker = new CircuitBreaker("DATEV", failureThreshold, openTimeout);
-        }
-
-        /// <summary>
-        /// Resets the circuit breaker, allowing operations to proceed
-        /// </summary>
-        internal void ResetCircuitBreaker()
-        {
-            _circuitBreaker.Reset();
-            DatevConnectionChecker.ClearCache();
-            LogManager.Log("DATEV circuit breaker reset");
         }
 
         /// <summary>

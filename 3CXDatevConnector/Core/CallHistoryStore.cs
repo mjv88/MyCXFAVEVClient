@@ -103,7 +103,6 @@ namespace DatevConnector.Core
 
         public bool TrackInbound => _trackInbound;
         public bool TrackOutbound => _trackOutbound;
-        public int MaxEntries => _maxEntries;
 
         private void TrimBuffer(LinkedList<CallHistoryEntry> buffer)
         {

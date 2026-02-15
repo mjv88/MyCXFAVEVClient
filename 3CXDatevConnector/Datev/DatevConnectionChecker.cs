@@ -53,17 +53,6 @@ namespace DatevConnector.Datev
             }
         }
 
-        /// <summary>
-        /// Clears the cached availability result
-        /// </summary>
-        public static void ClearCache()
-        {
-            lock (_lock)
-            {
-                _lastCheckTime = DateTime.MinValue;
-            }
-        }
-
         private static bool CheckDatevAvailabilityInternal()
         {
             try
