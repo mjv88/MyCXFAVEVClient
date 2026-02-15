@@ -48,7 +48,7 @@ namespace DatevConnector.UI
                 return;
             }
 
-            LogManager.Log("FormDisplayHelper: Cannot post to UI thread - no context available");
+            LogManager.Log("FormDisplayHelper: Kann nicht zum UI-Thread posten - kein Kontext verfügbar");
         }
 
     }

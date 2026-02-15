@@ -119,7 +119,7 @@ namespace DatevConnector.Tapi
         /// </summary>
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            LogManager.Log("PipeServer: Starting on \\\\.\\pipe\\{0}", _pipeName);
+            LogManager.Log("PipeServer: Starte auf \\\\.\\pipe\\{0}", _pipeName);
 
             // Diagnostic: list any existing 3CX pipes on the system
             LogExisting3CXPipes();
@@ -140,25 +140,25 @@ namespace DatevConnector.Tapi
                         4096,                       // outBufferSize
                         security);
 
-                    LogManager.Log("PipeServer: Pipe created, waiting for 3CX Softphone connection...");
+                    LogManager.Log("PipeServer: Pipe erstellt, warte auf 3CX Softphone Verbindung...");
                     LogExisting3CXPipes();
 
                     // Wait for the 3CX Softphone to connect (it polls every 2s)
                     await WaitForConnectionAsync(_pipe, cancellationToken);
 
                     _clientConnected = true;
-                    LogManager.Log("PipeServer: 3CX Softphone connected");
+                    LogManager.Log("PipeServer: 3CX Softphone verbunden");
 
                     // Send SRVHELLO handshake (the 3CX Softphone expects this from the server)
                     try
                     {
                         var hello = TapiMessage.CreateServerHello();
                         await SendAsync(hello, cancellationToken);
-                        LogManager.Log("PipeServer: SRVHELLO sent");
+                        LogManager.Log("PipeServer: SRVHELLO gesendet");
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Warning("PipeServer: Failed to send SRVHELLO: {0}", ex.Message);
+                        LogManager.Warning("PipeServer: SRVHELLO senden fehlgeschlagen: {0}", ex.Message);
                     }
 
                     try
@@ -167,7 +167,7 @@ namespace DatevConnector.Tapi
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Debug("PipeServer: Error in ClientConnected handler: {0}", ex.Message);
+                        LogManager.Debug("PipeServer: Fehler im ClientConnected-Handler: {0}", ex.Message);
                     }
 
                     // Read messages until client disconnects or cancellation
@@ -179,7 +179,7 @@ namespace DatevConnector.Tapi
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Warning("PipeServer: Error - {0}", ex.Message);
+                    LogManager.Warning("PipeServer: Fehler - {0}", ex.Message);
                 }
                 finally
                 {
@@ -191,7 +191,7 @@ namespace DatevConnector.Tapi
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Debug("PipeServer: Error in ClientDisconnected handler: {0}", ex.Message);
+                        LogManager.Debug("PipeServer: Fehler im ClientDisconnected-Handler: {0}", ex.Message);
                     }
 
                     DisposePipe();
@@ -204,7 +204,7 @@ namespace DatevConnector.Tapi
                 }
             }
 
-            LogManager.Log("PipeServer: Stopped");
+            LogManager.Log("PipeServer: Beendet");
         }
 
         /// <summary>
@@ -230,7 +230,7 @@ namespace DatevConnector.Tapi
                     int bytesRead = await ReadExactAsync(pipe, lengthBuffer, LengthPrefixSize, cancellationToken);
                     if (bytesRead < LengthPrefixSize)
                     {
-                        LogManager.Log("PipeServer: Client disconnected (incomplete length read)");
+                        LogManager.Log("PipeServer: Client getrennt (unvollständiger Längenblock)");
                         break;
                     }
 
@@ -238,7 +238,7 @@ namespace DatevConnector.Tapi
 
                     if (messageLength <= 0 || messageLength > MaxMessageLength)
                     {
-                        LogManager.Warning("PipeServer: Invalid message length: {0}", messageLength);
+                        LogManager.Warning("PipeServer: Ungültige Nachrichtenlänge: {0}", messageLength);
                         continue;
                     }
 
@@ -247,7 +247,7 @@ namespace DatevConnector.Tapi
                     bytesRead = await ReadExactAsync(pipe, contentBuffer, messageLength, cancellationToken);
                     if (bytesRead < messageLength)
                     {
-                        LogManager.Log("PipeServer: Client disconnected (incomplete message read)");
+                        LogManager.Log("PipeServer: Client getrennt (unvollständige Nachricht)");
                         break;
                     }
 
@@ -263,7 +263,7 @@ namespace DatevConnector.Tapi
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Log("PipeServer: Error in message handler: {0}", ex.Message);
+                        LogManager.Log("PipeServer: Fehler im Nachrichtenhandler: {0}", ex.Message);
                     }
                 }
             }
@@ -273,11 +273,11 @@ namespace DatevConnector.Tapi
             }
             catch (IOException ex)
             {
-                LogManager.Log("PipeServer: Client disconnected ({0})", ex.Message);
+                LogManager.Log("PipeServer: Client getrennt ({0})", ex.Message);
             }
             catch (Exception ex)
             {
-                LogManager.Warning("PipeServer: Read error - {0}", ex.Message);
+                LogManager.Warning("PipeServer: Lesefehler - {0}", ex.Message);
             }
         }
 
@@ -322,13 +322,13 @@ namespace DatevConnector.Tapi
             {
                 if (_pipe == null)
                 {
-                    LogManager.Log("PipeServer: TrySend failed - pipe is null");
+                    LogManager.Log("PipeServer: TrySend fehlgeschlagen - Pipe ist null");
                     return false;
                 }
 
                 if (!_pipe.IsConnected)
                 {
-                    LogManager.Log("PipeServer: TrySend failed - pipe not connected");
+                    LogManager.Log("PipeServer: TrySend fehlgeschlagen - Pipe nicht verbunden");
                     return false;
                 }
 
@@ -341,7 +341,7 @@ namespace DatevConnector.Tapi
             }
             catch (Exception ex)
             {
-                LogManager.Log("PipeServer: TrySend failed - {0}", ex.Message);
+                LogManager.Log("PipeServer: TrySend fehlgeschlagen - {0}", ex.Message);
                 return false;
             }
         }
@@ -357,11 +357,11 @@ namespace DatevConnector.Tapi
                 var pipes = pipeDir.GetFiles("3CX*");
                 if (pipes.Length == 0)
                 {
-                    LogManager.Log("PipeServer: No existing 3CX pipes found on system");
+                    LogManager.Log("PipeServer: Keine bestehenden 3CX Pipes auf dem System gefunden");
                 }
                 else
                 {
-                    LogManager.Log("PipeServer: Found {0} existing 3CX pipe(s):", pipes.Length);
+                    LogManager.Log("PipeServer: {0} bestehende 3CX Pipe(s) gefunden:", pipes.Length);
                     foreach (var pipe in pipes)
                     {
                         LogManager.Log("  \\\\.\\.pipe\\{0}", pipe.Name);
@@ -379,7 +379,7 @@ namespace DatevConnector.Tapi
             if (_pipe != null)
             {
                 try { _pipe.Dispose(); }
-                catch (Exception ex) { LogManager.Debug("PipeServer: Pipe dispose error - {0}", ex.Message); }
+                catch (Exception ex) { LogManager.Debug("PipeServer: Fehler beim Verwerfen des Pipes - {0}", ex.Message); }
                 _pipe = null;
             }
         }

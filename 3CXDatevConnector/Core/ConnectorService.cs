@@ -120,7 +120,7 @@ namespace DatevConnector.Core
             {
                 _isMuted = value;
                 _callEventProcessor.IsMuted = value;
-                LogManager.Log("Connector: Silent mode {0}", value ? "enabled" : "disabled");
+                LogManager.Log("Connector: Stummschaltung {0}", value ? "aktiviert" : "deaktiviert");
             }
         }
 
@@ -183,15 +183,16 @@ namespace DatevConnector.Core
         {
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            // ── Step 1: Log startup info ─────────────────────────────────
-            SessionManager.LogSessionInfo();
-
+            // ── Step 1: Mode header first, then environment info ─────────
             _configuredTelephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
 
-            // ── Step 2: Provider selection / auto-detection ──────────────
             LogManager.Log("3CX Telefonie Modus Initialisierung...");
-            LogManager.Log("3CX Telefonie Modus: {0} (configured)",
+            LogManager.Log("3CX Telefonie Modus: {0} (konfiguriert)",
                 _configuredTelephonyMode == TelephonyMode.Auto ? "Auto-Detection" : _configuredTelephonyMode.ToString());
+
+            SessionManager.LogSessionInfo();
+
+            // ── Step 2: Provider selection / auto-detection ──────────────
 
             var selectionResult = await TelephonyProviderSelector.SelectProviderAsync(
                 _extension, _cts.Token);
@@ -221,7 +222,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("Failed to register DatevAdapter: {0}", ex.Message);
+                LogManager.Log("DatevAdapter Registrierung fehlgeschlagen: {0}", ex.Message);
             }
 
             DatevAvailable = DatevConnectionChecker.CheckAndLogDatevStatus();
@@ -243,9 +244,9 @@ namespace DatevConnector.Core
             {
                 // No provider detected — log diagnostics and wait for wizard
                 LogManager.Warning("========================================");
-                LogManager.Warning("No telephony provider detected!");
+                LogManager.Warning("Kein Telefonie-Anbieter erkannt!");
                 LogManager.Warning("========================================");
-                LogManager.Warning(selectionResult.DiagnosticSummary ?? "No diagnostics available");
+                LogManager.Warning(selectionResult.DiagnosticSummary ?? "Keine Diagnoseinformationen verfügbar");
                 Status = ConnectorStatus.Disconnected;
                 return;
             }
@@ -281,7 +282,7 @@ namespace DatevConnector.Core
 
                 if (completed != loadTask)
                 {
-                    LogManager.Warning("Contact load timed out after {0}s - continuing without contacts", timeoutSec);
+                    LogManager.Warning("Kontakte laden Zeitüberschreitung nach {0}s - fahre ohne Kontakte fort", timeoutSec);
                     return;
                 }
 
@@ -289,7 +290,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "Failed to load contacts from DATEV SDD");
+                LogManager.Error(ex, "Kontakte konnten nicht von DATEV SDD geladen werden");
             }
         }
 
@@ -342,7 +343,7 @@ namespace DatevConnector.Core
                     {
                         // DATEV just became available
                         DatevAvailable = true;
-                        LogManager.Log("DATEV auto-detected as available");
+                        LogManager.Log("DATEV automatisch als verfügbar erkannt");
                         DatevConnectionChecker.CheckAndLogDatevStatus();
                         await LoadContactsAsync();
                         DatevBecameAvailable?.Invoke(this, EventArgs.Empty);
@@ -352,7 +353,7 @@ namespace DatevConnector.Core
                     {
                         // DATEV became unavailable
                         DatevAvailable = false;
-                        LogManager.Warning("DATEV no longer available");
+                        LogManager.Warning("DATEV nicht mehr verfügbar");
                         ShowDatevUnavailableNotification();
                         interval = ShortInterval;
                     }
@@ -401,7 +402,7 @@ namespace DatevConnector.Core
             var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
             if (firstLine != null && firstLine.Extension != _extension)
             {
-                LogManager.Debug("Extension auto-detected from {0}: {1}", source, firstLine.Extension);
+                LogManager.Debug("Nebenstelle automatisch erkannt von {0}: {1}", source, firstLine.Extension);
                 _extension = firstLine.Extension;
                 CallIdGenerator.Initialize(_extension);
 
@@ -447,7 +448,7 @@ namespace DatevConnector.Core
                         var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
                         if (configuredModeNow != _configuredTelephonyMode)
                         {
-                            LogManager.Log("TelephonyMode config changed during runtime: {0} -> {1}",
+                            LogManager.Log("TelephonyMode Konfiguration zur Laufzeit geändert: {0} -> {1}",
                                 _configuredTelephonyMode, configuredModeNow);
                             _configuredTelephonyMode = configuredModeNow;
                         }
@@ -459,7 +460,7 @@ namespace DatevConnector.Core
                             {
                                 if (_selectedMode != autoSelection.SelectedMode)
                                 {
-                                    LogManager.Log("Auto mode selected telephony provider for reconnect cycle: {0} -> {1} (reason: {2})",
+                                    LogManager.Log("Auto-Modus Telefonie-Anbieter für Verbindungszyklus gewählt: {0} -> {1} (Grund: {2})",
                                         _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
                                 }
                                 _selectedMode = autoSelection.SelectedMode;
@@ -468,7 +469,7 @@ namespace DatevConnector.Core
                             }
                             else
                             {
-                                LogManager.Log("Auto mode selection found no available provider; retrying in {0} seconds", reconnectInterval);
+                                LogManager.Log("Auto-Modus hat keinen verfügbaren Anbieter gefunden; erneuter Versuch in {0} Sekunden", reconnectInterval);
                                 Status = ConnectorStatus.Disconnected;
                                 await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                                 continue;
@@ -478,7 +479,7 @@ namespace DatevConnector.Core
                         {
                             _selectedMode = _configuredTelephonyMode;
                             _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
-                            LogManager.Log("Reconnect cycle using explicit TelephonyMode: {0}", _configuredTelephonyMode);
+                            LogManager.Log("Verbindungszyklus mit explizitem TelephonyMode: {0}", _configuredTelephonyMode);
                             providerToUse = CreateTelephonyProvider(lineFilter);
                         }
                     }
@@ -492,7 +493,7 @@ namespace DatevConnector.Core
                     // Per-line events for multi-line support
                     _tapiMonitor.LineDisconnected += (line) =>
                     {
-                        LogManager.Log("TAPI line disconnected: {0}", line.Extension);
+                        LogManager.Log("TAPI Leitung getrennt: {0}", line.Extension);
                         // Fire status changed to update UI
                         StatusChanged?.Invoke(Status);
                     };
@@ -505,7 +506,7 @@ namespace DatevConnector.Core
                     _tapiMonitor.Disconnected += () =>
                     {
                         Status = ConnectorStatus.Disconnected;
-                        LogManager.Log("Telephony provider disconnected (all lines)");
+                        LogManager.Log("Telefonie-Anbieter getrennt (alle Leitungen)");
                     };
 
                     // Provider from auto-detection may already be connected (TryConnect succeeded)
@@ -524,12 +525,12 @@ namespace DatevConnector.Core
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("Telephony provider connection failed: {0}", ex.Message);
+                    LogManager.Log("Telefonie-Anbieter Verbindung fehlgeschlagen: {0}", ex.Message);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    LogManager.Log("Reconnecting telephony provider in {0} seconds...", reconnectInterval);
+                    LogManager.Log("Telefonie-Anbieter Neuverbindung in {0} Sekunden...", reconnectInterval);
                     await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                 }
             }
@@ -555,14 +556,14 @@ namespace DatevConnector.Core
             // First check if DATEV is available
             if (!DatevConnectionChecker.CheckAndLogDatevStatus(progressText))
             {
-                LogManager.Warning("Cannot reload contacts - DATEV not available");
+                LogManager.Warning("Kontakte können nicht neu geladen werden - DATEV nicht verfügbar");
                 progressText?.Invoke("DATEV nicht verfügbar");
                 return;
             }
 
-            LogManager.Log("Reloading contacts from DATEV SDD...");
+            LogManager.Log("Kontakte werden von DATEV SDD neu geladen...");
             await DatevContactRepository.StartLoadAsync(null, progressText);
-            LogManager.Log("Contacts reloaded: {0} contacts, {1} phone number keys",
+            LogManager.Log("Kontakte neu geladen: {0} Kontakte, {1} Telefonnummern-Schlüssel",
                 DatevContactRepository.ContactCount, DatevContactRepository.PhoneNumberKeyCount);
         }
 
@@ -580,7 +581,7 @@ namespace DatevConnector.Core
         /// <param name="progressText">Optional callback for progress text updates</param>
         public Task ReconnectTapiAsync(Action<string> progressText)
         {
-            LogManager.Log("Manual TAPI reconnect requested");
+            LogManager.Log("Manuelle TAPI Neuverbindung angefordert");
 
             if (_tapiMonitor != null)
             {
@@ -610,11 +611,11 @@ namespace DatevConnector.Core
         {
             if (_tapiMonitor == null)
             {
-                LogManager.Log("Cannot reconnect line {0} - TAPI monitor not running", extension);
+                LogManager.Log("Leitung {0} kann nicht neu verbunden werden - TAPI Monitor nicht aktiv", extension);
                 return false;
             }
 
-            LogManager.Log("Manual TAPI line reconnect requested for extension {0}", extension);
+            LogManager.Log("Manuelle TAPI Leitungs-Neuverbindung für Nebenstelle {0} angefordert", extension);
             return _tapiMonitor.ReconnectLine(extension, progressText);
         }
 
@@ -626,11 +627,11 @@ namespace DatevConnector.Core
         {
             if (_tapiMonitor == null)
             {
-                LogManager.Log("Cannot reconnect lines - TAPI monitor not running");
+                LogManager.Log("Leitungen können nicht neu verbunden werden - TAPI Monitor nicht aktiv");
                 return;
             }
 
-            LogManager.Log("Manual TAPI reconnect all lines requested");
+            LogManager.Log("Manuelle TAPI Neuverbindung aller Leitungen angefordert");
             _tapiMonitor.ReconnectAllLines(progressText);
 
             // Trigger status update
@@ -648,7 +649,7 @@ namespace DatevConnector.Core
             if (_tapiMonitor == null)
             {
                 progressText?.Invoke("TAPI nicht aktiv");
-                LogManager.Log("Cannot test line {0} - TAPI monitor not running", extension);
+                LogManager.Log("Leitung {0} kann nicht getestet werden - TAPI Monitor nicht aktiv", extension);
                 return false;
             }
 
@@ -665,7 +666,7 @@ namespace DatevConnector.Core
             // Per DATEV spec: NewJournal must not be sent while a call is active
             if (_callTracker.Count > 0)
             {
-                LogManager.Warning("CallHistory: Journal blocked - {0} active call(s)", _callTracker.Count);
+                LogManager.Warning("CallHistory: Journal blockiert - {0} aktive(r) Anruf(e)", _callTracker.Count);
                 return;
             }
 
@@ -673,7 +674,7 @@ namespace DatevConnector.Core
             callData.Note = note;
             _notificationManager.NewJournal(callData);
             _callHistory.MarkJournalSent(entry);
-            LogManager.Log("CallHistory: Journal sent for {0} (CallID={1}, {2} chars)",
+            LogManager.Log("CallHistory: Journal gesendet für {0} (CallID={1}, {2} Zeichen)",
                 LogManager.Mask(entry.RemoteNumber), callData.CallID, note.Length);
         }
 
@@ -703,7 +704,7 @@ namespace DatevConnector.Core
                 ModeChanged?.Invoke(_selectedMode);
             }
 
-            LogManager.Log("Settings applied live: History={0}/{1}/{2}, ActiveOnly={3}",
+            LogManager.Log("Einstellungen live angewendet: History={0}/{1}/{2}, ActiveOnly={3}",
                 histIn, histOut, histMax, DatevContactRepository.FilterActiveContactsOnly);
         }
 
@@ -719,11 +720,11 @@ namespace DatevConnector.Core
             try
             {
                 AdapterManager.Unregister();
-                LogManager.Log("DatevAdapter unregistered from ROT");
+                LogManager.Log("DatevAdapter aus ROT abgemeldet");
             }
             catch (Exception ex)
             {
-                LogManager.Log("Failed to unregister DatevAdapter: {0}", ex.Message);
+                LogManager.Log("DatevAdapter Abmeldung fehlgeschlagen: {0}", ex.Message);
             }
 
             // Cancel and dispose the cancellation token source

@@ -98,7 +98,7 @@ namespace DatevConnector.Datev
                     contactNumber,
                     _maxCompareLength ?? 10);
 
-                LogManager.Log("Connector: Contact lookup - Input='{0}' Normalized='{1}'",
+                LogManager.Log("Connector: Kontaktsuche - Eingabe='{0}' Normalisiert='{1}'",
                     LogManager.Mask(contactNumber), LogManager.Mask(normalizedNumber));
 
                 List<DatevContactInfo> result = null;
@@ -107,7 +107,7 @@ namespace DatevConnector.Datev
                 if (_datevContactsSDict != null && _datevContactsSDict.ContainsKey(normalizedNumber))
                 {
                     result = _datevContactsSDict[normalizedNumber];
-                    LogManager.Debug("Connector: Contact lookup - Exact match on key '{0}'",
+                    LogManager.Debug("Connector: Kontaktsuche - Exakte Übereinstimmung auf Schlüssel '{0}'",
                         LogManager.Mask(normalizedNumber));
                 }
 
@@ -124,7 +124,7 @@ namespace DatevConnector.Datev
                         if (normalizedNumber.EndsWith(kvp.Key) || kvp.Key.EndsWith(normalizedNumber))
                         {
                             result = kvp.Value;
-                            LogManager.Debug("Connector: Contact lookup - Suffix match: '{0}' <-> '{1}'",
+                            LogManager.Debug("Connector: Kontaktsuche - Suffixübereinstimmung: '{0}' <-> '{1}'",
                                 LogManager.Mask(normalizedNumber), LogManager.Mask(kvp.Key));
                             break;
                         }
@@ -134,7 +134,7 @@ namespace DatevConnector.Datev
                 if (result == null || result.Count == 0)
                 {
                     result = new List<DatevContactInfo>();
-                    LogManager.Log("Connector: Contact lookup - No match found");
+                    LogManager.Log("Connector: Kontaktsuche - Keine Übereinstimmung gefunden");
                 }
                 else
                 {
@@ -144,7 +144,7 @@ namespace DatevConnector.Datev
                         if (sb.Length > 0) sb.Append(", ");
                         sb.Append(LogManager.MaskName(info.DatevContact.Name));
                     }
-                    LogManager.Log("Connector: Contact lookup - Found {0} match(es): {1}", result.Count, sb);
+                    LogManager.Log("Connector: Kontaktsuche - {0} Treffer gefunden: {1}", result.Count, sb);
                 }
 
                 return result;
@@ -186,7 +186,7 @@ namespace DatevConnector.Datev
                 _datevContacts = FetchContacts(10, 90, progress, progressText);
                 contactListUpdated = true;
 
-                LogManager.Debug("Loaded {0} contacts from DATEV SDD", _datevContacts.Count);
+                LogManager.Debug("{0} Kontakte von DATEV SDD geladen", _datevContacts.Count);
                 if (_debugLogging)
                     DatevContactDiagnostics.LogContactList(_datevContacts);
             }
@@ -298,7 +298,7 @@ namespace DatevConnector.Datev
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error fetching Recipients: {0}", ex.Message);
+                LogManager.Log("Fehler beim Abrufen der Adressaten: {0}", ex.Message);
                 progressText?.Invoke("Fehler beim Laden der Adressaten");
                 recipients = new List<DatevContact>();
             }
@@ -325,7 +325,7 @@ namespace DatevConnector.Datev
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error fetching Institutions: {0}", ex.Message);
+                LogManager.Log("Fehler beim Abrufen der Institutionen: {0}", ex.Message);
                 progressText?.Invoke("Fehler beim Laden der Institutionen");
                 institutions = new List<DatevContact>();
             }

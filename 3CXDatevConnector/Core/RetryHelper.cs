@@ -56,21 +56,21 @@ namespace DatevConnector.Core
                     // Check if this exception type should be retried
                     if (shouldRetry != null && !shouldRetry(ex))
                     {
-                        LogManager.Log("{0} failed with non-retryable error: {1}", operationName, ex.Message);
+                        LogManager.Log("{0} fehlgeschlagen (nicht wiederholbar): {1}", operationName, ex.Message);
                         break;
                     }
 
                     if (attempt < retries)
                     {
                         int currentDelay = delay * (int)Math.Pow(2, attempt);
-                        LogManager.Log("{0} failed (attempt {1}/{2}), retrying in {3}s: {4}",
+                        LogManager.Log("{0} fehlgeschlagen (Versuch {1}/{2}), erneuter Versuch in {3}s: {4}",
                             operationName, attempt + 1, retries + 1, currentDelay, ex.Message);
 
                         Thread.Sleep(currentDelay * 1000);
                     }
                     else
                     {
-                        LogManager.Log("{0} failed after {1} attempts: {2}",
+                        LogManager.Log("{0} fehlgeschlagen nach {1} Versuchen: {2}",
                             operationName, retries + 1, ex.Message);
                     }
                 }

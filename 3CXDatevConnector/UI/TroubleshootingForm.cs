@@ -274,7 +274,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("Troubleshooting: Error opening log - {0}", ex.Message);
+                LogManager.Log("Troubleshooting: Fehler beim Öffnen des Logs - {0}", ex.Message);
             }
         }
 

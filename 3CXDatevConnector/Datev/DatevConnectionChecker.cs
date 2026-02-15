@@ -70,17 +70,17 @@ namespace DatevConnector.Datev
                     if (Marshal.IsComObject(obj))
                         Marshal.ReleaseComObject(obj);
 
-                    LogManager.Debug("DATEV detected in ROT (available)");
+                    LogManager.Debug("DATEV in ROT erkannt (verfügbar)");
                     return true;
                 }
                 else
                 {
-                    LogManager.Debug("DATEV not found in ROT (result=0x{0:X8})", result);
+                    LogManager.Debug("DATEV nicht in ROT gefunden (Ergebnis=0x{0:X8})", result);
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Log("DATEV availability check failed: {0}", ex.Message);
+                LogManager.Log("DATEV Verfügbarkeitsprüfung fehlgeschlagen: {0}", ex.Message);
             }
 
             return false;
@@ -140,16 +140,14 @@ namespace DatevConnector.Datev
             }
             else if (sddAvailable)
             {
-                LogManager.Log("DATEV SDD available - contacts accessible (CTI not yet available)");
+                LogManager.Log("DATEV SDD verfügbar - Kontakte erreichbar (CTI noch nicht verfügbar)");
                 progressText?.Invoke("DATEV Kontakte verfügbar");
             }
             else
             {
-                LogManager.Warning("DATEV not detected");
+                LogManager.Warning("DATEV nicht erkannt");
                 progressText?.Invoke("DATEV nicht verfügbar");
             }
-
-            LogManager.Log("========================================");
 
             // Available if either component is detected - SDD works via IPC independently of ROT
             return rotAvailable || sddAvailable;
@@ -166,13 +164,13 @@ namespace DatevConnector.Datev
                 var assembly = typeof(IRequestHandler).Assembly;
                 if (assembly != null)
                 {
-                    LogManager.Debug("SDD assembly loaded: {0}", assembly.FullName);
+                    LogManager.Debug("SDD Assembly geladen: {0}", assembly.FullName);
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Debug("SDD availability check failed: {0}", ex.Message);
+                LogManager.Debug("SDD Verfügbarkeitsprüfung fehlgeschlagen: {0}", ex.Message);
             }
 
             return false;

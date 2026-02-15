@@ -74,7 +74,7 @@ namespace DatevConnector
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("Fatal error: {0}", ex);
+                    LogManager.Log("Schwerwiegender Fehler: {0}", ex);
                     MessageBox.Show(
                         $"Fatal error: {ex.Message}",
                         "3CX - DATEV Connector Error",
@@ -82,7 +82,7 @@ namespace DatevConnector
                         MessageBoxIcon.Error);
                 }
 
-                LogManager.Log("3CX - DATEV Connector stopped.");
+                LogManager.Log("3CX - DATEV Connector beendet.");
             }
         }
 
@@ -202,7 +202,7 @@ namespace DatevConnector
         /// </summary>
         private static void OnThreadException(object sender, ThreadExceptionEventArgs e)
         {
-            LogManager.Log("UI Thread Exception: {0}", e.Exception);
+            LogManager.Log("UI-Thread Ausnahme: {0}", e.Exception);
         }
 
         /// <summary>
@@ -211,7 +211,7 @@ namespace DatevConnector
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             var ex = e.ExceptionObject as Exception;
-            LogManager.Log("Unhandled Exception: {0}", ex);
+            LogManager.Log("Unbehandelte Ausnahme: {0}", ex);
         }
 
         /// <summary>
@@ -219,7 +219,7 @@ namespace DatevConnector
         /// </summary>
         private static void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
         {
-            LogManager.Log("Unobserved Task Exception: {0}", e.Exception?.Flatten());
+            LogManager.Log("Unbeobachtete Task-Ausnahme: {0}", e.Exception?.Flatten());
             e.SetObserved();
         }
     }

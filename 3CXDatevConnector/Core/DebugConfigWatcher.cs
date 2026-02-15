@@ -110,7 +110,7 @@ namespace DatevConnector.Core
             _watcher.Renamed += OnFileRenamed;
             _watcher.EnableRaisingEvents = true;
 
-            LogManager.Debug("Debug config watcher started (monitoring {0})", _iniFilePath);
+            LogManager.Debug("Debug-Konfigurationsüberwachung gestartet (überwache {0})", _iniFilePath);
         }
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
@@ -210,7 +210,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "Error reading 3CXDATEVConnector.ini");
+                LogManager.Error(ex, "Fehler beim Lesen der 3CXDATEVConnector.ini");
             }
         }
 
@@ -323,11 +323,11 @@ namespace DatevConnector.Core
                     }
                 }
 
-                LogManager.Log("{0} dumped to {1} ({2} entries)", header, filePath, contacts.Count);
+                LogManager.Log("{0} exportiert nach {1} ({2} Einträge)", header, filePath, contacts.Count);
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "Error dumping contacts to {0}", filePath);
+                LogManager.Error(ex, "Fehler beim Exportieren der Kontakte nach {0}", filePath);
             }
         }
 
@@ -341,7 +341,7 @@ namespace DatevConnector.Core
             ContactReshowDelaySeconds = null;
 
             LogManager.SetDebugMode(false);
-            LogManager.Log("3CXDATEVConnector.ini removed - restored defaults");
+            LogManager.Log("3CXDATEVConnector.ini entfernt - Standardwerte wiederhergestellt");
         }
 
         /// <summary>

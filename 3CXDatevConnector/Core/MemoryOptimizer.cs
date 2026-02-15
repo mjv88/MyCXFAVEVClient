@@ -51,7 +51,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("MemoryOptimizer: CollectAndTrim failed - {0}", ex.Message);
+                LogManager.Log("MemoryOptimizer: CollectAndTrim fehlgeschlagen - {0}", ex.Message);
                 return -1;
             }
         }
@@ -81,7 +81,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("MemoryOptimizer: TrimWorkingSet failed - {0}", ex.Message);
+                LogManager.Log("MemoryOptimizer: TrimWorkingSet fehlgeschlagen - {0}", ex.Message);
             }
         }
     }

@@ -65,7 +65,7 @@ namespace DatevConnector.Tapi
             if (result != LINEERR_OK)
             {
                 var errorDesc = GetErrorDescription(result);
-                LogManager.Warning("lineOpen failed for device {0} ({1}): {2} (0x{3:X8})",
+                LogManager.Warning("lineOpen fehlgeschlagen für Gerät {0} ({1}): {2} (0x{3:X8})",
                     line.DeviceId, line.Extension, errorDesc, result);
                 progressText?.Invoke($"Fehler: Leitung {line.Extension} - {errorDesc}");
 
@@ -86,7 +86,7 @@ namespace DatevConnector.Tapi
             // Request line device state notifications (call states come automatically with MONITOR privilege)
             lineSetStatusMessages(hLine, LINEDEVSTATE_RINGING, 0);
 
-            LogManager.Log("TAPI line connected: {0}", line.Extension);
+            LogManager.Log("TAPI Leitung verbunden: {0}", line.Extension);
             progressText?.Invoke($"Leitung {line.Extension} verbunden");
 
             _onLineConnected?.Invoke(line);
@@ -101,7 +101,7 @@ namespace DatevConnector.Tapi
             var line = _lines.Values.FirstOrDefault(l => l.Extension == extension);
             if (line == null)
             {
-                LogManager.Log("TAPI: Cannot reconnect - extension {0} not found", extension);
+                LogManager.Log("TAPI: Neuverbindung nicht möglich - Nebenstelle {0} nicht gefunden", extension);
                 return false;
             }
 

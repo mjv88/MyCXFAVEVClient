@@ -106,17 +106,17 @@ namespace DatevConnector.Core
                         break;
                     case TapiInterop.LINECALLSTATE_DIALING:
                     case TapiInterop.LINECALLSTATE_PROCEEDING:
-                        LogManager.Log("TAPI: Call {0} state={1}", callId, callEvent.CallStateString);
+                        LogManager.Log("TAPI: Anruf {0} Status={1}", callId, callEvent.CallStateString);
                         break;
                     case TapiInterop.LINECALLSTATE_BUSY:
-                        LogManager.Log("TAPI: Call {0} BUSY", callId);
+                        LogManager.Log("TAPI: Anruf {0} BESETZT", callId);
                         HandleDisconnected(callId, callEvent);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error processing TAPI call event: {0}", ex);
+                LogManager.Log("Fehler bei TAPI Anrufereignis: {0}", ex);
             }
         }
 
@@ -168,8 +168,8 @@ namespace DatevConnector.Core
                     isIncoming: true, _callerPopupMode, _extension);
             }
 
-            LogManager.Log("Connector: Incoming call {0} from {1} (contact={2})",
-                callId, LogManager.Mask(callerNumber), LogManager.MaskName(contact?.DatevContact?.Name) ?? "unknown");
+            LogManager.Log("Connector: Eingehender Anruf {0} von {1} (Kontakt={2})",
+                callId, LogManager.Mask(callerNumber), LogManager.MaskName(contact?.DatevContact?.Name) ?? "unbekannt");
             _notificationManager.NewCall(callData);
         }
 
@@ -198,7 +198,7 @@ namespace DatevConnector.Core
                 record.CallData.Begin = record.StartTime;
                 record.CallData.End = record.StartTime;
 
-                LogManager.Log("Connector: DATEV-initiated outgoing call {0} to {1} (SyncID={2}, Contact={3})",
+                LogManager.Log("Connector: DATEV-initiierter ausgehender Anruf {0} an {1} (SyncID={2}, Kontakt={3})",
                     callId, LogManager.Mask(calledNumber), record.CallData.SyncID, record.CallData.Adressatenname);
                 _notificationManager.NewCall(record.CallData);
                 return;
@@ -218,8 +218,8 @@ namespace DatevConnector.Core
                     isIncoming: false, _callerPopupMode, _extension);
             }
 
-            LogManager.Log("Connector: Outgoing call {0} to {1} (contact={2})",
-                callId, LogManager.Mask(calledNumber), contact?.DatevContact?.Name ?? "unknown");
+            LogManager.Log("Connector: Ausgehender Anruf {0} an {1} (Kontakt={2})",
+                callId, LogManager.Mask(calledNumber), contact?.DatevContact?.Name ?? "unbekannt");
             _notificationManager.NewCall(callData);
         }
 
@@ -229,7 +229,7 @@ namespace DatevConnector.Core
 
             if (record == null)
             {
-                LogManager.Log("Connector: Creating record for previously unknown call {0}", callId);
+                LogManager.Log("Connector: Erstelle Datensatz für unbekannten Anruf {0}", callId);
                 bool isIncoming = callEvent.IsIncoming;
                 record = _callTracker.AddCall(callId, isIncoming);
                 string remoteNumber = isIncoming ? callEvent.CallerNumber : callEvent.CalledNumber;
@@ -317,7 +317,7 @@ namespace DatevConnector.Core
 
                             if (currentRecord.CallData.AdressatenId != previousId)
                             {
-                                LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
+                                LogManager.Log("Kontaktauswahl: Kontakt geändert für Anruf {0} - neu={1} (SyncID={2})",
                                     callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
                                 _notificationManager.CallAdressatChanged(currentRecord.CallData);
                                 ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
@@ -327,7 +327,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("Contact reshow error for call {0}: {1}", callId, ex.Message);
+                LogManager.Log("Kontaktauswahl Fehler für Anruf {0}: {1}", callId, ex.Message);
             }
         }
 
@@ -336,7 +336,7 @@ namespace DatevConnector.Core
             var record = _callTracker.GetCall(callId);
             if (record == null)
             {
-                LogManager.Log("Connector: Unknown call {0} (ignoring)", callId);
+                LogManager.Log("Connector: Unbekannter Anruf {0} (ignoriert)", callId);
                 return;
             }
 
@@ -394,7 +394,7 @@ namespace DatevConnector.Core
         {
             if (string.IsNullOrEmpty(record.CallData.DataSource))
             {
-                LogManager.Warning("Journal: DataSource empty, defaulting to 3CX");
+                LogManager.Warning("Journal: DataSource leer, verwende Standard 3CX");
                 record.CallData.DataSource = DatevDataSource.ThirdParty;
             }
 
@@ -411,7 +411,7 @@ namespace DatevConnector.Core
                     {
                         if (_callTracker.Count > 0)
                         {
-                            LogManager.Warning("Journal: Blocked - {0} active call(s)", _callTracker.Count);
+                            LogManager.Warning("Journal: Blockiert - {0} aktive(r) Anruf(e)", _callTracker.Count);
                             return;
                         }
 
@@ -419,12 +419,12 @@ namespace DatevConnector.Core
                         journalCallData.SyncID = string.Empty;
                         journalCallData.Note = note;
                         _notificationManager.NewJournal(journalCallData);
-                        LogManager.Log("Journal sent for call {0} (NewCallID={1}, {2} chars)",
+                        LogManager.Log("Journal gesendet für Anruf {0} (NewCallID={1}, {2} Zeichen)",
                             callId, journalCallData.CallID, note.Length);
                     }
                     else
                     {
-                        LogManager.Log("Journal skipped for call {0} - empty note", callId);
+                        LogManager.Log("Journal übersprungen für Anruf {0} - leere Notiz", callId);
                     }
                 });
         }

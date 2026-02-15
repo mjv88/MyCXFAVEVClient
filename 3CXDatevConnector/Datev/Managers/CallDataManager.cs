@@ -89,12 +89,12 @@ namespace DatevConnector.Datev.Managers
                 Note = ctiData.Note ?? string.Empty
             };
 
-            LogManager.Debug("DATEV CallData created: SyncID={0}, ContactId={1}, ContactName={2}, DataSource={3}",
+            LogManager.Debug("DATEV CallData erstellt: SyncID={0}, ContactId={1}, ContactName={2}, DataSource={3}",
                 callData.SyncID, callData.AdressatenId, callData.Adressatenname, callData.DataSource);
 
             if (string.IsNullOrEmpty(callData.SyncID))
             {
-                LogManager.Log("WARNING: DATEV CallData missing SyncID");
+                LogManager.Warning("DATEV CallData ohne SyncID");
             }
 
             return callData;

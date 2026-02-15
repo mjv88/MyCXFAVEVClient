@@ -64,7 +64,7 @@ namespace DatevConnector.Core
             }
             else
             {
-                LogManager.Log("Connector: Call {0} invalid state {1} -> {2} (ignored)",
+                LogManager.Log("Connector: Anruf {0} ungültiger Status {1} -> {2} (ignoriert)",
                     record.TapiCallId, currentState, newState);
                 return false;
             }

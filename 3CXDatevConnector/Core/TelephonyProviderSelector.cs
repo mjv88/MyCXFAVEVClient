@@ -94,7 +94,7 @@ namespace DatevConnector.Core
         private static ProviderSelectionResult SelectExplicit_Tapi(string extension, string lineFilter, Action<string> progressText)
         {
             progressText?.Invoke("Modus: TAPI (explizit konfiguriert)");
-            LogManager.Debug("TelephonyProviderSelector: Explicit TAPI mode");
+            LogManager.Debug("TelephonyProviderSelector: Expliziter TAPI-Modus");
 
             var provider = new TapiLineMonitor(lineFilter, extension);
             return new ProviderSelectionResult
@@ -111,7 +111,7 @@ namespace DatevConnector.Core
         private static ProviderSelectionResult SelectExplicit_Pipe(string extension, Action<string> progressText)
         {
             progressText?.Invoke("Modus: Terminal Server (explizit konfiguriert)");
-            LogManager.Debug("TelephonyProviderSelector: Explicit Pipe mode");
+            LogManager.Debug("TelephonyProviderSelector: Expliziter Pipe-Modus");
 
             var provider = new PipeTelephonyProvider(extension);
             return new ProviderSelectionResult
@@ -129,7 +129,7 @@ namespace DatevConnector.Core
             string extension, CancellationToken cancellationToken, Action<string> progressText)
         {
             progressText?.Invoke("Modus: WebClient (explizit konfiguriert)");
-            LogManager.Debug("TelephonyProviderSelector: Explicit WebClient mode");
+            LogManager.Debug("TelephonyProviderSelector: Expliziter WebClient-Modus");
 
             var provider = new WebclientTelephonyProvider(extension);
             return Task.FromResult(new ProviderSelectionResult
@@ -147,7 +147,7 @@ namespace DatevConnector.Core
             string extension, string lineFilter, int totalTimeoutSec,
             CancellationToken cancellationToken, Action<string> progressText)
         {
-            LogManager.Debug("TelephonyProviderSelector: Auto-detection starting (timeout={0}s)", totalTimeoutSec);
+            LogManager.Debug("TelephonyProviderSelector: Auto-Erkennung wird gestartet (Timeout={0}s)", totalTimeoutSec);
             var diagnostics = new StringBuilder();
             diagnostics.AppendLine("Auto-Detection Results:");
 
@@ -159,7 +159,7 @@ namespace DatevConnector.Core
             {
                 progressText?.Invoke("Auto-Erkennung: Prüfe WebClient...");
                 LogManager.Log("WebClient = Detection..");
-                LogManager.Debug("TelephonyProviderSelector: [A] Trying WebClient (timeout={0}s)", webclientTimeoutSec);
+                LogManager.Debug("TelephonyProviderSelector: [A] Versuche WebClient (Timeout={0}s)", webclientTimeoutSec);
 
                 try
                 {
@@ -170,7 +170,7 @@ namespace DatevConnector.Core
                     if (connected)
                     {
                         string reason = "Extension connected via WebClient (browser extension)";
-                        LogManager.Debug("TelephonyProviderSelector: WebClient detected - {0}", reason);
+                        LogManager.Debug("TelephonyProviderSelector: WebClient erkannt - {0}", reason);
                         diagnostics.AppendLine("  [A] WebClient: DETECTED (extension connected)");
 
                         return new ProviderSelectionResult
@@ -184,24 +184,24 @@ namespace DatevConnector.Core
 
                     webclientProvider.Dispose();
                     diagnostics.AppendLine("  [A] WebClient: Not detected (no extension connected within timeout)");
-                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient not detected");
-                    LogManager.Debug("TelephonyProviderSelector: [A] Hint: WebClient detection requires browser extension connected via WebSocket (port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
+                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient nicht erkannt");
+                    LogManager.Debug("TelephonyProviderSelector: [A] Hinweis: WebClient-Erkennung erfordert Browser-Erweiterung verbunden via WebSocket (Port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
                 }
                 catch (Exception ex)
                 {
                     diagnostics.AppendLine("  [A] WebClient: Error - " + ex.Message);
-                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient error - {0}", ex.Message);
+                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient-Fehler - {0}", ex.Message);
                 }
             }
             else
             {
                 diagnostics.AppendLine("  [A] WebClient: Disabled (Webclient.Enabled=false)");
-                LogManager.Debug("TelephonyProviderSelector: [A] WebClient disabled");
+                LogManager.Debug("TelephonyProviderSelector: [A] WebClient deaktiviert");
             }
 
             // ── (B) Try Pipe (Terminal Server) ──
             progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server...");
-            LogManager.Debug("TelephonyProviderSelector: [B] Trying Pipe");
+            LogManager.Debug("TelephonyProviderSelector: [B] Versuche Pipe");
 
             bool isTerminalSession = SessionManager.IsTerminalSession;
             bool pipeAvailable = SessionManager.Is3CXPipeAvailable(extension);
@@ -217,7 +217,7 @@ namespace DatevConnector.Core
                 {
                     // Terminal server — Pipe is the preferred mode
                     string reason = "Terminal server session detected - using Named Pipe";
-                    LogManager.Debug("TelephonyProviderSelector: Pipe selected - {0}", reason);
+                    LogManager.Debug("TelephonyProviderSelector: Pipe ausgewählt - {0}", reason);
                     diagnostics.AppendLine("  [B] Pipe: SELECTED (terminal server session)");
 
                     return new ProviderSelectionResult
@@ -232,22 +232,22 @@ namespace DatevConnector.Core
             else
             {
                 diagnostics.AppendLine("  [B] Pipe: Not applicable (not terminal server, no pipe found)");
-                LogManager.Debug("TelephonyProviderSelector: [B] Pipe not applicable");
+                LogManager.Debug("TelephonyProviderSelector: [B] Pipe nicht anwendbar");
             }
 
             // ── (C) Try TAPI ──
             progressText?.Invoke("Auto-Erkennung: Prüfe TAPI...");
-            LogManager.Debug("TelephonyProviderSelector: [C] Trying TAPI");
+            LogManager.Debug("TelephonyProviderSelector: [C] Versuche TAPI");
 
             try
             {
                 // On desktop environments, TAPI is the standard choice
                 var tapiProvider = new TapiLineMonitor(lineFilter, extension);
                 string reason = "Desktop environment - using TAPI";
-                LogManager.Debug("TelephonyProviderSelector: TAPI selected - {0}", reason);
+                LogManager.Debug("TelephonyProviderSelector: TAPI ausgewählt - {0}", reason);
                 if (webclientEnabled)
                 {
-                    LogManager.Debug("TelephonyProviderSelector: TAPI fallback active. If WebClient is expected, set TelephonyMode=WebClient and verify browser extension is installed");
+                    LogManager.Debug("TelephonyProviderSelector: TAPI-Fallback aktiv. Falls WebClient erwartet, TelephonyMode=WebClient setzen und Browser-Erweiterung prüfen");
                 }
                 diagnostics.AppendLine("  [C] TAPI: SELECTED (desktop environment)");
 
@@ -262,11 +262,11 @@ namespace DatevConnector.Core
             catch (Exception ex)
             {
                 diagnostics.AppendLine("  [C] TAPI: Error - " + ex.Message);
-                LogManager.Debug("TelephonyProviderSelector: [C] TAPI error - {0}", ex.Message);
+                LogManager.Debug("TelephonyProviderSelector: [C] TAPI-Fehler - {0}", ex.Message);
             }
 
             // ── (D) None detected ──
-            LogManager.Debug("TelephonyProviderSelector: No provider detected");
+            LogManager.Debug("TelephonyProviderSelector: Kein Provider erkannt");
             diagnostics.AppendLine("  Result: No provider available");
 
             return new ProviderSelectionResult

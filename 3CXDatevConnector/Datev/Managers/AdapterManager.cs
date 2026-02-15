@@ -39,11 +39,11 @@ namespace DatevConnector.Datev.Managers
                 try
                 {
                     Rot.RevokeActiveObject(_registrationId, null);
-                    LogManager.Log("DatevAdapter unregistered from ROT");
+                    LogManager.Log("DatevAdapter aus ROT abgemeldet");
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("Error unregistering DatevAdapter: {0}", ex.Message);
+                    LogManager.Log("Fehler beim Abmelden des DatevAdapter: {0}", ex.Message);
                 }
                 
                 _registrationId = 0;

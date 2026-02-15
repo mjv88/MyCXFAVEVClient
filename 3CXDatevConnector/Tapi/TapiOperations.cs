@@ -50,7 +50,7 @@ namespace DatevConnector.Tapi
                 line = _lines.Values.FirstOrDefault(l => l.Extension == extension && l.IsConnected);
                 if (line == null)
                 {
-                    LogManager.Log("TAPI MakeCall: Extension {0} not found or not connected", extension);
+                    LogManager.Log("TAPI MakeCall: Nebenstelle {0} nicht gefunden oder nicht verbunden", extension);
                     return -1;
                 }
             }
@@ -59,7 +59,7 @@ namespace DatevConnector.Tapi
                 line = _lines.Values.FirstOrDefault(l => l.IsConnected);
                 if (line == null)
                 {
-                    LogManager.Log("TAPI MakeCall: No line connected");
+                    LogManager.Log("TAPI MakeCall: Keine Leitung verbunden");
                     return -1;
                 }
             }
@@ -70,12 +70,12 @@ namespace DatevConnector.Tapi
             if (result > 0)
             {
                 // Positive = async request ID
-                LogManager.Log("TAPI MakeCall: Dialing {0} on line {1} (requestId={2})",
+                LogManager.Log("TAPI MakeCall: Wähle {0} auf Leitung {1} (requestId={2})",
                     destination, line.Extension, result);
             }
             else
             {
-                LogManager.Log("TAPI MakeCall: Failed for {0} on line {1} (error=0x{2:X8})",
+                LogManager.Log("TAPI MakeCall: Fehlgeschlagen für {0} auf Leitung {1} (Fehler=0x{2:X8})",
                     destination, line.Extension, result);
             }
 
@@ -98,7 +98,7 @@ namespace DatevConnector.Tapi
             }
             else
             {
-                LogManager.Log("TAPI DropCall: Failed for 0x{0:X} (error=0x{1:X8})", hCall.ToInt64(), result);
+                LogManager.Log("TAPI DropCall: Fehlgeschlagen für 0x{0:X} (Fehler=0x{1:X8})", hCall.ToInt64(), result);
             }
 
             return result;
@@ -127,7 +127,7 @@ namespace DatevConnector.Tapi
             if (line == null)
             {
                 progressText?.Invoke($"Leitung {extension} nicht gefunden");
-                LogManager.Log("TAPI TestLine: Extension {0} not found", extension);
+                LogManager.Log("TAPI TestLine: Nebenstelle {0} nicht gefunden", extension);
                 return false;
             }
 
@@ -137,7 +137,7 @@ namespace DatevConnector.Tapi
             if (line.Handle == IntPtr.Zero)
             {
                 progressText?.Invoke($"Leitung {extension} nicht verbunden");
-                LogManager.Log("TAPI TestLine: Line {0} has no valid handle", extension);
+                LogManager.Log("TAPI TestLine: Leitung {0} hat kein gültiges Handle", extension);
                 return false;
             }
 
@@ -159,19 +159,19 @@ namespace DatevConnector.Tapi
                         {
                             attempt++;
                             progressText?.Invoke($"Wiederhole ({attempt}/{maxRetries})...");
-                            LogManager.Log("TAPI TestLine {0}: Transient error, retry {1}/{2} in {3}ms",
+                            LogManager.Log("TAPI TestLine {0}: Vorübergehender Fehler, Versuch {1}/{2} in {3}ms",
                                 extension, attempt, maxRetries, delayMs);
                             Thread.Sleep(delayMs);
                             delayMs *= 2; // Exponential backoff
                             continue;
                         }
-                        LogManager.Log("TAPI TestLine {0}: Transient error, max retries reached", extension);
+                        LogManager.Log("TAPI TestLine {0}: Vorübergehender Fehler, maximale Versuche erreicht", extension);
                         progressText?.Invoke($"Fehler nach {maxRetries} Versuchen");
                         return false;
 
                     case TapiErrorCategory.LineClosed:
                         progressText?.Invoke("Leitung getrennt - Neuverbindung erforderlich");
-                        LogManager.Log("TAPI TestLine {0}: Line closed/invalid, reconnect required", extension);
+                        LogManager.Log("TAPI TestLine {0}: Leitung geschlossen/ungültig, Neuverbindung erforderlich", extension);
                         // Mark the line as disconnected
                         if (line.Handle != IntPtr.Zero)
                         {
@@ -183,7 +183,7 @@ namespace DatevConnector.Tapi
 
                     case TapiErrorCategory.Shutdown:
                         progressText?.Invoke("TAPI wird heruntergefahren");
-                        LogManager.Log("TAPI TestLine {0}: TAPI shutdown/reinit required", extension);
+                        LogManager.Log("TAPI TestLine {0}: TAPI Neustart erforderlich", extension);
                         return false;
 
                     case TapiErrorCategory.Permanent:
@@ -230,7 +230,7 @@ namespace DatevConnector.Tapi
                     var errorDesc = GetErrorDescription(result);
 
                     progressText?.Invoke($"TAPI: {errorDesc}");
-                    LogManager.Log("TAPI TestLine {0}: lineGetLineDevStatus failed: {1} (0x{2:X8})",
+                    LogManager.Log("TAPI TestLine {0}: lineGetLineDevStatus fehlgeschlagen: {1} (0x{2:X8})",
                         line.Extension, errorDesc, result);
 
                     return new TestLineResult
@@ -288,7 +288,7 @@ namespace DatevConnector.Tapi
             catch (Exception ex)
             {
                 progressText?.Invoke($"Fehler: {ex.Message}");
-                LogManager.Log("TAPI TestLine {0}: Exception: {1}", line.Extension, ex.Message);
+                LogManager.Log("TAPI TestLine {0}: Ausnahme: {1}", line.Extension, ex.Message);
 
                 return new TestLineResult
                 {

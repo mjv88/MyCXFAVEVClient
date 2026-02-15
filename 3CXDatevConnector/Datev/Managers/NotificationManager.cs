@@ -91,7 +91,7 @@ namespace DatevConnector.Datev.Managers
             // Check circuit breaker before attempting operation
             if (!_circuitBreaker.IsOperationAllowed())
             {
-                LogManager.Log("Notification '{0}' skipped - DATEV circuit breaker open", actionName);
+                LogManager.Log("Benachrichtigung '{0}' übersprungen - DATEV Circuit-Breaker offen", actionName);
                 return false;
             }
 
@@ -99,7 +99,7 @@ namespace DatevConnector.Datev.Managers
             if (!DatevConnectionChecker.IsDatevAvailable())
             {
                 _circuitBreaker.RecordFailure();
-                LogManager.Log("Notification '{0}' skipped - DATEV not available", actionName);
+                LogManager.Log("Benachrichtigung '{0}' übersprungen - DATEV nicht verfügbar", actionName);
                 return false;
             }
 
@@ -117,7 +117,7 @@ namespace DatevConnector.Datev.Managers
                 if (datevObj == null)
                 {
                     _circuitBreaker.RecordFailure();
-                    LogManager.Log("Notification '{0}' error - DATEV not found in ROT", actionName);
+                    LogManager.Log("Benachrichtigung '{0}' Fehler - DATEV nicht in ROT gefunden", actionName);
                     return false;
                 }
 
@@ -127,29 +127,29 @@ namespace DatevConnector.Datev.Managers
                 {
                     action(objNotification);
                     _circuitBreaker.RecordSuccess();
-                    LogManager.Debug("DATEV: {0} sent successfully", actionName);
+                    LogManager.Debug("DATEV: {0} erfolgreich gesendet", actionName);
                     result = true;
                 }
                 else
                 {
                     _circuitBreaker.RecordFailure();
-                    LogManager.Log("Notification '{0}' error - DATEV object doesn't implement IDatevCtiNotification", actionName);
+                    LogManager.Log("Benachrichtigung '{0}' Fehler - DATEV-Objekt implementiert nicht IDatevCtiNotification", actionName);
                 }
             }
             catch (COMException comEx)
             {
                 _circuitBreaker.RecordFailure();
-                LogManager.Log("Notification '{0}' COM error: HRESULT=0x{1:X8}, {2}", actionName, comEx.HResult, comEx.Message);
+                LogManager.Log("Benachrichtigung '{0}' COM-Fehler: HRESULT=0x{1:X8}, {2}", actionName, comEx.HResult, comEx.Message);
             }
             catch (InvalidCastException castEx)
             {
                 _circuitBreaker.RecordFailure();
-                LogManager.Log("Notification '{0}' cast error: {1}", actionName, castEx.Message);
+                LogManager.Log("Benachrichtigung '{0}' Cast-Fehler: {1}", actionName, castEx.Message);
             }
             catch (Exception ex)
             {
                 _circuitBreaker.RecordFailure();
-                LogManager.Log("Notification '{0}' error: {1}", actionName, ex.Message);
+                LogManager.Log("Benachrichtigung '{0}' Fehler: {1}", actionName, ex.Message);
             }
             finally
             {

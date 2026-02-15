@@ -26,7 +26,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Debug("AutoStartManager: Error checking autostart: {0}", ex.Message);
+                LogManager.Debug("AutoStartManager: Fehler beim Überprüfen des Autostarts: {0}", ex.Message);
                 return false;
             }
         }
@@ -46,18 +46,18 @@ namespace DatevConnector.Core
                     {
                         string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
                         key.SetValue(AutoStartValue, $"\"{exePath}\"");
-                        LogManager.Log("Autostart enabled");
+                        LogManager.Log("Autostart aktiviert");
                     }
                     else
                     {
                         key.DeleteValue(AutoStartValue, false);
-                        LogManager.Log("Autostart disabled");
+                        LogManager.Log("Autostart deaktiviert");
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error setting autostart: {0}", ex.Message);
+                LogManager.Log("Fehler beim Setzen des Autostarts: {0}", ex.Message);
             }
         }
     }

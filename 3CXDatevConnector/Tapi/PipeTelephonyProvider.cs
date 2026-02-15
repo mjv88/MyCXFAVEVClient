@@ -79,7 +79,7 @@ namespace DatevConnector.Tapi
         /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
-            LogManager.Log("PipeTelephonyProvider: Creating pipe server for extension {0}", _extension);
+            LogManager.Log("PipeTelephonyProvider: Erstelle Pipe-Server für Nebenstelle {0}", _extension);
             progressText?.Invoke($"Erstelle 3CX Pipe Server (Nst: {_extension})...");
 
             // Set up virtual line before server starts
@@ -121,7 +121,7 @@ namespace DatevConnector.Tapi
             }
             catch (Exception ex)
             {
-                LogManager.Warning("PipeTelephonyProvider: Server error - {0}", ex.Message);
+                LogManager.Warning("PipeTelephonyProvider: Server-Fehler - {0}", ex.Message);
                 progressText?.Invoke($"Pipe Server Fehler: {ex.Message}");
                 throw new InvalidOperationException("Pipe server failed: " + ex.Message, ex);
             }
@@ -138,7 +138,7 @@ namespace DatevConnector.Tapi
             _connected = true;
             _virtualLine.Handle = PipeConnectedHandle;
 
-            LogManager.Log("PipeTelephonyProvider: 3CX Softphone connected");
+            LogManager.Log("PipeTelephonyProvider: 3CX Softphone verbunden");
 
             LineConnected?.Invoke(_virtualLine);
             Connected?.Invoke();
@@ -150,7 +150,7 @@ namespace DatevConnector.Tapi
             _virtualLine.Handle = IntPtr.Zero;
             _activeCalls.Clear();
 
-            LogManager.Log("PipeTelephonyProvider: 3CX Softphone disconnected, waiting for reconnect...");
+            LogManager.Log("PipeTelephonyProvider: 3CX Softphone getrennt, warte auf Neuverbindung...");
 
             LineDisconnected?.Invoke(_virtualLine);
             // Don't fire Disconnected — the server loop keeps running
@@ -177,11 +177,11 @@ namespace DatevConnector.Tapi
 
                 if (reply.Equals(TapiCommands.ClientHello, StringComparison.OrdinalIgnoreCase))
                 {
-                    LogManager.Log("PipeTelephonyProvider: Handshake complete (CLIHELLO received)");
+                    LogManager.Log("PipeTelephonyProvider: Handshake abgeschlossen (CLIHELLO empfangen)");
                 }
                 else
                 {
-                    LogManager.Log("PipeTelephonyProvider: Reply received: cmd={0}, reply={1}, __answ#={2}",
+                    LogManager.Log("PipeTelephonyProvider: Antwort empfangen: cmd={0}, reply={1}, __answ#={2}",
                         origCmd, reply, correlation);
                 }
                 return;
@@ -226,7 +226,7 @@ namespace DatevConnector.Tapi
             }
             else
             {
-                LogManager.Debug("PipeTelephonyProvider: Unknown command '{0}'", cmd);
+                LogManager.Debug("PipeTelephonyProvider: Unbekannter Befehl '{0}'", cmd);
             }
         }
 
@@ -329,7 +329,7 @@ namespace DatevConnector.Tapi
         {
             if (!_connected || _server == null)
             {
-                LogManager.Log("PipeTelephonyProvider: MakeCall failed - not connected (connected={0}, server={1})",
+                LogManager.Log("PipeTelephonyProvider: MakeCall fehlgeschlagen - nicht verbunden (verbunden={0}, Server={1})",
                     _connected, _server != null ? "exists" : "null");
                 return -1;
             }
@@ -338,21 +338,21 @@ namespace DatevConnector.Tapi
             {
                 var msg = TapiMessage.CreateMakeCall(destination);
 
-                LogManager.Log("PipeTelephonyProvider: Sending MAKE-CALL to pipe: {0}", msg.ToString());
-                LogManager.Log("PipeTelephonyProvider: Pipe state: clientConnected={0}", _server.IsClientConnected);
+                LogManager.Log("PipeTelephonyProvider: Sende MAKE-CALL an Pipe: {0}", msg.ToString());
+                LogManager.Log("PipeTelephonyProvider: Pipe-Status: clientVerbunden={0}", _server.IsClientConnected);
 
                 if (_server.TrySend(msg))
                 {
-                    LogManager.Log("PipeTelephonyProvider: MAKE-CALL sent OK - {0} (reqId={1})", destination, msg.RequestId);
+                    LogManager.Log("PipeTelephonyProvider: MAKE-CALL gesendet OK - {0} (reqId={1})", destination, msg.RequestId);
                     return 1;
                 }
 
-                LogManager.Log("PipeTelephonyProvider: MakeCall failed - TrySend returned false");
+                LogManager.Log("PipeTelephonyProvider: MakeCall fehlgeschlagen - TrySend hat false zurückgegeben");
                 return -1;
             }
             catch (Exception ex)
             {
-                LogManager.Log("PipeTelephonyProvider: MakeCall exception - {0}", ex.Message);
+                LogManager.Log("PipeTelephonyProvider: MakeCall Ausnahme - {0}", ex.Message);
                 return -1;
             }
         }
@@ -372,7 +372,7 @@ namespace DatevConnector.Tapi
 
             if (lastCall == null)
             {
-                LogManager.Log("PipeTelephonyProvider: DropCall - no active call found");
+                LogManager.Log("PipeTelephonyProvider: DropCall - kein aktiver Anruf gefunden");
                 return -1;
             }
 
@@ -388,7 +388,7 @@ namespace DatevConnector.Tapi
                     var msg = TapiMessage.CreateDropCall(pipeCallId);
                     if (_server.TrySend(msg))
                     {
-                        LogManager.Log("PipeTelephonyProvider: DropCall sent for {0}", pipeCallId);
+                        LogManager.Log("PipeTelephonyProvider: DropCall gesendet für {0}", pipeCallId);
                         return 1;
                     }
                 }
@@ -397,7 +397,7 @@ namespace DatevConnector.Tapi
             }
             catch (Exception ex)
             {
-                LogManager.Log("PipeTelephonyProvider: DropCall failed - {0}", ex.Message);
+                LogManager.Log("PipeTelephonyProvider: DropCall fehlgeschlagen - {0}", ex.Message);
                 return -1;
             }
         }
@@ -412,13 +412,13 @@ namespace DatevConnector.Tapi
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
             // Server keeps running and accepts reconnects automatically
-            LogManager.Log("PipeTelephonyProvider: ReconnectLine - server handles reconnect automatically");
+            LogManager.Log("PipeTelephonyProvider: ReconnectLine - Server behandelt Neuverbindung automatisch");
             return _connected;
         }
 
         public void ReconnectAllLines(Action<string> progressText = null)
         {
-            LogManager.Log("PipeTelephonyProvider: ReconnectAllLines - server handles reconnect automatically");
+            LogManager.Log("PipeTelephonyProvider: ReconnectAllLines - Server behandelt Neuverbindung automatisch");
         }
 
         public bool TestLine(string extension, Action<string> progressText = null, int maxRetries = 3)

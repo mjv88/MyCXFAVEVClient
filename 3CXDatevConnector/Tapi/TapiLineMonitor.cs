@@ -321,7 +321,7 @@ namespace DatevConnector.Tapi
                 }
             }
 
-            LogManager.Log("TAPI message loop ended");
+            LogManager.Log("TAPI Nachrichtenschleife beendet");
             SafeInvokeEvent(Disconnected);
         }
 
@@ -364,20 +364,20 @@ namespace DatevConnector.Tapi
             TapiLineInfo line;
             if (_linesByHandle.TryGetValue(hLine, out line))
             {
-                LogManager.Log("TAPI: LINE_CLOSE received for {0} ({1})", line.Extension, line.LineName);
+                LogManager.Log("TAPI: LINE_CLOSE empfangen für {0} ({1})", line.Extension, line.LineName);
                 line.Handle = IntPtr.Zero;
                 _linesByHandle.TryRemove(hLine, out _);
                 SafeInvokeEvent(LineDisconnected, line);
             }
             else
             {
-                LogManager.Log("TAPI: LINE_CLOSE received for unknown handle 0x{0:X}", hLine.ToInt64());
+                LogManager.Log("TAPI: LINE_CLOSE empfangen für unbekanntes Handle 0x{0:X}", hLine.ToInt64());
             }
 
             // Check if all lines are now disconnected
             if (!_lines.Values.Any(l => l.IsConnected))
             {
-                LogManager.Log("TAPI: All lines disconnected");
+                LogManager.Log("TAPI: Alle Leitungen getrennt");
                 SafeInvokeEvent(Disconnected);
             }
         }

@@ -893,7 +893,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("Settings: Failed to open Windows notification settings - {0}", ex.Message);
+                LogManager.Log("Settings: Windows-Benachrichtigungseinstellungen konnten nicht geöffnet werden - {0}", ex.Message);
                 MessageBox.Show(
                     UIStrings.Messages.WindowsSettingsOpenFailed,
                     UIStrings.Errors.GenericError,

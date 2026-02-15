@@ -45,7 +45,7 @@ namespace DatevConnector.Core
             // Start cleanup timer (runs every minute)
             _cleanupTimer = new Timer(CleanupStaleCalls, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
-            LogManager.Debug("CallTracker initialized: StaleCallTimeout={0}min, StalePendingTimeout={1}sec",
+            LogManager.Debug("CallTracker initialisiert: StaleCallTimeout={0}min, StalePendingTimeout={1}sec",
                 staleMinutes, stalePendingSeconds);
         }
 
@@ -66,7 +66,7 @@ namespace DatevConnector.Core
 
             if (_pendingCalls.TryAdd(tempId, record))
             {
-                LogManager.Log("Connector: Added pending call {0}", tempId);
+                LogManager.Log("Connector: Ausstehender Anruf hinzugefügt {0}", tempId);
                 return record;
             }
 
@@ -97,7 +97,7 @@ namespace DatevConnector.Core
                         _datevCallIdToTapiId[record.CallData.CallID] = tapiCallId;
                     }
 
-                    LogManager.Log("Connector: Promoted pending call {0} -> {1}", tempId, tapiCallId);
+                    LogManager.Log("Connector: Ausstehender Anruf übernommen {0} -> {1}", tempId, tapiCallId);
                     return record;
                 }
             }
@@ -119,7 +119,7 @@ namespace DatevConnector.Core
                     _phoneNumberToPendingId.TryRemove(normalized, out _);
                 }
 
-                LogManager.Log("Connector: Removed pending call {0}", tempId);
+                LogManager.Log("Connector: Ausstehender Anruf entfernt {0}", tempId);
                 return record;
             }
             return null;
@@ -134,7 +134,7 @@ namespace DatevConnector.Core
 
             if (_calls.TryAdd(tapiCallId, record))
             {
-                LogManager.Log("Connector: Added call {0} (incoming={1})", tapiCallId, isIncoming);
+                LogManager.Log("Connector: Anruf hinzugefügt {0} (eingehend={1})", tapiCallId, isIncoming);
                 return record;
             }
 
@@ -245,7 +245,7 @@ namespace DatevConnector.Core
                     _datevCallIdToTapiId.TryRemove(record.CallData.CallID, out _);
                 }
 
-                LogManager.Log("Connector: Removed call {0}", tapiCallId);
+                LogManager.Log("Connector: Anruf entfernt {0}", tapiCallId);
                 return record;
             }
             return null;
@@ -284,7 +284,7 @@ namespace DatevConnector.Core
                         }
 
                         removedActive++;
-                        LogManager.Log("Connector: Removed stale call {0} (age: {1})",
+                        LogManager.Log("Connector: Veralteter Anruf entfernt {0} (Alter: {1})",
                             tapiId, now - record.StartTime);
                     }
                 }
@@ -307,20 +307,20 @@ namespace DatevConnector.Core
                         }
 
                         removedPending++;
-                        LogManager.Log("Connector: Removed stale pending call {0} (age: {1})",
+                        LogManager.Log("Connector: Veralteter ausstehender Anruf entfernt {0} (Alter: {1})",
                             tempId, now - record.StartTime);
                     }
                 }
 
                 if (removedActive > 0 || removedPending > 0)
                 {
-                    LogManager.Log("Connector: Cleanup completed - removed {0} active, {1} pending stale calls",
+                    LogManager.Log("Connector: Bereinigung abgeschlossen - {0} aktive, {1} ausstehende veraltete Anrufe entfernt",
                         removedActive, removedPending);
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Log("Connector: Error during cleanup: {0}", ex.Message);
+                LogManager.Log("Connector: Fehler bei Bereinigung: {0}", ex.Message);
             }
         }
 

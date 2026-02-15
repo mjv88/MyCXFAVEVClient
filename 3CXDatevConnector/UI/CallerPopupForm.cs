@@ -179,7 +179,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("CallerPopup: Error showing popup - {0}", ex.Message);
+                LogManager.Log("CallerPopup: Fehler beim Anzeigen des Popups - {0}", ex.Message);
             }
         }
 
@@ -221,7 +221,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("CallerPopup: Error closing popup - {0}", ex.Message);
+                LogManager.Log("CallerPopup: Fehler beim Schließen des Popups - {0}", ex.Message);
             }
         }
 
@@ -234,7 +234,7 @@ namespace DatevConnector.UI
         {
             if (_notifyIcon == null)
             {
-                LogManager.Debug("CallerPopup: Balloon skipped - NotifyIcon is null");
+                LogManager.Debug("CallerPopup: Benachrichtigung übersprungen - NotifyIcon ist null");
                 return;
             }
 
@@ -253,7 +253,7 @@ namespace DatevConnector.UI
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("CallerPopup: Balloon notification failed - {0}", ex.Message);
+                    LogManager.Log("CallerPopup: Balloon-Benachrichtigung fehlgeschlagen - {0}", ex.Message);
                 }
             };
 

@@ -35,7 +35,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error in {0} handler: {1}",
+                LogManager.Log("Fehler in {0} Handler: {1}",
                     context ?? handler.Method.Name, ex.Message);
                 return false;
             }
@@ -64,7 +64,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error in {0} handler: {1}",
+                LogManager.Log("Fehler in {0} Handler: {1}",
                     context ?? handler.Method.Name, ex.Message);
                 return false;
             }

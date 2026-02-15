@@ -48,7 +48,7 @@ namespace DatevConnector.Core
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("Error handling DATEV event {0}: {1}", eventType, ex);
+                    LogManager.Log("Fehler bei DATEV Ereignis {0}: {1}", eventType, ex);
                 }
             });
         }
@@ -59,17 +59,17 @@ namespace DatevConnector.Core
 
             if (string.IsNullOrWhiteSpace(destination))
             {
-                LogManager.Log("DATEV Dial: No destination number provided");
+                LogManager.Log("DATEV Dial: Keine Zielnummer angegeben");
                 return Task.CompletedTask;
             }
 
-            LogManager.Log("DATEV Dial: Initiating call to {0} (SyncID={1}, Contact={2})",
+            LogManager.Log("DATEV Dial: Anruf einleiten an {0} (SyncID={1}, Kontakt={2})",
                 LogManager.Mask(destination), ctiData.SyncID ?? "null", ctiData.Adressatenname ?? "null");
 
             var provider = _getProvider();
             if (provider == null || !provider.IsMonitoring)
             {
-                LogManager.Log("DATEV Dial: Not connected (provider={0}, monitoring={1})",
+                LogManager.Log("DATEV Dial: Nicht verbunden (Provider={0}, Monitoring={1})",
                     provider?.GetType().Name ?? "null",
                     provider?.IsMonitoring.ToString() ?? "N/A");
                 return Task.CompletedTask;
@@ -90,17 +90,17 @@ namespace DatevConnector.Core
             pendingRecord.CallData = preservedData;
             _callTracker.UpdatePendingPhoneIndex(tempId, destination);
 
-            LogManager.Log("DATEV Dial: connected={0}", provider.IsMonitoring);
+            LogManager.Log("DATEV Dial: Verbunden={0}", provider.IsMonitoring);
             int result = provider.MakeCall(destination);
             if (result <= 0)
             {
-                LogManager.Log("DATEV Dial: MakeCall failed (result={0}, provider={1})",
+                LogManager.Log("DATEV Dial: MakeCall fehlgeschlagen (Ergebnis={0}, Provider={1})",
                     result, provider.GetType().Name);
                 _callTracker.RemovePendingCall(tempId);
             }
             else
             {
-                LogManager.Log("DATEV Dial: MakeCall sent (result={0})", result);
+                LogManager.Log("DATEV Dial: MakeCall gesendet (Ergebnis={0})", result);
             }
 
             return Task.CompletedTask;
@@ -112,23 +112,23 @@ namespace DatevConnector.Core
 
             if (string.IsNullOrWhiteSpace(datevCallId))
             {
-                LogManager.Log("DATEV Drop: No CallID provided");
+                LogManager.Log("DATEV Drop: Keine CallID angegeben");
                 return Task.CompletedTask;
             }
 
-            LogManager.Log("DATEV Drop: Terminating call {0}", datevCallId);
+            LogManager.Log("DATEV Drop: Beende Anruf {0}", datevCallId);
 
             var record = _callTracker.FindCallByDatevCallId(datevCallId);
             if (record == null)
             {
-                LogManager.Log("DATEV Drop: Call {0} not found", datevCallId);
+                LogManager.Log("DATEV Drop: Anruf {0} nicht gefunden", datevCallId);
                 return Task.CompletedTask;
             }
 
             var provider = _getProvider();
             if (provider == null || !provider.IsMonitoring)
             {
-                LogManager.Log("DATEV Drop: TAPI not connected, cannot drop call");
+                LogManager.Log("DATEV Drop: TAPI nicht verbunden, Anruf kann nicht beendet werden");
                 return Task.CompletedTask;
             }
 
@@ -140,16 +140,16 @@ namespace DatevConnector.Core
                 if (callEvent != null)
                 {
                     provider.DropCall(callEvent.CallHandle);
-                    LogManager.Log("DATEV Drop: lineDrop called for {0} (tapiId={1})", datevCallId, tapiCallId);
+                    LogManager.Log("DATEV Drop: lineDrop aufgerufen für {0} (tapiId={1})", datevCallId, tapiCallId);
                 }
                 else
                 {
-                    LogManager.Log("DATEV Drop: Call handle not found for tapiId={0}", tapiCallId);
+                    LogManager.Log("DATEV Drop: Call Handle nicht gefunden für tapiId={0}", tapiCallId);
                 }
             }
             else
             {
-                LogManager.Log("DATEV Drop: Invalid TapiCallId: {0}", record.TapiCallId);
+                LogManager.Log("DATEV Drop: Ungültige TapiCallId: {0}", record.TapiCallId);
             }
 
             return Task.CompletedTask;

@@ -44,7 +44,7 @@ namespace DatevConnector.Datev.COMs
                     string callId = CallIdGenerator.Next();
                     ctiData.CallID = callId;
 
-                    LogManager.Log("DATEV -> Bridge: Dial command received (assigned CallID={0})", callId);
+                    LogManager.Log("DATEV -> Bridge: Wählen-Befehl empfangen (CallID={0} zugewiesen)", callId);
                     LogManager.Debug("  CalledNumber={0}, Adressatenname={1}, AdressatenId={2}, DataSource={3}, SyncID={4}",
                         LogManager.Mask(ctiData.CalledNumber), ctiData.Adressatenname, ctiData.AdressatenId, ctiData.DataSource, ctiData.SyncID);
 
@@ -52,12 +52,12 @@ namespace DatevConnector.Datev.COMs
                 }
                 else
                 {
-                    LogManager.Warning("DATEV -> Bridge: Dial received with null/invalid CallData");
+                    LogManager.Warning("DATEV -> Bridge: Wählen empfangen mit null/ungültigen CallData");
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "DATEV event 'Dial' error");
+                LogManager.Error(ex, "DATEV Ereignis 'Dial' Fehler");
             }
         }
 
@@ -78,7 +78,7 @@ namespace DatevConnector.Datev.COMs
 
                 if (ctiData != null)
                 {
-                    LogManager.Log("DATEV -> Bridge: {0} command received", eventName);
+                    LogManager.Log("DATEV -> Bridge: {0}-Befehl empfangen", eventName);
                     LogManager.Debug("  CalledNumber={0}, Adressatenname={1}, AdressatenId={2}, DataSource={3}",
                         LogManager.Mask(ctiData.CalledNumber), ctiData.Adressatenname, ctiData.AdressatenId, ctiData.DataSource);
 
@@ -86,12 +86,12 @@ namespace DatevConnector.Datev.COMs
                 }
                 else
                 {
-                    LogManager.Warning("DATEV -> Bridge: {0} received with null/invalid CallData", eventName);
+                    LogManager.Warning("DATEV -> Bridge: {0} empfangen mit null/ungültigen CallData", eventName);
                 }
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "DATEV event '{0}' error", eventName);
+                LogManager.Error(ex, "DATEV Ereignis '{0}' Fehler", eventName);
             }
         }
     }

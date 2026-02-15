@@ -78,7 +78,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Log("SessionManager: Error getting session info - {0}", ex.Message);
+                LogManager.Log("SessionManager: Fehler beim Abrufen der Sitzungsinformation - {0}", ex.Message);
                 _sessionId = 0;
                 _isTerminalSession = false;
             }
@@ -89,7 +89,7 @@ namespace DatevConnector.Core
         /// </summary>
         internal static void LogSessionInfo()
         {
-            LogManager.Log("Terminal Server = {0}", IsTerminalSession);
+            LogManager.Log("Terminal Server: {0}", IsTerminalSession ? "Ja" : "Nein");
         }
 
         /// <summary>
@@ -132,7 +132,7 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Debug("Error checking 3CX process: {0}", ex.Message);
+                LogManager.Debug("Fehler beim Prüfen des 3CX Prozesses: {0}", ex.Message);
                 return false;
             }
         }

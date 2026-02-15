@@ -45,7 +45,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("ContactSelection: Error closing dialog - {0}", ex.Message);
+                LogManager.Log("ContactSelection: Fehler beim Schließen des Dialogs - {0}", ex.Message);
             }
         }
 
@@ -138,7 +138,7 @@ namespace DatevConnector.UI
             btnCancel.Click += (s, e) =>
             {
                 _callbackInvoked = true;
-                LogManager.Log("Connector: Contact selection cancelled, using first");
+                LogManager.Log("Connector: Kontaktauswahl abgebrochen, verwende ersten");
                 _onSelected?.Invoke(_contacts.Count > 0 ? _contacts[0] : null);
                 Close();
             };
@@ -150,7 +150,7 @@ namespace DatevConnector.UI
                 if (_cboContact.SelectedIndex >= 0)
                     _selectedContact = _contacts[_cboContact.SelectedIndex];
                 _callbackInvoked = true;
-                LogManager.Log("Connector: Contact selected: {0}",
+                LogManager.Log("Connector: Kontakt ausgewählt: {0}",
                     LogManager.MaskName(_selectedContact?.DatevContact?.Name ?? "(none)"));
                 _onSelected?.Invoke(_selectedContact);
                 Close();
@@ -197,7 +197,7 @@ namespace DatevConnector.UI
 
             FormDisplayHelper.PostToUIThread(() =>
             {
-                LogManager.Log("Connector: Contact selection - {0} matches for {1}",
+                LogManager.Log("Connector: Kontaktauswahl - {0} Treffer für {1}",
                     contacts.Count, LogManager.Mask(phoneNumber));
 
                 if (_currentDialog != null && !_currentDialog.IsDisposed)

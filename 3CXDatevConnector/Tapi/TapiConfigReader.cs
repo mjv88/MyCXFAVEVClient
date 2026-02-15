@@ -58,7 +58,7 @@ namespace DatevConnector.Tapi
 
             if (!File.Exists(iniPath))
             {
-                LogManager.Debug("3CXTAPI.ini not found at: {0}", iniPath);
+                LogManager.Debug("3CXTAPI.ini nicht gefunden unter: {0}", iniPath);
                 return lines;
             }
 
@@ -116,11 +116,11 @@ namespace DatevConnector.Tapi
                         lines.Add(lineConfig);
                 }
 
-                LogManager.Log("3CXTAPI.ini: Found {0} configured line(s)", lines.Count);
+                LogManager.Log("3CXTAPI.ini: {0} konfigurierte Leitung(en) gefunden", lines.Count);
             }
             catch (Exception ex)
             {
-                LogManager.Error(ex, "Error reading 3CXTAPI.ini");
+                LogManager.Error(ex, "Fehler beim Lesen der 3CXTAPI.ini");
             }
 
             return lines;
@@ -143,25 +143,25 @@ namespace DatevConnector.Tapi
         {
             if (!IsTapiInstalled())
             {
-                LogManager.Log("Desktop = False");
+                LogManager.Log("3CX TAPI Treiber: Nicht installiert");
                 return null;
             }
 
             var lines = ReadLines();
             if (lines.Count == 0)
             {
-                LogManager.Warning("3CXTAPI.ini found but contains no configured lines");
+                LogManager.Warning("3CXTAPI.ini gefunden, aber enthält keine konfigurierten Leitungen");
                 return null;
             }
 
             if (lines.Count == 1)
             {
-                LogManager.Log("Extension auto-detected from 3CX TAPI: {0}", lines[0].Extension);
+                LogManager.Log("Nebenstelle automatisch erkannt von 3CX TAPI: {0}", lines[0].Extension);
                 return lines[0].Extension;
             }
 
             // Multiple lines - log all and use first
-            LogManager.Log("3CXTAPI.ini contains {0} lines, using first: {1}", lines.Count, lines[0].Extension);
+            LogManager.Log("3CXTAPI.ini enthält {0} Leitungen, verwende erste: {1}", lines.Count, lines[0].Extension);
             return lines[0].Extension;
         }
 

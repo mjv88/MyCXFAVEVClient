@@ -128,14 +128,14 @@ namespace DatevConnector.UI
 
                 if (AppConfig.IsFirstRun)
                 {
-                    LogManager.Log("First run detected - prompting for setup wizard");
+                    LogManager.Log("Erststart erkannt - Einrichtungsassistent wird angeboten");
                     BeginInvoke(new Action(PromptFirstRunWizard));
                 }
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                LogManager.Log("Bridge service error: {0}", ex);
+                LogManager.Log("Bridge-Service Fehler: {0}", ex);
                 ShowBalloon("Error", $"Bridge service error: {ex.Message}", ToolTipIcon.Error);
             }
         }
@@ -286,7 +286,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("Error reloading contacts: {0}", ex);
+                LogManager.Log("Fehler beim Neuladen der Kontakte: {0}", ex);
                 ShowBalloon(UIStrings.Errors.GenericError, string.Format(UIStrings.Notifications.ContactsReloadFailed, ex.Message), ToolTipIcon.Error);
             }
         }
@@ -321,7 +321,7 @@ namespace DatevConnector.UI
         {
             try
             {
-                LogManager.Log("Manual bridge restart requested");
+                LogManager.Log("Manueller Bridge-Neustart angefordert");
                 UpdateStatusMenuItem(UIStrings.Notifications.Restarting);
                 _notifyIcon.Icon = _iconConnecting;
                 _notifyIcon.Text = UIStrings.Status.TrayRestarting;
@@ -333,7 +333,7 @@ namespace DatevConnector.UI
             }
             catch (Exception ex)
             {
-                LogManager.Log("Bridge restart error: {0}", ex.Message);
+                LogManager.Log("Bridge-Neustart Fehler: {0}", ex.Message);
                 ShowBalloon(UIStrings.Errors.GenericError, string.Format(UIStrings.Notifications.RestartFailed, ex.Message), ToolTipIcon.Error);
             }
         }

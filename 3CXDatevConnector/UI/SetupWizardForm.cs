@@ -549,7 +549,7 @@ namespace DatevConnector.UI
                 _datevOk = false;
                 _lblDatevStatus.Text = $"{UIStrings.Errors.GenericError}: {ex.Message}";
                 _lblDatevStatus.ForeColor = UITheme.StatusBad;
-                LogManager.Log("SetupWizard: DATEV test failed - {0}", ex.Message);
+                LogManager.Log("SetupWizard: DATEV Test fehlgeschlagen - {0}", ex.Message);
             }
 
             _btnNext.Enabled = true;
@@ -685,13 +685,13 @@ namespace DatevConnector.UI
 
                 // Always use Auto mode (auto-detection)
                 AppConfig.Set(ConfigKeys.TelephonyMode, TelephonyMode.Auto.ToString());
-                LogManager.Log("SetupWizard: TelephonyMode set to Auto");
+                LogManager.Log("SetupWizard: TelephonyMode auf Auto gesetzt");
 
-                LogManager.Log("SetupWizard: Configuration completed");
+                LogManager.Log("SetupWizard: Konfiguration abgeschlossen");
             }
             catch (Exception ex)
             {
-                LogManager.Log("SetupWizard: Error applying settings - {0}", ex.Message);
+                LogManager.Log("SetupWizard: Fehler beim Anwenden der Einstellungen - {0}", ex.Message);
             }
         }
 

@@ -107,7 +107,7 @@ namespace DatevConnector.Webclient
                     catch (OperationCanceledException) { break; }
                     catch (Exception ex)
                     {
-                        LogManager.Log("WebClient Connector: Error - {0}", ex.Message);
+                        LogManager.Log("WebClient Connector: Fehler - {0}", ex.Message);
                     }
                     finally
                     {
@@ -176,7 +176,7 @@ namespace DatevConnector.Webclient
                                 return true;
                             }
 
-                            LogManager.Log("WebClient Connector: TryAccept failed (no HELLO)");
+                            LogManager.Log("WebClient Connector: TryAccept fehlgeschlagen (kein HELLO)");
                             DisconnectClient(client);
                             return false;
                         }
@@ -192,13 +192,13 @@ namespace DatevConnector.Webclient
                     }
                     catch (Exception ex)
                     {
-                        LogManager.Log("WebClient Connector: TryAccept error - {0}", ex.Message);
+                        LogManager.Log("WebClient Connector: TryAccept Fehler - {0}", ex.Message);
                         if (client != null) DisconnectClient(client);
                         // Continue loop to try next connection within timeout
                     }
                 }
 
-                LogManager.Log("WebClient Connector: TryAccept timed out ({0}s)", timeoutSec);
+                LogManager.Log("WebClient Connector: TryAccept Zeitüberschreitung ({0}s)", timeoutSec);
                 return false;
             }
         }
@@ -235,7 +235,7 @@ namespace DatevConnector.Webclient
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebClient Connector: Send failed - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: Senden fehlgeschlagen - {0}", ex.Message);
                 return false;
             }
         }
@@ -311,7 +311,7 @@ namespace DatevConnector.Webclient
                             ProcessMessage(Encoding.UTF8.GetString(frame.Payload));
                             break;
                         case 0x8: // Close
-                            LogManager.Log("WebClient Connector: Close frame received");
+                            LogManager.Log("WebClient Connector: Close-Frame empfangen");
                             try { WriteFrame(stream, 0x8, new byte[0]); } catch { }
                             return;
                         case 0x9: // Ping
@@ -323,17 +323,17 @@ namespace DatevConnector.Webclient
             catch (OperationCanceledException) { }
             catch (IOException ex)
             {
-                LogManager.Log("WebClient Connector: IO error - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: IO-Fehler - {0}", ex.Message);
             }
             catch (Exception ex)
             {
-                LogManager.Log("WebClient Connector: Read error - {0}", ex.Message);
+                LogManager.Log("WebClient Connector: Lesefehler - {0}", ex.Message);
             }
             finally
             {
                 bool wasConnected = _conn.Connected;
                 _conn.Connected = false;
-                LogManager.Log("WebClient Connector Server: Read loop ended");
+                LogManager.Log("WebClient Connector Server: Leseschleife beendet");
                 if (wasConnected)
                 {
                     try { Disconnected?.Invoke(); } catch { }
@@ -443,13 +443,13 @@ namespace DatevConnector.Webclient
             var msg = ExtensionMessage.Parse(json);
             if (msg == null)
             {
-                LogManager.Log("WebClient Connector: Failed to parse message");
+                LogManager.Log("WebClient Connector: Nachricht konnte nicht geparst werden");
                 return;
             }
 
             if (msg.Version != Protocol.Version)
             {
-                LogManager.Warning("WebClient Connector: Unsupported protocol version {0} (expected {1})",
+                LogManager.Warning("WebClient Connector: Nicht unterstützte Protokollversion {0} (erwartet {1})",
                     msg.Version, Protocol.Version);
             }
 
@@ -470,7 +470,7 @@ namespace DatevConnector.Webclient
             {
                 if (!_conn.HelloReceived)
                 {
-                    LogManager.Warning("WebClient Connector: CALL_EVENT before HELLO, ignoring");
+                    LogManager.Warning("WebClient Connector: CALL_EVENT vor HELLO, ignoriert");
                     return;
                 }
                 LogManager.Log("WebClient Connector: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
@@ -478,12 +478,12 @@ namespace DatevConnector.Webclient
                 try { CallEventReceived?.Invoke(msg); }
                 catch (Exception ex)
                 {
-                    LogManager.Log("WebClient Connector: Error in handler - {0}", ex.Message);
+                    LogManager.Log("WebClient Connector: Fehler im Handler - {0}", ex.Message);
                 }
             }
             else
             {
-                LogManager.Log("WebClient Connector: Unknown message type '{0}'", msg.Type);
+                LogManager.Log("WebClient Connector: Unbekannter Nachrichtentyp '{0}'", msg.Type);
             }
         }
 
@@ -494,7 +494,7 @@ namespace DatevConnector.Webclient
             if (_listener != null) return;
             _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
-            LogManager.Log("WebClient Connector: Listening");
+            LogManager.Log("WebClient Connector: Lausche");
         }
 
         private void StopListener()
@@ -527,7 +527,7 @@ namespace DatevConnector.Webclient
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
             {
-                LogManager.Log("WebClient Connector: Handshake failed");
+                LogManager.Log("WebClient Connector: Handshake fehlgeschlagen");
                 client.Close();
                 return false;
             }
@@ -544,7 +544,7 @@ namespace DatevConnector.Webclient
 
             string remote = "(unknown)";
             try { remote = client.Client.RemoteEndPoint?.ToString() ?? remote; } catch { }
-            LogManager.Log("WebClient Connector: WebClient connected");
+            LogManager.Log("WebClient Connector: WebClient verbunden");
 
             await ReadLoopAsync(_conn.Stream, ct);
             return true;
@@ -557,7 +557,7 @@ namespace DatevConnector.Webclient
             if (client != null) try { client.Close(); } catch { }
             if (wasConnected)
             {
-                LogManager.Log("WebClient Connector: Client disconnected");
+                LogManager.Log("WebClient Connector: Client getrennt");
                 Disconnected?.Invoke();
             }
         }
@@ -567,9 +567,9 @@ namespace DatevConnector.Webclient
             if (_disposed) return;
             _disposed = true;
             try { _conn.Stream?.Close(); }
-            catch (Exception ex) { LogManager.Debug("WebClient Connector: Stream close error during dispose - {0}", ex.Message); }
+            catch (Exception ex) { LogManager.Debug("WebClient Connector: Stream-Schließfehler beim Verwerfen - {0}", ex.Message); }
             try { _conn.Client?.Close(); }
-            catch (Exception ex) { LogManager.Debug("WebClient Connector: Client close error during dispose - {0}", ex.Message); }
+            catch (Exception ex) { LogManager.Debug("WebClient Connector: Client-Schließfehler beim Verwerfen - {0}", ex.Message); }
             _conn.Reset();
             StopListener();
         }

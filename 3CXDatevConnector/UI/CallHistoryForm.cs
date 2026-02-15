@@ -356,7 +356,7 @@ namespace DatevConnector.UI
                         _onJournalSubmit?.Invoke(entry, note);
                         _store.MarkJournalSent(entry);
                         LoadHistory();
-                        LogManager.Log("CallHistory: Journal re-sent for {0}", LogManager.Mask(entry.RemoteNumber));
+                        LogManager.Log("CallHistory: Journal erneut gesendet für {0}", LogManager.Mask(entry.RemoteNumber));
                     }
                 },
                 onClosed: () => _autoRefreshTimer?.Start());

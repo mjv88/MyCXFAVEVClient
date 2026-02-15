@@ -56,7 +56,9 @@ namespace DatevConnector.Tapi
             LineAppHandle = hLineApp;
             EventHandle = initParams.hEvent;
 
-            LogManager.Log("TAPI initialized: {0} line devices", _numDevices);
+            LogManager.Log(_numDevices == 0
+                ? "TAPI initialisiert: Keine Leitung gefunden"
+                : string.Format("TAPI initialisiert: {0} Leitung(en)", _numDevices));
             progressText?.Invoke($"{_numDevices} TAPI Leitungen gefunden");
         }
 
@@ -96,7 +98,7 @@ namespace DatevConnector.Tapi
                 {
                     if (lineExtension != _extensionFilter)
                     {
-                        LogManager.Log("Skipping TAPI line {0}: \"{1}\" (Ext: {2}) - does not match configured extension {3}",
+                        LogManager.Log("Überspringe TAPI Leitung {0}: \"{1}\" (Nst: {2}) - stimmt nicht mit konfigurierter Nebenstelle {3} überein",
                             i, lineName, lineExtension, _extensionFilter);
                         continue;
                     }
@@ -114,7 +116,7 @@ namespace DatevConnector.Tapi
                     };
 
                     lines[i] = lineInfo;
-                    LogManager.Log("Discovered 3CX TAPI line {0}: \"{1}\" (Ext: {2})", i, lineName, lineInfo.Extension);
+                    LogManager.Log("3CX TAPI Leitung entdeckt {0}: \"{1}\" (Nst: {2})", i, lineName, lineInfo.Extension);
                     progressText?.Invoke($"3CX Leitung gefunden: {lineInfo.Extension}");
                 }
             }
@@ -122,10 +124,10 @@ namespace DatevConnector.Tapi
             if (lines.Count == 0)
             {
                 if (!string.IsNullOrEmpty(_extensionFilter))
-                    LogManager.Warning("No TAPI line found for extension {0} (filter=\"{1}\", {2} devices scanned)",
+                    LogManager.Warning("Keine TAPI Leitung gefunden für Nebenstelle {0} (Filter=\"{1}\", {2} Geräte gescannt)",
                         _extensionFilter, _lineNameFilter ?? "(any)", _numDevices);
                 else
-                    LogManager.Log("No TAPI line matching \"{0}\" found", _lineNameFilter ?? "(any)");
+                    LogManager.Log("Keine 3CX TAPI Leitung gefunden");
             }
         }
 
@@ -184,7 +186,7 @@ namespace DatevConnector.Tapi
             {
                 if (line.IsConnected)
                 {
-                    LogManager.Log("TAPI: Closing line {0} ({1})", line.DeviceId, line.Extension);
+                    LogManager.Log("TAPI: Schließe Leitung {0} ({1})", line.DeviceId, line.Extension);
                     lineClose(line.Handle);
                     line.Handle = IntPtr.Zero;
                 }
@@ -201,7 +203,7 @@ namespace DatevConnector.Tapi
             // _hEvent is owned by TAPI, closed by lineShutdown
             EventHandle = IntPtr.Zero;
 
-            LogManager.Log("TAPI line monitor disposed ({0} lines)", lines.Count);
+            LogManager.Log("TAPI Leitungsmonitor beendet ({0} Leitungen)", lines.Count);
         }
     }
 }

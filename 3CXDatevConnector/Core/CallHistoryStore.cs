@@ -55,14 +55,14 @@ namespace DatevConnector.Core
                 {
                     _inbound.AddFirst(entry);
                     TrimBuffer(_inbound);
-                    LogManager.Debug("CallHistory: Added inbound call from {0} ({1} entries)",
+                    LogManager.Debug("CallHistory: Eingehenden Anruf hinzugefügt von {0} ({1} Einträge)",
                         LogManager.Mask(entry.RemoteNumber), _inbound.Count);
                 }
                 else if (!entry.IsIncoming && _trackOutbound)
                 {
                     _outbound.AddFirst(entry);
                     TrimBuffer(_outbound);
-                    LogManager.Debug("CallHistory: Added outbound call to {0} ({1} entries)",
+                    LogManager.Debug("CallHistory: Ausgehenden Anruf hinzugefügt an {0} ({1} Einträge)",
                         LogManager.Mask(entry.RemoteNumber), _outbound.Count);
                 }
             }
