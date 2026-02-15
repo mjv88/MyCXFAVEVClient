@@ -289,48 +289,25 @@ namespace DatevConnector.UI
         {
             var btn = sender as Button;
             if (btn == null) return;
-
             string extension = btn.Tag as string;
             if (string.IsNullOrEmpty(extension)) return;
 
-            btn.Enabled = false;
-            btn.Text = UIStrings.Status.TestPending;
-
-            // Get the per-line progress label and show it
             Label progressLabel = null;
             _lineProgressLabels.TryGetValue(extension, out progressLabel);
-            if (progressLabel != null)
-            {
-                progressLabel.Visible = true;
-                progressLabel.Text = "";
-            }
 
-            // Perform actual TAPI line test with detailed progress
-            bool isConnected = await Task.Run(() =>
-                _service?.TestTapiLine(extension,
-                    msg => UpdateProgressSafe(progressLabel, msg)) ?? false);
+            bool isConnected = await AsyncButtonAction.RunTestAsync(
+                btn, progressLabel,
+                async progress => await Task.Run(() =>
+                    _service?.TestTapiLine(extension, progress) ?? false),
+                UIStrings.Labels.Test);
 
             if (!_isAlive()) return;
-
-            // Show visual feedback on button
-            btn.Text = isConnected ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
-            btn.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Update line status label
             if (_lineStatusLabels.TryGetValue(extension, out var statusLabel))
             {
-                string lineStatusText = isConnected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected;
-                statusLabel.Text = string.Format(UIStrings.Status.LineStatus, extension, lineStatusText);
+                statusLabel.Text = string.Format(UIStrings.Status.LineStatus, extension,
+                    isConnected ? UIStrings.Status.Connected : UIStrings.Status.Disconnected);
                 statusLabel.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
             }
-
-            await Task.Delay(1500);
-            if (!_isAlive()) return;
-
-            btn.Text = UIStrings.Labels.Test;
-            btn.ForeColor = UITheme.TextPrimary;
-            btn.Enabled = true;
-            HideProgress(progressLabel);
         }
 
         private async void BtnReconnectSingleLine_Click(object sender, EventArgs e)

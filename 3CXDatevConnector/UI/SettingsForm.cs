@@ -121,7 +121,7 @@ namespace DatevConnector.UI
             var root = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(UITheme.SpacingL)
+                Padding = new Padding(LayoutConstants.SpaceMD)
             };
 
             // === TITLE ===
@@ -131,14 +131,14 @@ namespace DatevConnector.UI
                 Font = UITheme.FontTitle,
                 ForeColor = UITheme.TextPrimary,
                 AutoSize = true,
-                Location = new Point(UITheme.SpacingL, UITheme.SpacingM)
+                Location = new Point(LayoutConstants.SpaceMD, LayoutConstants.CardPadding)
             };
             root.Controls.Add(lblTitle);
 
             // === STATUS ROW (3 cards side by side) ===
             var statusRow = new TableLayoutPanel
             {
-                Location = new Point(UITheme.SpacingL, 38),
+                Location = new Point(LayoutConstants.SpaceMD, 38),
                 Size = new Size(492, 115),
                 ColumnCount = 3,
                 RowCount = 1
@@ -154,19 +154,19 @@ namespace DatevConnector.UI
 
             // === POP-UP BEHAVIOR ===
             var popupCard = BuildPopupCard();
-            popupCard.Location = new Point(UITheme.SpacingL, 161);
+            popupCard.Location = new Point(LayoutConstants.SpaceMD, 161);
             popupCard.Size = new Size(492, 124);
             root.Controls.Add(popupCard);
 
             // === ADVANCED ===
             var advancedCard = BuildAdvancedCard();
-            advancedCard.Location = new Point(UITheme.SpacingL, 293);
+            advancedCard.Location = new Point(LayoutConstants.SpaceMD, 293);
             advancedCard.Size = new Size(492, 130);
             root.Controls.Add(advancedCard);
 
             // === TELEPHONY MODE ===
             var telephonyCard = BuildTelephonyModeCard();
-            telephonyCard.Location = new Point(UITheme.SpacingL, 430);
+            telephonyCard.Location = new Point(LayoutConstants.SpaceMD, 430);
             telephonyCard.Size = new Size(492, 50);
             root.Controls.Add(telephonyCard);
 
@@ -216,16 +216,16 @@ namespace DatevConnector.UI
         private Panel BuildDatevStatusCard()
         {
             var card = CreateStatusCard();
-            var y = UITheme.SpacingS;
+            var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
 
-            var lbl = new Label { Text = UIStrings.Sections.Datev, Font = UITheme.FontLabel, ForeColor = UITheme.AccentDatev, AutoSize = true, Location = new Point(UITheme.SpacingM, y) };
+            var lbl = new Label { Text = UIStrings.Sections.Datev, Font = UITheme.FontLabel, ForeColor = UITheme.AccentDatev, AutoSize = true, Location = new Point(LayoutConstants.CardPadding, y) };
             card.Controls.Add(lbl);
             y += 18;
 
             _lblDatevBadge = CreateBadge(UIStrings.Status.Unavailable, UITheme.StatusBad);
-            _lblDatevBadge.Location = new Point(UITheme.SpacingM, y);
+            _lblDatevBadge.Location = new Point(LayoutConstants.CardPadding, y);
             card.Controls.Add(_lblDatevBadge);
             y += 22;
 
@@ -233,7 +233,7 @@ namespace DatevConnector.UI
             {
                 Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount),
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
-                Location = new Point(UITheme.SpacingM, y)
+                Location = new Point(LayoutConstants.CardPadding, y)
             };
             card.Controls.Add(_lblContactCount);
             y += 14;
@@ -246,20 +246,20 @@ namespace DatevConnector.UI
             {
                 Text = string.Format(UIStrings.SettingsLabels.Sync, syncText),
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
-                Location = new Point(UITheme.SpacingM, y)
+                Location = new Point(LayoutConstants.CardPadding, y)
             };
             card.Controls.Add(_lblLastSync);
 
             // Buttons side by side - uniform size
             _btnTestDatev = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
             _btnTestDatev.Size = new Size(btnWidth, btnHeight);
-            _btnTestDatev.Location = new Point(UITheme.SpacingM, y + 16);
+            _btnTestDatev.Location = new Point(LayoutConstants.CardPadding, y + 16);
             _btnTestDatev.Click += BtnTestDatev_Click;
             card.Controls.Add(_btnTestDatev);
 
             _btnReloadContacts = UITheme.CreateSecondaryButton(UIStrings.Labels.Load, btnWidth);
             _btnReloadContacts.Size = new Size(btnWidth, btnHeight);
-            _btnReloadContacts.Location = new Point(UITheme.SpacingM + btnWidth + 4, y + 16);
+            _btnReloadContacts.Location = new Point(LayoutConstants.CardPadding + btnWidth + 4, y + 16);
             _btnReloadContacts.Click += BtnReloadContacts_Click;
             card.Controls.Add(_btnReloadContacts);
 
@@ -269,16 +269,16 @@ namespace DatevConnector.UI
         private Panel BuildTapiStatusCard()
         {
             var card = CreateStatusCard();
-            var y = UITheme.SpacingS;
+            var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
 
-            var lbl = new Label { Text = UIStrings.Sections.Tapi, Font = UITheme.FontLabel, ForeColor = UITheme.AccentIncoming, AutoSize = true, Location = new Point(UITheme.SpacingM, y) };
+            var lbl = new Label { Text = UIStrings.Sections.Tapi, Font = UITheme.FontLabel, ForeColor = UITheme.AccentIncoming, AutoSize = true, Location = new Point(LayoutConstants.CardPadding, y) };
             card.Controls.Add(lbl);
             y += 18;
 
             _lblTapiBadge = CreateBadge(UIStrings.Status.Disconnected, UITheme.StatusBad);
-            _lblTapiBadge.Location = new Point(UITheme.SpacingM, y);
+            _lblTapiBadge.Location = new Point(LayoutConstants.CardPadding, y);
             card.Controls.Add(_lblTapiBadge);
             y += 22;
 
@@ -286,7 +286,7 @@ namespace DatevConnector.UI
             {
                 Text = string.Format(UIStrings.SettingsLabels.Extension, _bridgeService?.Extension ?? "\u2014"),
                 AutoSize = true, ForeColor = UITheme.TextPrimary, Font = UITheme.FontLabel,
-                Location = new Point(UITheme.SpacingM, y)
+                Location = new Point(LayoutConstants.CardPadding, y)
             };
             card.Controls.Add(_lblExtension);
             y += 14;
@@ -298,14 +298,14 @@ namespace DatevConnector.UI
             {
                 Text = modeText,
                 AutoSize = true, ForeColor = UITheme.TextMuted, Font = UITheme.FontSmall,
-                Location = new Point(UITheme.SpacingM, y)
+                Location = new Point(LayoutConstants.CardPadding, y)
             };
             card.Controls.Add(_lblMode);
             y += 16;
 
             _btnReconnectTapi = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
             _btnReconnectTapi.Size = new Size(btnWidth, btnHeight);
-            _btnReconnectTapi.Location = new Point(UITheme.SpacingM, y);
+            _btnReconnectTapi.Location = new Point(LayoutConstants.CardPadding, y);
             _btnReconnectTapi.Click += BtnReconnectTapi_Click;
             card.Controls.Add(_btnReconnectTapi);
 
@@ -315,22 +315,22 @@ namespace DatevConnector.UI
         private Panel BuildBridgeStatusCard()
         {
             var card = CreateStatusCard();
-            var y = UITheme.SpacingS;
+            var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
 
-            var lbl = new Label { Text = UIStrings.Sections.Bridge, Font = UITheme.FontLabel, ForeColor = UITheme.AccentBridge, AutoSize = true, Location = new Point(UITheme.SpacingM, y) };
+            var lbl = new Label { Text = UIStrings.Sections.Bridge, Font = UITheme.FontLabel, ForeColor = UITheme.AccentBridge, AutoSize = true, Location = new Point(LayoutConstants.CardPadding, y) };
             card.Controls.Add(lbl);
             y += 18;
 
             _lblBridgeBadge = CreateBadge(UIStrings.Status.Unavailable, UITheme.StatusBad);
-            _lblBridgeBadge.Location = new Point(UITheme.SpacingM, y);
+            _lblBridgeBadge.Location = new Point(LayoutConstants.CardPadding, y);
             card.Controls.Add(_lblBridgeBadge);
             y += 52;
 
             _btnReconnectAll = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
             _btnReconnectAll.Size = new Size(btnWidth, btnHeight);
-            _btnReconnectAll.Location = new Point(UITheme.SpacingM, y);
+            _btnReconnectAll.Location = new Point(LayoutConstants.CardPadding, y);
             _btnReconnectAll.Click += BtnReconnectAll_Click;
             card.Controls.Add(_btnReconnectAll);
 
@@ -344,7 +344,7 @@ namespace DatevConnector.UI
                 Dock = DockStyle.Fill,
                 BackColor = UITheme.CardBackground,
                 Margin = new Padding(2),
-                Padding = new Padding(UITheme.SpacingS)
+                Padding = new Padding(LayoutConstants.SpaceSM)
             };
         }
 
@@ -356,15 +356,15 @@ namespace DatevConnector.UI
             card.Paint += CardBorder_Paint;
 
             // Column positions - evenly distributed across 492px width
-            int col1 = UITheme.SpacingL;       // Left: Call-Pop-Up
+            int col1 = LayoutConstants.SpaceMD;       // Left: Call-Pop-Up
             int col2 = 180;                     // Middle: Gesprächsnotiz
             int col3 = 340;                     // Right: Multiple Kontakte
             int row1 = 28;
 
             // Column headers
-            card.Controls.Add(new Label { Text = UIStrings.Sections.CallPopUp, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col1, UITheme.SpacingS) });
-            card.Controls.Add(new Label { Text = UIStrings.Sections.CallNote, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col2, UITheme.SpacingS) });
-            card.Controls.Add(new Label { Text = UIStrings.Sections.MultipleContacts, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col3, UITheme.SpacingS) });
+            card.Controls.Add(new Label { Text = UIStrings.Sections.CallPopUp, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col1, LayoutConstants.SpaceSM) });
+            card.Controls.Add(new Label { Text = UIStrings.Sections.CallNote, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col2, LayoutConstants.SpaceSM) });
+            card.Controls.Add(new Label { Text = UIStrings.Sections.MultipleContacts, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col3, LayoutConstants.SpaceSM) });
 
             // Left column: Call-Pop-Up
             _chkEnableCallerPopup = new CheckBox { Text = UIStrings.SettingsLabels.Incoming, Location = new Point(col1, row1), AutoSize = true };
@@ -409,10 +409,10 @@ namespace DatevConnector.UI
             card.Paint += CardBorder_Paint;
 
             // Column positions - aligned with popup card
-            int col1 = UITheme.SpacingL;       // Left: Anrufer-ID
+            int col1 = LayoutConstants.SpaceMD;       // Left: Anrufer-ID
             int col2 = 180;                     // Middle: Anrufliste
             int col3 = 340;                     // Right: DATEV
-            int row1 = UITheme.SpacingS;
+            int row1 = LayoutConstants.SpaceSM;
 
             // Left column: Anrufer-ID
             card.Controls.Add(new Label { Text = UIStrings.Sections.CallerId, Font = UITheme.FontLabel, ForeColor = UITheme.TextPrimary, AutoSize = true, Location = new Point(col1, row1) });
@@ -457,9 +457,9 @@ namespace DatevConnector.UI
             var card = new Panel { BackColor = UITheme.CardBackground };
             card.Paint += CardBorder_Paint;
 
-            int col1 = UITheme.SpacingL;
+            int col1 = LayoutConstants.SpaceMD;
             int col2 = 180;
-            int row1 = UITheme.SpacingS;
+            int row1 = LayoutConstants.SpaceSM;
 
             // Title
             card.Controls.Add(new Label

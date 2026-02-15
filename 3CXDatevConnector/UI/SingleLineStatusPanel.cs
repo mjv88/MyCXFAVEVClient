@@ -178,34 +178,17 @@ namespace DatevConnector.UI
 
         private async void BtnTest_Click(object sender, EventArgs e)
         {
-            _btnTest.Enabled = false;
-            _btnReconnect.Enabled = false;
-            _btnTest.Text = UIStrings.Status.TestPending;
-            _lblProgress.Visible = true;
-            _lblProgress.Text = "";
-
             string extension = _service?.Extension;
-            bool isConnected = await Task.Run(() =>
-                _service?.TestTapiLine(extension, msg => UpdateProgressSafe(msg)) ?? false);
+            bool isConnected = await AsyncButtonAction.RunTestAsync(
+                _btnTest, _lblProgress,
+                async progress => await Task.Run(() =>
+                    _service?.TestTapiLine(extension, progress) ?? false),
+                UIStrings.Labels.Test,
+                _btnReconnect);
 
             if (!_isAlive()) return;
-
             UpdateDisplay(isConnected, extension);
-
-            // Show visual feedback
-            _btnTest.Text = isConnected ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
-            _btnTest.ForeColor = isConnected ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Reset button after short delay
-            await Task.Delay(1500);
-            if (!_isAlive()) return;
-
-            _btnTest.Text = UIStrings.Labels.Test;
-            _btnTest.ForeColor = UITheme.TextPrimary;
-            _btnTest.Enabled = true;
             _btnReconnect.Enabled = !isConnected;
-            HideProgress();
-
             _updateConnectorStatus();
         }
 

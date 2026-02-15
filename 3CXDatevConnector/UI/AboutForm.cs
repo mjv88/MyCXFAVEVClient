@@ -73,7 +73,7 @@ namespace DatevConnector.UI
             int y = LayoutConstants.SpaceLG;
 
             // App icon + title row
-            var bridgeIcon = UITheme.GetBaseIconPublic();
+            var bridgeIcon = UITheme.GetBaseIcon();
             if (bridgeIcon != null)
             {
                 var iconBox = new PictureBox

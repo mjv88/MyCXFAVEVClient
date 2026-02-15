@@ -51,33 +51,5 @@ namespace DatevConnector.UI
             LogManager.Log("FormDisplayHelper: Cannot post to UI thread - no context available");
         }
 
-        /// <summary>
-        /// Send (blocking) an action to the UI thread and wait for completion.
-        /// Falls back to Application.OpenForms[0].Invoke if no context captured.
-        /// </summary>
-        public static void SendToUIThread(Action action)
-        {
-            if (_uiContext != null)
-            {
-                _uiContext.Send(_ => action(), null);
-                return;
-            }
-
-            if (Application.OpenForms.Count > 0)
-            {
-                var mainForm = Application.OpenForms[0];
-                if (mainForm.InvokeRequired)
-                {
-                    mainForm.Invoke(action);
-                    return;
-                }
-
-                // Already on UI thread
-                action();
-                return;
-            }
-
-            LogManager.Log("FormDisplayHelper: Cannot send to UI thread - no context available");
-        }
     }
 }

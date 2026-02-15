@@ -105,14 +105,12 @@ namespace DatevConnector.Interop
 
         // TAPI versions
         public const int TAPI_VERSION_1_0 = 0x00010000;
-        public const int TAPI_VERSION_2_0 = 0x00020000;
         public const int TAPI_VERSION_2_2 = 0x00020002;
 
         // lineInitializeEx options
         public const int LINEINITIALIZEEXOPTION_USEEVENT = 0x00000002;
 
         // Line privileges
-        public const int LINECALLPRIVILEGE_NONE = 0x00000001;
         public const int LINECALLPRIVILEGE_MONITOR = 0x00000002;
         public const int LINECALLPRIVILEGE_OWNER = 0x00000004;
 
@@ -130,15 +128,9 @@ namespace DatevConnector.Interop
         public const int LINECALLSTATE_DIALING = 0x00000010;
         public const int LINECALLSTATE_RINGBACK = 0x00000020;
         public const int LINECALLSTATE_BUSY = 0x00000040;
-        public const int LINECALLSTATE_SPECIALINFO = 0x00000080;
         public const int LINECALLSTATE_CONNECTED = 0x00000100;
         public const int LINECALLSTATE_PROCEEDING = 0x00000200;
-        public const int LINECALLSTATE_ONHOLD = 0x00000400;
-        public const int LINECALLSTATE_CONFERENCED = 0x00000800;
-        public const int LINECALLSTATE_ONHOLDPENDCONF = 0x00001000;
-        public const int LINECALLSTATE_ONHOLDPENDTRANSFER = 0x00002000;
         public const int LINECALLSTATE_DISCONNECTED = 0x00004000;
-        public const int LINECALLSTATE_UNKNOWN = 0x00008000;
 
         // Line messages
         public const int LINE_CALLSTATE = 2;
@@ -159,10 +151,6 @@ namespace DatevConnector.Interop
         public const int LINECALLORIGIN_UNKNOWN = 0x00000010;
         public const int LINECALLORIGIN_UNAVAIL = 0x00000020;
         public const int LINECALLORIGIN_INBOUND = 0x00000080;
-
-        // Call info states (for LINECALLINFO dwCallInfoStates)
-        public const int LINECALLINFOSTATE_CALLERID = 0x00000004;
-        public const int LINECALLINFOSTATE_CALLEDID = 0x00000008;
 
         // Wait constants
         public const int WAIT_OBJECT_0 = 0;

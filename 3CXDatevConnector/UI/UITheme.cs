@@ -29,7 +29,6 @@ namespace DatevConnector.UI
 
         // Accent colors (used for accent bars, headers, direction labels)
         public static readonly Color AccentIncoming = Color.FromArgb(0, 122, 204);
-        public static readonly Color AccentOutgoing = Color.FromArgb(0, 122, 204);  // Same as incoming
         public static readonly Color AccentDatev = Color.FromArgb(40, 167, 69);
         public static readonly Color AccentBridge = Color.FromArgb(156, 89, 182);   // Purple for Bridge section
         public static readonly Color AccentTapi = Color.FromArgb(33, 150, 243);    // Blue for TAPI section
@@ -48,11 +47,6 @@ namespace DatevConnector.UI
         public static Font FontLabel = new Font("Segoe UI", 9F, FontStyle.Bold);
         public static Font FontItalic = new Font("Segoe UI", 9F, FontStyle.Italic);
         public static Font FontMono = new Font("Consolas", 9F);
-
-        // Spacing
-        public const int SpacingS = 8;
-        public const int SpacingM = 12;
-        public const int SpacingL = 16;
 
         // Status badge colors
         public static readonly Color StatusOk = Color.FromArgb(40, 167, 69);
@@ -144,7 +138,7 @@ namespace DatevConnector.UI
         /// </summary>
         public static Color GetDirectionColor(bool isIncoming)
         {
-            return isIncoming ? AccentIncoming : AccentOutgoing;
+            return AccentIncoming;
         }
 
         // ========== APPLICATION ICON ==========
@@ -161,7 +155,7 @@ namespace DatevConnector.UI
         /// then falls back to bridge_icon.png next to the executable.
         /// In Visual Studio: add bridge_icon.png to project, set Build Action = Embedded Resource.
         /// </summary>
-        private static Image GetBaseIcon()
+        internal static Image GetBaseIcon()
         {
             if (_baseIcon != null) return _baseIcon;
 
@@ -223,13 +217,6 @@ namespace DatevConnector.UI
             return _datevLogo;
         }
 
-        /// <summary>
-        /// Get the base bridge icon image for use in UI (e.g. About dialog).
-        /// </summary>
-        public static Image GetBaseIconPublic()
-        {
-            return GetBaseIcon();
-        }
 
         /// <summary>
         /// Create a 16x16 tray icon with the bridge image and a colored status ring.

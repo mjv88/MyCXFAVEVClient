@@ -45,21 +45,9 @@ namespace DatevConnector.Core
         /// </summary>
         public int DATEVDebugLevel { get; private set; }
 
-        // Connection settings (nullable = not overridden, use INI config default)
+        // Hot-reload overrides (nullable = not overridden, use INI config default)
         public int? ReconnectIntervalSeconds { get; private set; }
-        public int? ConnectionTimeoutSeconds { get; private set; }
-        public int? ReadTimeoutSeconds { get; private set; }
-        public int? WriteTimeoutSeconds { get; private set; }
-        public int? DatevCircuitBreakerThreshold { get; private set; }
-        public int? DatevCircuitBreakerTimeoutSeconds { get; private set; }
-        public int? SddMaxRetries { get; private set; }
-        public int? SddRetryDelaySeconds { get; private set; }
-
-        // Contacts settings
-        public int? StaleCallTimeoutMinutes { get; private set; }
-        public int? StalePendingTimeoutSeconds { get; private set; }
         public int? ContactReshowDelaySeconds { get; private set; }
-        public int? LastContactRoutingMinutes { get; private set; }
 
         /// <summary>
         /// Singleton instance (null until Start is called)
@@ -158,17 +146,7 @@ namespace DatevConnector.Core
 
                 // Reset overrides before re-parsing
                 ReconnectIntervalSeconds = null;
-                ConnectionTimeoutSeconds = null;
-                ReadTimeoutSeconds = null;
-                WriteTimeoutSeconds = null;
-                DatevCircuitBreakerThreshold = null;
-                DatevCircuitBreakerTimeoutSeconds = null;
-                SddMaxRetries = null;
-                SddRetryDelaySeconds = null;
-                StaleCallTimeoutMinutes = null;
-                StalePendingTimeoutSeconds = null;
                 ContactReshowDelaySeconds = null;
-                LastContactRoutingMinutes = null;
 
                 foreach (var line in lines)
                 {
@@ -286,69 +264,27 @@ namespace DatevConnector.Core
                 case "reconnectintervalseconds":
                     if (int.TryParse(value, out v)) ReconnectIntervalSeconds = Clamp(v, 1, 300);
                     break;
-                case "connectiontimeoutseconds":
-                    if (int.TryParse(value, out v)) ConnectionTimeoutSeconds = Clamp(v, 5, 300);
-                    break;
-                case "readtimeoutseconds":
-                    if (int.TryParse(value, out v)) ReadTimeoutSeconds = Clamp(v, 10, 600);
-                    break;
-                case "writetimeoutseconds":
-                    if (int.TryParse(value, out v)) WriteTimeoutSeconds = Clamp(v, 5, 300);
-                    break;
-                case "datevcircuitbreakerthreshold":
-                    if (int.TryParse(value, out v)) DatevCircuitBreakerThreshold = Clamp(v, 1, 10);
-                    break;
-                case "datevcircuitbreakertimeoutseconds":
-                    if (int.TryParse(value, out v)) DatevCircuitBreakerTimeoutSeconds = Clamp(v, 10, 300);
-                    break;
-                case "sddmaxretries":
-                    if (int.TryParse(value, out v)) SddMaxRetries = Clamp(v, 0, 10);
-                    break;
-                case "sddretrydelayseconds":
-                    if (int.TryParse(value, out v)) SddRetryDelaySeconds = Clamp(v, 1, 30);
-                    break;
-                case "stalecalltimeoutminutes":
-                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Clamp(v, 30, 1440);
-                    break;
-                case "stalependingtimeoutseconds":
-                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Clamp(v, 30, 3600);
-                    break;
             }
         }
 
         private void ApplySettingsSetting(string key, string value)
         {
-            // Only handle keys that DebugConfigWatcher tracks for hot-reload.
-            // All other [Settings] keys are read by AppConfig via P/Invoke on demand.
             int v;
             switch (key)
             {
                 case "contactreshowdelayseconds":
                     if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Clamp(v, 0, 30);
-                    break;
-                case "lastcontactroutingminutes":
-                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Clamp(v, 0, 1440);
                     break;
             }
         }
 
         private void ApplyContactsSetting(string key, string value)
         {
-            // Backwards compatibility for old [Contacts] / [DATEV - Contacts] sections
             int v;
             switch (key)
             {
-                case "stalecalltimeoutminutes":
-                    if (int.TryParse(value, out v)) StaleCallTimeoutMinutes = Clamp(v, 30, 1440);
-                    break;
-                case "stalependingtimeoutseconds":
-                    if (int.TryParse(value, out v)) StalePendingTimeoutSeconds = Clamp(v, 30, 3600);
-                    break;
                 case "contactreshowdelayseconds":
                     if (int.TryParse(value, out v)) ContactReshowDelaySeconds = Clamp(v, 0, 30);
-                    break;
-                case "lastcontactroutingminutes":
-                    if (int.TryParse(value, out v)) LastContactRoutingMinutes = Clamp(v, 0, 1440);
                     break;
             }
         }
@@ -402,17 +338,7 @@ namespace DatevConnector.Core
 
             // Clear all overrides
             ReconnectIntervalSeconds = null;
-            ConnectionTimeoutSeconds = null;
-            ReadTimeoutSeconds = null;
-            WriteTimeoutSeconds = null;
-            DatevCircuitBreakerThreshold = null;
-            DatevCircuitBreakerTimeoutSeconds = null;
-            SddMaxRetries = null;
-            SddRetryDelaySeconds = null;
-            StaleCallTimeoutMinutes = null;
-            StalePendingTimeoutSeconds = null;
             ContactReshowDelaySeconds = null;
-            LastContactRoutingMinutes = null;
 
             LogManager.SetDebugMode(false);
             LogManager.Log("3CXDATEVConnector.ini removed - restored defaults");

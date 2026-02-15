@@ -147,7 +147,7 @@ namespace DatevConnector.UI
             Text = UIStrings.FormTitles.Overview;
             TopMost = false;
 
-            int y = UITheme.SpacingL;
+            int y = LayoutConstants.SpaceMD;
             int cardWidth = 388;
             int cardHeight = 100;
             int datevCardHeight = 116;
@@ -219,7 +219,7 @@ namespace DatevConnector.UI
             _btnTestDatev.Click += BtnTestDatev_Click;
             datevCard.Controls.Add(_btnTestDatev);
 
-            y += datevCardHeight + UITheme.SpacingM;
+            y += datevCardHeight + LayoutConstants.CardPadding;
 
             // ==================== 3CX Section (delegated to panels) ====================
             int tapiCardHeight = lineCount > 1 ? 88 + (lineCount * 24) : cardHeight + 18;
@@ -240,7 +240,7 @@ namespace DatevConnector.UI
                     () => IsAlive, () => UpdateConnectorStatus());
             }
 
-            y += tapiCardHeight + UITheme.SpacingM;
+            y += tapiCardHeight + LayoutConstants.CardPadding;
 
             // ==================== Bridge Section ====================
             bool tapiOk = _bridgeService?.TapiConnected ?? false;
@@ -274,13 +274,13 @@ namespace DatevConnector.UI
             _btnReconnectAll.Click += BtnReconnectAll_Click;
             bridgeCard.Controls.Add(_btnReconnectAll);
 
-            y += cardHeight + UITheme.SpacingM;
+            y += cardHeight + LayoutConstants.CardPadding;
 
             // ==================== Quick Action Buttons ====================
             int actionBtnWidth = 180;
-            int actionBtnSpacing = UITheme.SpacingM;
+            int actionBtnSpacing = LayoutConstants.CardPadding;
             int totalActionWidth = (actionBtnWidth * 2) + actionBtnSpacing;
-            int actionBtnX = UITheme.SpacingL + (cardWidth - totalActionWidth) / 2;
+            int actionBtnX = LayoutConstants.SpaceMD + (cardWidth - totalActionWidth) / 2;
 
             var btnHistory = UITheme.CreateSecondaryButton(UIStrings.Labels.CallHistory, actionBtnWidth);
             btnHistory.Location = new Point(actionBtnX, y);
@@ -305,7 +305,7 @@ namespace DatevConnector.UI
         {
             var card = new Panel
             {
-                Location = new Point(UITheme.SpacingL, yPos),
+                Location = new Point(LayoutConstants.SpaceMD, yPos),
                 Size = new Size(width, height),
                 BackColor = UITheme.CardBackground
             };
@@ -362,34 +362,16 @@ namespace DatevConnector.UI
 
         private async void BtnTestDatev_Click(object sender, EventArgs e)
         {
-            _btnTestDatev.Enabled = false;
-            _btnReloadContacts.Enabled = false;
-            _btnTestDatev.Text = UIStrings.Status.TestPending;
-            _lblDatevProgress.Visible = true;
-            _lblDatevProgress.Text = "";
-
-            bool available = await Task.Run(() =>
-                DatevConnectionChecker.CheckAndLogDatevStatus(msg => UpdateProgressLabel(_lblDatevProgress, msg)));
+            bool available = await AsyncButtonAction.RunTestAsync(
+                _btnTestDatev, _lblDatevProgress,
+                async progress => await Task.Run(() =>
+                    DatevConnectionChecker.CheckAndLogDatevStatus(progress)),
+                UIStrings.Labels.Test,
+                _btnReloadContacts);
 
             if (!IsAlive) return;
-
             _lblDatevStatus.Text = available ? UIStrings.Status.Connected : UIStrings.Status.Unavailable;
             _lblDatevStatus.ForeColor = available ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Show visual feedback
-            _btnTestDatev.Text = available ? UIStrings.Status.TestSuccess : UIStrings.Status.TestFailed;
-            _btnTestDatev.ForeColor = available ? UITheme.StatusOk : UITheme.StatusBad;
-
-            // Reset button after short delay
-            await Task.Delay(1500);
-            if (!IsAlive) return;
-
-            _btnTestDatev.Text = UIStrings.Labels.Test;
-            _btnTestDatev.ForeColor = UITheme.TextPrimary;
-            _btnTestDatev.Enabled = true;
-            _btnReloadContacts.Enabled = true;
-            HideProgressLabel(_lblDatevProgress);
-
             UpdateConnectorStatus();
         }
 

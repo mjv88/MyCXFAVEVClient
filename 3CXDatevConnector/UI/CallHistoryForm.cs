@@ -116,7 +116,7 @@ namespace DatevConnector.UI
                 {
                     Text = UIStrings.CallHistory.Outbound,
                     Font = UITheme.FontLabel,
-                    ForeColor = UITheme.AccentOutgoing,
+                    ForeColor = UITheme.AccentIncoming,
                     AutoSize = true
                 };
                 Controls.Add(_lblOutbound);
