@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime;
 using System.Runtime.InteropServices;
+using DatevConnector.Datev.Managers;
 
 namespace DatevConnector.Core
 {
