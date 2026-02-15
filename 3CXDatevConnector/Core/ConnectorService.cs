@@ -244,7 +244,7 @@ namespace DatevConnector.Core
             {
                 // No provider detected — log diagnostics and wait for wizard
                 LogManager.Warning("========================================");
-                LogManager.Warning("Kein Telefonie-Anbieter erkannt!");
+                LogManager.Warning("Kein Connector erkannt!");
                 LogManager.Warning("========================================");
                 LogManager.Warning(selectionResult.DiagnosticSummary ?? "Keine Diagnoseinformationen verfügbar");
                 Status = ConnectorStatus.Disconnected;
@@ -460,7 +460,7 @@ namespace DatevConnector.Core
                             {
                                 if (_selectedMode != autoSelection.SelectedMode)
                                 {
-                                    LogManager.Log("Auto-Modus Telefonie-Anbieter für Verbindungszyklus gewählt: {0} -> {1} (Grund: {2})",
+                                    LogManager.Log("Auto-Modus Connector für Verbindungszyklus gewählt: {0} -> {1} (Grund: {2})",
                                         _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
                                 }
                                 _selectedMode = autoSelection.SelectedMode;
@@ -506,7 +506,7 @@ namespace DatevConnector.Core
                     _tapiMonitor.Disconnected += () =>
                     {
                         Status = ConnectorStatus.Disconnected;
-                        LogManager.Log("Telefonie-Anbieter getrennt (alle Leitungen)");
+                        LogManager.Log("Connector getrennt (alle Leitungen)");
                     };
 
                     // Provider from auto-detection may already be connected (TryConnect succeeded)
@@ -525,12 +525,12 @@ namespace DatevConnector.Core
                 }
                 catch (Exception ex)
                 {
-                    LogManager.Log("Telefonie-Anbieter Verbindung fehlgeschlagen: {0}", ex.Message);
+                    LogManager.Log("Connector Verbindung fehlgeschlagen: {0}", ex.Message);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    LogManager.Log("Telefonie-Anbieter Neuverbindung in {0} Sekunden...", reconnectInterval);
+                    LogManager.Log("Connector Neuverbindung in {0} Sekunden...", reconnectInterval);
                     await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                 }
             }
