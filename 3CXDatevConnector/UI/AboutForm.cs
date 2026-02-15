@@ -11,6 +11,30 @@ namespace DatevConnector.UI
     /// </summary>
     internal sealed class AboutForm : Form
     {
+        private static AboutForm _current;
+
+        public static void ShowAbout()
+        {
+            if (_current != null && !_current.IsDisposed)
+            {
+                _current.Activate();
+                _current.BringToFront();
+                return;
+            }
+
+            var form = new AboutForm();
+            FormClosedEventHandler handler = null;
+            handler = (s, e) =>
+            {
+                ((Form)s).FormClosed -= handler;
+                if (_current == form) _current = null;
+                ((Form)s).Dispose();
+            };
+            form.FormClosed += handler;
+            _current = form;
+            form.Show();
+        }
+
         public AboutForm()
         {
             InitializeForm();

@@ -298,27 +298,32 @@ namespace DatevConnector.Core
                 if (currentRecord == null || currentRecord.TapiState != TapiCallState.Connected)
                     return;
 
-                var selectedContact = ContactSelectionForm.SelectContact(
-                    remoteNumber, contacts, isIncoming);
-
-                if (selectedContact != null && currentRecord.CallData != null)
-                {
-                    string existingSyncId = currentRecord.CallData.SyncID;
-                    string previousId = currentRecord.CallData.AdressatenId;
-
-                    CallDataManager.Fill(currentRecord.CallData, remoteNumber, selectedContact);
-
-                    if (!string.IsNullOrEmpty(existingSyncId))
-                        currentRecord.CallData.SyncID = existingSyncId;
-
-                    if (currentRecord.CallData.AdressatenId != previousId)
+                ContactSelectionForm.SelectContact(
+                    remoteNumber, contacts, isIncoming,
+                    selectedContact =>
                     {
-                        LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
-                            callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
-                        _notificationManager.CallAdressatChanged(currentRecord.CallData);
-                        ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
-                    }
-                }
+                        // Verify call is still active (may have disconnected while dialog was open)
+                        if (_callTracker.GetCall(callId) == null) return;
+
+                        if (selectedContact != null && currentRecord.CallData != null)
+                        {
+                            string existingSyncId = currentRecord.CallData.SyncID;
+                            string previousId = currentRecord.CallData.AdressatenId;
+
+                            CallDataManager.Fill(currentRecord.CallData, remoteNumber, selectedContact);
+
+                            if (!string.IsNullOrEmpty(existingSyncId))
+                                currentRecord.CallData.SyncID = existingSyncId;
+
+                            if (currentRecord.CallData.AdressatenId != previousId)
+                            {
+                                LogManager.Log("Contact reshow: Contact changed for call {0} - new={1} (SyncID={2})",
+                                    callId, currentRecord.CallData.Adressatenname, currentRecord.CallData.SyncID);
+                                _notificationManager.CallAdressatChanged(currentRecord.CallData);
+                                ContactRoutingCache.RecordUsage(remoteNumber, currentRecord.CallData.AdressatenId);
+                            }
+                        }
+                    });
             }
             catch (Exception ex)
             {

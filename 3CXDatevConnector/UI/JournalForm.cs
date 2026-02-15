@@ -20,6 +20,8 @@ namespace DatevConnector.UI
         private readonly Label _lblCharCount;
         private readonly Button _btnSend;
         private readonly Button _btnCancel;
+        private Action<string> _onSubmit;
+        private Action _onClosed;
 
         /// <summary>
         /// The journal note text entered by the user
@@ -46,8 +48,12 @@ namespace DatevConnector.UI
             string contactNumber,
             string dataSource,
             DateTime callStart,
-            DateTime callEnd)
+            DateTime callEnd,
+            Action<string> onSubmit = null,
+            Action onClosed = null)
         {
+            _onSubmit = onSubmit;
+            _onClosed = onClosed;
             // Form settings
             UITheme.ApplyFormDefaults(this);
             Text = UIStrings.FormTitles.AppTitle;
@@ -143,7 +149,6 @@ namespace DatevConnector.UI
             _btnCancel.Location = new Point(LayoutConstants.SpaceMD, 310);
             _btnCancel.Click += (s, e) =>
             {
-                DialogResult = DialogResult.Cancel;
                 Close();
             };
 
@@ -165,7 +170,7 @@ namespace DatevConnector.UI
             }
             _btnSend.Click += (s, e) =>
             {
-                DialogResult = DialogResult.OK;
+                _onSubmit?.Invoke(JournalText);
                 Close();
             };
 
@@ -190,8 +195,11 @@ namespace DatevConnector.UI
                 _lblCharCount.ForeColor = UITheme.TextMuted;
         }
 
+        private static JournalForm _current;
+
         /// <summary>
-        /// Show the journal form on the UI thread and invoke callback with result
+        /// Show the journal form on the UI thread as a non-modal window.
+        /// Close-and-replace pattern: a new call replaces any open journal.
         /// </summary>
         public static void ShowJournal(
             string contactName,
@@ -199,43 +207,28 @@ namespace DatevConnector.UI
             string dataSource,
             DateTime callStart,
             DateTime callEnd,
-            Action<string> onSubmit)
+            Action<string> onSubmit,
+            Action onClosed = null)
         {
-            try
+            FormDisplayHelper.PostToUIThread(() =>
             {
-                Action showAction = () =>
+                if (_current != null && !_current.IsDisposed)
+                    _current.Close();
+
+                var form = new JournalForm(contactName, contactNumber, dataSource,
+                    callStart, callEnd, onSubmit, onClosed);
+                FormClosedEventHandler handler = null;
+                handler = (s, e) =>
                 {
-                    try
-                    {
-                        using (var form = new JournalForm(contactName, contactNumber, dataSource, callStart, callEnd))
-                        {
-                            var result = form.ShowDialog();
-
-                            if (result == DialogResult.OK)
-                            {
-                                string note = form.JournalText;
-                                if (!string.IsNullOrWhiteSpace(note))
-                                    LogManager.Log("Journal: User submitted note ({0} chars)", note.Length);
-                                onSubmit?.Invoke(note);
-                            }
-                            else
-                            {
-                                LogManager.Log("Journal: User cancelled");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogManager.Log("Journal: Error showing form - {0}", ex.Message);
-                    }
+                    ((Form)s).FormClosed -= handler;
+                    if (_current == form) _current = null;
+                    onClosed?.Invoke();
+                    ((Form)s).Dispose();
                 };
-
-                FormDisplayHelper.PostToUIThread(showAction);
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("Journal: Error - {0}", ex.Message);
-            }
+                form.FormClosed += handler;
+                _current = form;
+                form.Show();
+            });
         }
     }
 }

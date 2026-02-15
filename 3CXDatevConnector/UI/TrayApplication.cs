@@ -98,10 +98,7 @@ namespace DatevConnector.UI
             _contextMenu.Items["reloadItem"].Click += (s, e) => _ = ReloadContactsAsync();
             _contextMenu.Items["settingsItem"].Click += (s, e) => _navigator.ShowSettings();
             _contextMenu.Items["restartItem"].Click += (s, e) => _ = RestartBridgeAsync();
-            _contextMenu.Items["aboutItem"].Click += (s, e) =>
-            {
-                using (var aboutForm = new AboutForm()) { aboutForm.ShowDialog(); }
-            };
+            _contextMenu.Items["aboutItem"].Click += (s, e) => AboutForm.ShowAbout();
             _contextMenu.Items["exitItem"].Click += (s, e) => { _cts.Cancel(); Application.Exit(); };
 
             // Help submenu items

@@ -278,15 +278,31 @@ namespace DatevConnector.UI
             }
         }
 
+        private static TroubleshootingForm _current;
+
         /// <summary>
-        /// Show the troubleshooting form as a modal dialog.
+        /// Show the troubleshooting form as a non-modal singleton window.
         /// </summary>
         public static void ShowHelp(TelephonyMode selectedMode)
         {
-            using (var form = new TroubleshootingForm(selectedMode))
+            if (_current != null && !_current.IsDisposed)
             {
-                form.ShowDialog();
+                _current.Activate();
+                _current.BringToFront();
+                return;
             }
+
+            var form = new TroubleshootingForm(selectedMode);
+            FormClosedEventHandler handler = null;
+            handler = (s, e) =>
+            {
+                ((Form)s).FormClosed -= handler;
+                if (_current == form) _current = null;
+                ((Form)s).Dispose();
+            };
+            form.FormClosed += handler;
+            _current = form;
+            form.Show();
         }
     }
 }

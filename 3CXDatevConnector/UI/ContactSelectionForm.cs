@@ -12,12 +12,15 @@ namespace DatevConnector.UI
     /// <summary>
     /// Dialog for selecting a contact when multiple matches are found.
     /// Shows a dropdown of matching contacts for user selection.
+    /// Uses callback pattern for non-modal operation.
     /// </summary>
     public class ContactSelectionForm : Form
     {
         private readonly ComboBox _cboContact;
         private readonly List<DatevContactInfo> _contacts;
         private DatevContactInfo _selectedContact;
+        private Action<DatevContactInfo> _onSelected;
+        private bool _callbackInvoked;
 
         // Track the current open dialog for closing on disconnect
         private static ContactSelectionForm _currentDialog;
@@ -30,15 +33,13 @@ namespace DatevConnector.UI
         {
             try
             {
-                if (_currentDialog != null && !_currentDialog.IsDisposed)
+                var dialog = _currentDialog;
+                if (dialog != null && !dialog.IsDisposed)
                 {
                     FormDisplayHelper.PostToUIThread(() =>
                     {
-                        if (_currentDialog != null && !_currentDialog.IsDisposed)
-                        {
-                            _currentDialog.DialogResult = DialogResult.Cancel;
-                            _currentDialog.Close();
-                        }
+                        if (dialog != null && !dialog.IsDisposed)
+                            dialog.Close();
                     });
                 }
             }
@@ -56,10 +57,12 @@ namespace DatevConnector.UI
         public ContactSelectionForm(
             string phoneNumber,
             List<DatevContactInfo> contacts,
-            bool isIncoming = true)
+            bool isIncoming,
+            Action<DatevContactInfo> onSelected)
         {
             _contacts = contacts;
             _selectedContact = contacts.Count > 0 ? contacts[0] : null;
+            _onSelected = onSelected;
 
             // Form settings
             UITheme.ApplyFormDefaults(this);
@@ -132,7 +135,13 @@ namespace DatevConnector.UI
             // Buttons
             var btnCancel = UITheme.CreateSecondaryButton(UIStrings.Labels.Cancel, 80);
             btnCancel.Location = new Point(LayoutConstants.SpaceLG, 130);
-            btnCancel.DialogResult = DialogResult.Cancel;
+            btnCancel.Click += (s, e) =>
+            {
+                _callbackInvoked = true;
+                LogManager.Log("Connector: Contact selection cancelled, using first");
+                _onSelected?.Invoke(_contacts.Count > 0 ? _contacts[0] : null);
+                Close();
+            };
 
             var btnOk = UITheme.CreatePrimaryButton(UIStrings.Labels.OK, 80);
             btnOk.Location = new Point(260, 130);
@@ -140,7 +149,10 @@ namespace DatevConnector.UI
             {
                 if (_cboContact.SelectedIndex >= 0)
                     _selectedContact = _contacts[_cboContact.SelectedIndex];
-                DialogResult = DialogResult.OK;
+                _callbackInvoked = true;
+                LogManager.Log("Connector: Contact selected: {0}",
+                    LogManager.MaskName(_selectedContact?.DatevContact?.Name ?? "(none)"));
+                _onSelected?.Invoke(_selectedContact);
                 Close();
             };
 
@@ -154,6 +166,16 @@ namespace DatevConnector.UI
             CancelButton = btnCancel;
         }
 
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            if (!_callbackInvoked)
+            {
+                _callbackInvoked = true;
+                _onSelected?.Invoke(_contacts.Count > 0 ? _contacts[0] : null);
+            }
+        }
+
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
@@ -161,69 +183,38 @@ namespace DatevConnector.UI
         }
 
         /// <summary>
-        /// Shows the selection dialog and returns the selected contact.
-        /// Returns first contact if cancelled or UI unavailable.
+        /// Shows the selection dialog as a non-modal window and invokes callback with result.
+        /// Close-and-replace pattern: a new call replaces any open selection dialog.
         /// </summary>
-        public static DatevContactInfo SelectContact(
+        public static void SelectContact(
             string phoneNumber,
             List<DatevContactInfo> contacts,
-            bool isIncoming = true)
+            bool isIncoming,
+            Action<DatevContactInfo> onSelected)
         {
-            if (contacts == null || contacts.Count == 0)
-                return null;
+            if (contacts == null || contacts.Count == 0) { onSelected?.Invoke(null); return; }
+            if (contacts.Count == 1) { onSelected?.Invoke(contacts[0]); return; }
 
-            if (contacts.Count == 1)
-                return contacts[0];
-
-            try
+            FormDisplayHelper.PostToUIThread(() =>
             {
-                DatevContactInfo result = null;
+                LogManager.Log("Connector: Contact selection - {0} matches for {1}",
+                    contacts.Count, LogManager.Mask(phoneNumber));
 
-                FormDisplayHelper.SendToUIThread(() =>
+                if (_currentDialog != null && !_currentDialog.IsDisposed)
+                    _currentDialog.Close();
+
+                var form = new ContactSelectionForm(phoneNumber, contacts, isIncoming, onSelected);
+                FormClosedEventHandler handler = null;
+                handler = (s, e) =>
                 {
-                    result = SelectContactInternal(phoneNumber, contacts, isIncoming);
-                });
-
-                return result ?? contacts[0];
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("ContactSelection: Error showing dialog - {0}, using first contact", ex.Message);
-                return contacts[0];
-            }
-        }
-
-        private static DatevContactInfo SelectContactInternal(
-            string phoneNumber,
-            List<DatevContactInfo> contacts,
-            bool isIncoming)
-        {
-            LogManager.Log("Connector: Contact selection - {0} matches for {1}",
-                contacts.Count, LogManager.Mask(phoneNumber));
-
-            using (var form = new ContactSelectionForm(phoneNumber, contacts, isIncoming))
-            {
+                    ((Form)s).FormClosed -= handler;
+                    if (_currentDialog == form) _currentDialog = null;
+                    ((Form)s).Dispose();
+                };
+                form.FormClosed += handler;
                 _currentDialog = form;
-                try
-                {
-                    var dialogResult = form.ShowDialog();
-
-                    if (dialogResult == DialogResult.Cancel)
-                    {
-                        LogManager.Log("Connector: Contact selection cancelled, using first");
-                        return contacts[0];
-                    }
-
-                    string selectedName = form.SelectedContact?.DatevContact?.Name ?? "(none)";
-                    LogManager.Log("Connector: Contact selected: {0}", LogManager.MaskName(selectedName));
-
-                    return form.SelectedContact;
-                }
-                finally
-                {
-                    _currentDialog = null;
-                }
-            }
+                form.Show();
+            });
         }
     }
 }

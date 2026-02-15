@@ -669,7 +669,6 @@ namespace DatevConnector.UI
             {
                 // Finish - save settings and close
                 ApplySettings();
-                DialogResult = DialogResult.OK;
                 Close();
             }
         }
@@ -713,15 +712,31 @@ namespace DatevConnector.UI
 
         private void SetAutoStart(bool enable) => AutoStartManager.SetEnabled(enable);
 
+        private static SetupWizardForm _current;
+
         /// <summary>
-        /// Show the setup wizard as a modal dialog.
+        /// Show the setup wizard as a non-modal singleton window.
         /// </summary>
-        public static DialogResult ShowWizard(ConnectorService bridgeService = null)
+        public static void ShowWizard(ConnectorService bridgeService = null)
         {
-            using (var wizard = new SetupWizardForm(bridgeService))
+            if (_current != null && !_current.IsDisposed)
             {
-                return wizard.ShowDialog();
+                _current.Activate();
+                _current.BringToFront();
+                return;
             }
+
+            var wizard = new SetupWizardForm(bridgeService);
+            FormClosedEventHandler handler = null;
+            handler = (s, e) =>
+            {
+                ((Form)s).FormClosed -= handler;
+                if (_current == wizard) _current = null;
+                ((Form)s).Dispose();
+            };
+            wizard.FormClosed += handler;
+            _current = wizard;
+            wizard.Show();
         }
     }
 }

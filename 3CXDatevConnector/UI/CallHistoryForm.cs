@@ -341,33 +341,25 @@ namespace DatevConnector.UI
             // Use connected start time (CallEnd - Duration) so journal shows correct connected duration
             DateTime journalStart = entry.CallEnd - entry.Duration;
 
-            // Pause auto-refresh while modal dialog is open
             _autoRefreshTimer?.Stop();
 
-            try
-            {
-                JournalForm.ShowJournal(
-                    entry.ContactName ?? "Unknown",
-                    entry.RemoteNumber ?? "",
-                    entry.DataSource ?? "",
-                    journalStart,
-                    entry.CallEnd,
-                    note =>
+            JournalForm.ShowJournal(
+                entry.ContactName ?? "Unknown",
+                entry.RemoteNumber ?? "",
+                entry.DataSource ?? "",
+                journalStart,
+                entry.CallEnd,
+                note =>
+                {
+                    if (!string.IsNullOrWhiteSpace(note))
                     {
-                        if (!string.IsNullOrWhiteSpace(note))
-                        {
-                            _onJournalSubmit?.Invoke(entry, note);
-                            _store.MarkJournalSent(entry);
-                            LoadHistory(); // Refresh display
-                            LogManager.Log("CallHistory: Journal re-sent for {0}", LogManager.Mask(entry.RemoteNumber));
-                        }
-                    });
-            }
-            finally
-            {
-                // Resume auto-refresh after modal closes
-                _autoRefreshTimer?.Start();
-            }
+                        _onJournalSubmit?.Invoke(entry, note);
+                        _store.MarkJournalSent(entry);
+                        LoadHistory();
+                        LogManager.Log("CallHistory: Journal re-sent for {0}", LogManager.Mask(entry.RemoteNumber));
+                    }
+                },
+                onClosed: () => _autoRefreshTimer?.Start());
         }
     }
 }
