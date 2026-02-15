@@ -508,7 +508,18 @@ namespace DatevConnector.Webclient
             var acceptTask = _listener.AcceptTcpClientAsync();
             var cancelTask = Task.Delay(Timeout.Infinite, ct);
             var done = await Task.WhenAny(acceptTask, cancelTask);
-            return done == acceptTask ? await acceptTask : null;
+            if (done == acceptTask)
+                return await acceptTask;
+
+            // Observe the orphaned accept task to prevent UnobservedTaskException
+            // when StopListener() disposes the socket while AcceptTcpClientAsync is pending
+            _ = acceptTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted) { var ignored = t.Exception; }
+                else if (t.Status == TaskStatus.RanToCompletion)
+                    try { t.Result?.Close(); } catch { }
+            }, TaskContinuationOptions.ExecuteSynchronously);
+            return null;
         }
 
         private async Task<bool> SetupClientAsync(TcpClient client)
