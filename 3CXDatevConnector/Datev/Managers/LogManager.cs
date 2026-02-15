@@ -338,12 +338,9 @@ namespace DatevConnector.Datev.Managers
 
                 // Reset size counter
                 _currentLogSize = 0;
-
-                Console.WriteLine($"[LOG ROTATE] Rotated log files");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.Error.WriteLine($"[LOG ROTATE ERROR] {ex.Message}");
             }
         }
 

@@ -95,11 +95,6 @@ namespace DatevConnector.Core
             return reordered;
         }
 
-        /// <summary>
-        /// Current routing window in minutes (for display in settings)
-        /// </summary>
-        public static int RoutingWindowMinutes => _routingWindowMinutes;
-
         private class ContactUsage
         {
             public string AdressatenId { get; }

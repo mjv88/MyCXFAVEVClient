@@ -54,20 +54,6 @@ namespace DatevConnector.Core
         }
 
         /// <summary>
-        /// Current state of the circuit breaker
-        /// </summary>
-        public CircuitState State
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _state;
-                }
-            }
-        }
-
-        /// <summary>
         /// Checks if an operation is allowed to proceed
         /// </summary>
         /// <returns>True if operation can proceed, false if circuit is open</returns>
@@ -143,74 +129,6 @@ namespace DatevConnector.Core
                     // Too many failures, open the circuit
                     TransitionTo(CircuitState.Open);
                 }
-            }
-        }
-
-        /// <summary>
-        /// Manually resets the circuit breaker to closed state
-        /// </summary>
-        public void Reset()
-        {
-            lock (_lock)
-            {
-                _failureCount = 0;
-                TransitionTo(CircuitState.Closed);
-            }
-        }
-
-        /// <summary>
-        /// Executes an action with circuit breaker protection
-        /// </summary>
-        /// <param name="action">Action to execute</param>
-        /// <returns>True if action succeeded, false if blocked or failed</returns>
-        public bool Execute(Action action)
-        {
-            if (!IsOperationAllowed())
-            {
-                LogManager.Log("[{0}] Circuit open - operation blocked", _name);
-                return false;
-            }
-
-            try
-            {
-                action();
-                RecordSuccess();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                RecordFailure();
-                LogManager.Log("[{0}] Operation failed: {1}", _name, ex.Message);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Executes a function with circuit breaker protection
-        /// </summary>
-        /// <typeparam name="T">Return type</typeparam>
-        /// <param name="func">Function to execute</param>
-        /// <param name="defaultValue">Value to return if blocked or failed</param>
-        /// <returns>Function result or default value</returns>
-        public T Execute<T>(Func<T> func, T defaultValue = default(T))
-        {
-            if (!IsOperationAllowed())
-            {
-                LogManager.Log("[{0}] Circuit open - operation blocked", _name);
-                return defaultValue;
-            }
-
-            try
-            {
-                T result = func();
-                RecordSuccess();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                RecordFailure();
-                LogManager.Log("[{0}] Operation failed: {1}", _name, ex.Message);
-                return defaultValue;
             }
         }
 
