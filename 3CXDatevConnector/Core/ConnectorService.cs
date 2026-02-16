@@ -10,7 +10,6 @@ using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
 using DatevConnector.Tapi;
 using DatevConnector.Webclient;
-// UI references removed — call event handling delegated to CallEventProcessor
 
 namespace DatevConnector.Core
 {
@@ -209,7 +208,7 @@ namespace DatevConnector.Core
             if (isPipeMode && selectionResult.Success)
             {
                 LogManager.Log("========================================");
-                LogManager.Log("3CX Pipe Server (early start)");
+                LogManager.Log("  3CX Terminal Server (early start)");
                 LogManager.Log("========================================");
                 _pipeServerTask = ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
                 await Task.Delay(100, cancellationToken);
@@ -244,7 +243,7 @@ namespace DatevConnector.Core
             {
                 // No provider detected — log diagnostics and wait for wizard
                 LogManager.Warning("========================================");
-                LogManager.Warning("Kein Connector erkannt!");
+                LogManager.Warning("  Kein Connector erkannt!");
                 LogManager.Warning("========================================");
                 LogManager.Warning(selectionResult.DiagnosticSummary ?? "Keine Diagnoseinformationen verfügbar");
                 Status = ConnectorStatus.Disconnected;
@@ -259,7 +258,7 @@ namespace DatevConnector.Core
             else
             {
                 LogManager.Log("========================================");
-                LogManager.Log("3CX Telefonie Modus ({0})", _selectedMode);
+                LogManager.Log("  3CX Telefonie Modus ({0})", _selectedMode);
                 LogManager.Log("========================================");
                 await ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
             }
@@ -273,7 +272,7 @@ namespace DatevConnector.Core
             try
             {
                 LogManager.Log("========================================");
-                LogManager.Log("DATEV Kontaktsynchronisation");
+                LogManager.Log("  DATEV Kontaktsynchronisation");
                 LogManager.Log("========================================");
 
                 int timeoutSec = AppConfig.GetIntClamped(ConfigKeys.ContactLoadTimeoutSeconds, 120, 30, 600);
@@ -380,16 +379,16 @@ namespace DatevConnector.Core
             switch (_selectedMode)
             {
                 case ConnectionMode.WebClient:
-                    LogManager.Log("WebClient-Modus - verwende WebclientConnectionMethod");
+                    LogManager.Log("WebClient-Modus ausgewählt");
                     return new WebclientConnectionMethod(_extension);
 
                 case ConnectionMode.Pipe:
-                    LogManager.Log("Terminal Server (TAPI)-Modus - verwende Named Pipe Provider");
+                    LogManager.Log("Terminal Server (TAPI)-Modus ausgewählt");
                     return new PipeConnectionMethod(_extension);
 
                 case ConnectionMode.Tapi:
                 default:
-                    LogManager.Log("Desktop (TAPI)-Modus - verwende TapiLineMonitor");
+                    LogManager.Log("Desktop (TAPI)-Modus ausgewählt");
                     return new TapiLineMonitor(lineFilter, _extension);
             }
         }
@@ -402,7 +401,7 @@ namespace DatevConnector.Core
             var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
             if (firstLine != null && firstLine.Extension != _extension)
             {
-                LogManager.Debug("Nebenstelle automatisch erkannt von {0}: {1}", source, firstLine.Extension);
+                LogManager.Debug("Nebenstelle erkannt von {0}: {1}", source, firstLine.Extension);
                 _extension = firstLine.Extension;
                 CallIdGenerator.Initialize(_extension);
 
@@ -469,7 +468,7 @@ namespace DatevConnector.Core
                             }
                             else
                             {
-                                LogManager.Log("Auto-Modus hat keinen verfügbaren Anbieter gefunden; erneuter Versuch in {0} Sekunden", reconnectInterval);
+                                LogManager.Log("Auto-Modus hat keinen verfügbaren Connector gefunden; erneuter Versuch in {0} Sekunden", reconnectInterval);
                                 Status = ConnectorStatus.Disconnected;
                                 await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                                 continue;
@@ -561,9 +560,9 @@ namespace DatevConnector.Core
                 return;
             }
 
-            LogManager.Log("Kontakte werden von DATEV SDD neu geladen...");
+            LogManager.Log("Kontakte werden von DATEV SDD geladen...");
             await DatevContactRepository.StartLoadAsync(null, progressText);
-            LogManager.Log("Kontakte neu geladen: {0} Kontakte, {1} Telefonnummern-Schlüssel",
+            LogManager.Log("Kontakte geladen: {0} Kontakte, {1} Telefonnummern-Schlüssel",
                 DatevContactRepository.ContactCount, DatevContactRepository.PhoneNumberKeyCount);
         }
 
