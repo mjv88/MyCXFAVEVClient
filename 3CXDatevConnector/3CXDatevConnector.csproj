@@ -38,7 +38,6 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
     <!-- DATEV DLLs from GAC -->
     <Reference Include="DATEV.Interop.DatevCtiBuddy, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cbc631f1c682336b">
       <EmbedInteropTypes>False</EmbedInteropTypes>
