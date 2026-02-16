@@ -17,9 +17,9 @@ namespace DatevConnector.Core
     internal class DatevCommandHandler
     {
         private readonly CallTracker _callTracker;
-        private readonly Func<ITelephonyProvider> _getProvider;
+        private readonly Func<IConnectionMethod> _getProvider;
 
-        public DatevCommandHandler(CallTracker callTracker, Func<ITelephonyProvider> getProvider)
+        public DatevCommandHandler(CallTracker callTracker, Func<IConnectionMethod> getProvider)
         {
             _callTracker = callTracker;
             _getProvider = getProvider;

@@ -47,7 +47,7 @@ namespace DatevConnector.UI
             int btnSpacing = 8;
 
             string activeModeName = (_service != null && tapiOk)
-                ? TelephonyProviderSelector.GetModeShortName(_service.SelectedTelephonyMode)
+                ? ConnectionMethodSelector.GetModeShortName(_service.SelectedConnectionMode)
                 : "";
 
             _lblStatus = new Label

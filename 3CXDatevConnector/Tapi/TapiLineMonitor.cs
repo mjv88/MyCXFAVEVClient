@@ -86,7 +86,7 @@ namespace DatevConnector.Tapi
     /// Monitors TAPI lines for call events using the Windows TAPI 2.x API.
     /// Thin facade that delegates to TapiInitializer, TapiLineManager, and TapiOperations.
     /// </summary>
-    public class TapiLineMonitor : ITelephonyProvider
+    public class TapiLineMonitor : IConnectionMethod
     {
         private bool _disposed;
         private volatile bool _disposing;
@@ -248,7 +248,7 @@ namespace DatevConnector.Tapi
             await Task.Run(() => MessageLoop(cancellationToken), cancellationToken);
         }
 
-        // ===== ITelephonyProvider delegations =====
+        // ===== IConnectionMethod delegations =====
 
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {

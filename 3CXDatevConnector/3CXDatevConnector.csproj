@@ -74,16 +74,16 @@
     <Compile Include="Core\Config\AppConfig.cs" />
     <Compile Include="Core\Config\ConfigParser.cs" />
     <Compile Include="Core\Config\IniConfig.cs" />
-    <!-- Core - Telephony Mode -->
-    <Compile Include="Core\TelephonyMode.cs" />
-    <Compile Include="Core\TelephonyProviderSelector.cs" />
+    <!-- Core - Connection Mode -->
+    <Compile Include="Core\ConnectionMode.cs" />
+    <Compile Include="Core\ConnectionMethodSelector.cs" />
     <!-- TAPI -->
-    <Compile Include="Tapi\ITelephonyProvider.cs" />
+    <Compile Include="Tapi\IConnectionMethod.cs" />
     <Compile Include="Tapi\TapiLineMonitor.cs" />
     <Compile Include="Tapi\TapiInitializer.cs" />
     <Compile Include="Tapi\TapiLineManager.cs" />
     <Compile Include="Tapi\TapiOperations.cs" />
-    <Compile Include="Tapi\PipeTelephonyProvider.cs" />
+    <Compile Include="Tapi\PipeConnectionMethod.cs" />
     <Compile Include="Tapi\TapiMessage.cs" />
     <Compile Include="Tapi\TapiPipeServer.cs" />
     <Compile Include="Tapi\TapiCommands.cs" />
@@ -92,7 +92,7 @@
     <!-- Webclient (Browser Extension) -->
     <Compile Include="Webclient\Protocol.cs" />
     <Compile Include="Webclient\WebSocketBridgeServer.cs" />
-    <Compile Include="Webclient\WebclientTelephonyProvider.cs" />
+    <Compile Include="Webclient\WebclientConnectionMethod.cs" />
     <!-- DATEV COMs -->
     <Compile Include="Datev\COMs\CallData.cs" />
     <Compile Include="Datev\COMs\DatevAdapter.cs" />

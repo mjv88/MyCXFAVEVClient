@@ -51,7 +51,7 @@ namespace DatevConnector.UI
             int connectedCount = _service?.ConnectedLineCount ?? 0;
 
             string activeModeName = (_service != null && connectedCount > 0)
-                ? TelephonyProviderSelector.GetModeShortName(_service.SelectedTelephonyMode)
+                ? ConnectionMethodSelector.GetModeShortName(_service.SelectedConnectionMode)
                 : "";
 
             _lblSummaryStatus = new Label

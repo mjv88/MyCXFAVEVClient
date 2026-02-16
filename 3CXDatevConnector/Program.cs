@@ -25,7 +25,7 @@ namespace DatevConnector
         static void Main(string[] args)
         {
             // Console test mode: --test-webclient
-            // Starts WebclientTelephonyProvider without UI, reads JSON CALL_EVENT from stdin
+            // Starts WebclientConnectionMethod without UI, reads JSON CALL_EVENT from stdin
             if (args.Length > 0 && args[0] == "--test-webclient")
             {
                 RunWebclientTestMode(args);
@@ -128,7 +128,7 @@ namespace DatevConnector
             Console.WriteLine();
 
             // Create a minimal webclient provider for event mapping
-            var provider = new WebclientTelephonyProvider(extension);
+            var provider = new WebclientConnectionMethod(extension);
             provider.CallStateChanged += (callEvent) =>
             {
                 string direction = callEvent.IsIncoming ? "INBOUND" : "OUTBOUND";
@@ -192,7 +192,7 @@ namespace DatevConnector
         /// <summary>
         /// Simulate a call event in the provider for test mode.
         /// </summary>
-        private static void SimulateCallEvent(WebclientTelephonyProvider provider, ExtensionMessage msg)
+        private static void SimulateCallEvent(WebclientConnectionMethod provider, ExtensionMessage msg)
         {
             provider.SimulateCallEvent(msg);
         }

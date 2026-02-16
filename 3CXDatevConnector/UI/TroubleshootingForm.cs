@@ -13,14 +13,14 @@ namespace DatevConnector.UI
     /// <summary>
     /// Help form showing common problems and solutions.
     /// Provides quick access to log files and troubleshooting guidance.
-    /// Dynamically shows sections based on the active TelephonyMode.
+    /// Dynamically shows sections based on the active ConnectionMode.
     /// </summary>
     public class TroubleshootingForm : Form
     {
         private readonly Panel _contentPanel;
-        private readonly TelephonyMode _selectedMode;
+        private readonly ConnectionMode _selectedMode;
 
-        public TroubleshootingForm(TelephonyMode selectedMode)
+        public TroubleshootingForm(ConnectionMode selectedMode)
         {
             _selectedMode = selectedMode;
             InitializeForm();
@@ -97,8 +97,8 @@ namespace DatevConnector.UI
             _contentPanel.Controls.Add(lblEnv);
             y += 25;
 
-            // 3CX section — dynamic based on TelephonyMode
-            string cxHeader = _selectedMode == TelephonyMode.Auto
+            // 3CX section — dynamic based on ConnectionMode
+            string cxHeader = _selectedMode == ConnectionMode.Auto
                 ? UIStrings.Troubleshooting.CxProblems
                 : string.Format("{0} ({1})", UIStrings.Troubleshooting.CxProblems, GetEnvironmentLabel());
 
@@ -137,9 +137,9 @@ namespace DatevConnector.UI
         {
             var items = new System.Collections.Generic.List<(string problem, string solution)>();
 
-            bool showTapi = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.Tapi;
-            bool showPipe = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.Pipe;
-            bool showWebClient = _selectedMode == TelephonyMode.Auto || _selectedMode == TelephonyMode.WebClient;
+            bool showTapi = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.Tapi;
+            bool showPipe = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.Pipe;
+            bool showWebClient = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.WebClient;
 
             if (showTapi)
             {
@@ -167,9 +167,9 @@ namespace DatevConnector.UI
         {
             switch (_selectedMode)
             {
-                case TelephonyMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
-                case TelephonyMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
-                case TelephonyMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
+                case ConnectionMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case ConnectionMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case ConnectionMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
                 default: return UIStrings.Troubleshooting.EnvAuto;
             }
         }
@@ -283,7 +283,7 @@ namespace DatevConnector.UI
         /// <summary>
         /// Show the troubleshooting form as a non-modal singleton window.
         /// </summary>
-        public static void ShowHelp(TelephonyMode selectedMode)
+        public static void ShowHelp(ConnectionMode selectedMode)
         {
             if (_current != null && !_current.IsDisposed)
             {

@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 namespace DatevConnector.Tapi
 {
     /// <summary>
-    /// Abstraction for telephony providers (TAPI 2.x, Named Pipe, or Webclient).
+    /// Abstraction for connection methods (TAPI 2.x, Named Pipe, or Webclient).
     /// Desktop sessions use TAPI; terminal server sessions use Named Pipe;
     /// browser-only setups use Webclient (browser extension via WebSocket).
     /// </summary>
-    public interface ITelephonyProvider : IDisposable
+    public interface IConnectionMethod : IDisposable
     {
         // ===== Events =====
 

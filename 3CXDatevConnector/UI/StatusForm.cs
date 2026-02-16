@@ -110,12 +110,12 @@ namespace DatevConnector.UI
                 if (_singleLinePanel != null)
                 {
                     string ext = _bridgeService?.Extension;
-                    string modeName = TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode);
+                    string modeName = ConnectionMethodSelector.GetModeShortName(_bridgeService.SelectedConnectionMode);
                     _singleLinePanel.HandleStatusChanged(tapiOk, ext, modeName);
                 }
                 else if (_multiLinePanel != null)
                 {
-                    string modeName = TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode);
+                    string modeName = ConnectionMethodSelector.GetModeShortName(_bridgeService.SelectedConnectionMode);
                     _multiLinePanel.HandleStatusChanged(modeName);
                 }
 
@@ -130,11 +130,11 @@ namespace DatevConnector.UI
             });
         }
 
-        private void OnModeChanged(TelephonyMode mode)
+        private void OnModeChanged(ConnectionMode mode)
         {
             SafeInvoke(() =>
             {
-                string modeName = TelephonyProviderSelector.GetModeShortName(mode);
+                string modeName = ConnectionMethodSelector.GetModeShortName(mode);
                 _singleLinePanel?.UpdateMode(modeName);
                 _multiLinePanel?.UpdateMode(modeName);
             });

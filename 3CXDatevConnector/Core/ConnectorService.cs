@@ -30,7 +30,7 @@ namespace DatevConnector.Core
         private static readonly IReadOnlyList<TapiLineInfo> EmptyLineList = new List<TapiLineInfo>().AsReadOnly();
 
         // Thread-safe mutable state (volatile ensures visibility across threads)
-        private volatile ITelephonyProvider _tapiMonitor;
+        private volatile IConnectionMethod _tapiMonitor;
         private volatile CancellationTokenSource _cts;
         private volatile bool _disposed;
         private Task _pipeServerTask;
@@ -42,9 +42,9 @@ namespace DatevConnector.Core
         // Call history
         private readonly CallHistoryStore _callHistory;
 
-        // Telephony mode selection
-        private volatile TelephonyMode _selectedMode = TelephonyMode.Auto;
-        private TelephonyMode _configuredTelephonyMode = TelephonyMode.Auto;
+        // Connection mode selection
+        private volatile ConnectionMode _selectedMode = ConnectionMode.Auto;
+        private ConnectionMode _configuredConnectionMode = ConnectionMode.Auto;
         private string _detectionDiagnostics;
 
         /// <summary>
@@ -53,9 +53,9 @@ namespace DatevConnector.Core
         public event Action<ConnectorStatus> StatusChanged;
 
         /// <summary>
-        /// Event fired when the selected telephony mode changes (for immediate UI updates).
+        /// Event fired when the selected connection mode changes (for immediate UI updates).
         /// </summary>
-        public event Action<TelephonyMode> ModeChanged;
+        public event Action<ConnectionMode> ModeChanged;
 
         /// <summary>
         /// Current connection status (thread-safe)
@@ -132,9 +132,9 @@ namespace DatevConnector.Core
         public CallHistoryStore CallHistory => _callHistory;
 
         /// <summary>
-        /// The selected telephony mode (after auto-detection or explicit config).
+        /// The selected connection mode (after auto-detection or explicit config).
         /// </summary>
-        public TelephonyMode SelectedTelephonyMode => _selectedMode;
+        public ConnectionMode SelectedConnectionMode => _selectedMode;
 
         /// <summary>
         /// Diagnostic summary from provider auto-detection (for Setup Wizard / troubleshooting).
@@ -184,17 +184,17 @@ namespace DatevConnector.Core
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // ── Step 1: Mode header first, then environment info ─────────
-            _configuredTelephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            _configuredConnectionMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
 
             LogManager.Log("3CX Telefonie Modus Initialisierung...");
             LogManager.Log("3CX Telefonie Modus: {0} (konfiguriert)",
-                _configuredTelephonyMode == TelephonyMode.Auto ? "Auto-Detection" : _configuredTelephonyMode.ToString());
+                _configuredConnectionMode == ConnectionMode.Auto ? "Auto-Detection" : _configuredConnectionMode.ToString());
 
             SessionManager.LogSessionInfo();
 
             // ── Step 2: Provider selection / auto-detection ──────────────
 
-            var selectionResult = await TelephonyProviderSelector.SelectProviderAsync(
+            var selectionResult = await ConnectionMethodSelector.SelectProviderAsync(
                 _extension, _cts.Token);
 
             _selectedMode = selectionResult.SelectedMode;
@@ -205,7 +205,7 @@ namespace DatevConnector.Core
 
             // For Pipe mode on Terminal Server, start the pipe FIRST before DATEV init
             // so the 3CX Softphone can find it while we load contacts
-            bool isPipeMode = _selectedMode == TelephonyMode.Pipe;
+            bool isPipeMode = _selectedMode == ConnectionMode.Pipe;
             if (isPipeMode && selectionResult.Success)
             {
                 LogManager.Log("========================================");
@@ -372,22 +372,22 @@ namespace DatevConnector.Core
         }
 
         /// <summary>
-        /// Create the appropriate telephony provider based on the selected mode.
+        /// Create the appropriate connection method based on the selected mode.
         /// Supports TAPI 2.x, Named Pipe, and Webclient (browser extension).
         /// </summary>
-        private ITelephonyProvider CreateTelephonyProvider(string lineFilter)
+        private IConnectionMethod CreateConnectionMethod(string lineFilter)
         {
             switch (_selectedMode)
             {
-                case TelephonyMode.WebClient:
-                    LogManager.Log("WebClient-Modus - verwende WebclientTelephonyProvider");
-                    return new WebclientTelephonyProvider(_extension);
+                case ConnectionMode.WebClient:
+                    LogManager.Log("WebClient-Modus - verwende WebclientConnectionMethod");
+                    return new WebclientConnectionMethod(_extension);
 
-                case TelephonyMode.Pipe:
+                case ConnectionMode.Pipe:
                     LogManager.Log("Terminal Server (TAPI)-Modus - verwende Named Pipe Provider");
-                    return new PipeTelephonyProvider(_extension);
+                    return new PipeConnectionMethod(_extension);
 
-                case TelephonyMode.Tapi:
+                case ConnectionMode.Tapi:
                 default:
                     LogManager.Log("Desktop (TAPI)-Modus - verwende TapiLineMonitor");
                     return new TapiLineMonitor(lineFilter, _extension);
@@ -419,7 +419,7 @@ namespace DatevConnector.Core
         /// <summary>
         /// Connect to 3CX via Windows TAPI with automatic retry
         /// </summary>
-        private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, ITelephonyProvider initialProvider = null)
+        private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, IConnectionMethod initialProvider = null)
         {
             var ini = DebugConfigWatcher.Instance;
             int reconnectInterval = DebugConfigWatcher.GetInt(
@@ -435,7 +435,7 @@ namespace DatevConnector.Core
             {
                 try
                 {
-                    ITelephonyProvider providerToUse = null;
+                    IConnectionMethod providerToUse = null;
 
                     if (initialProvider != null)
                     {
@@ -445,17 +445,17 @@ namespace DatevConnector.Core
                     }
                     else
                     {
-                        var configuredModeNow = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-                        if (configuredModeNow != _configuredTelephonyMode)
+                        var configuredModeNow = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+                        if (configuredModeNow != _configuredConnectionMode)
                         {
-                            LogManager.Log("TelephonyMode Konfiguration zur Laufzeit geändert: {0} -> {1}",
-                                _configuredTelephonyMode, configuredModeNow);
-                            _configuredTelephonyMode = configuredModeNow;
+                            LogManager.Log("ConnectionMode Konfiguration zur Laufzeit geändert: {0} -> {1}",
+                                _configuredConnectionMode, configuredModeNow);
+                            _configuredConnectionMode = configuredModeNow;
                         }
 
-                        if (_configuredTelephonyMode == TelephonyMode.Auto)
+                        if (_configuredConnectionMode == ConnectionMode.Auto)
                         {
-                            var autoSelection = await TelephonyProviderSelector.SelectProviderAsync(_extension, cancellationToken);
+                            var autoSelection = await ConnectionMethodSelector.SelectProviderAsync(_extension, cancellationToken);
                             if (autoSelection.Success)
                             {
                                 if (_selectedMode != autoSelection.SelectedMode)
@@ -477,10 +477,10 @@ namespace DatevConnector.Core
                         }
                         else
                         {
-                            _selectedMode = _configuredTelephonyMode;
-                            _detectionDiagnostics = string.Format("TelephonyMode explicitly configured: {0}", _configuredTelephonyMode);
-                            LogManager.Log("Verbindungszyklus mit explizitem TelephonyMode: {0}", _configuredTelephonyMode);
-                            providerToUse = CreateTelephonyProvider(lineFilter);
+                            _selectedMode = _configuredConnectionMode;
+                            _detectionDiagnostics = string.Format("ConnectionMode explicitly configured: {0}", _configuredConnectionMode);
+                            LogManager.Log("Verbindungszyklus mit explizitem ConnectionMode: {0}", _configuredConnectionMode);
+                            providerToUse = CreateConnectionMethod(lineFilter);
                         }
                     }
 
@@ -696,10 +696,10 @@ namespace DatevConnector.Core
             DatevContactRepository.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
             // Telephony mode — update immediately for UI feedback
-            var newMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
-            if (newMode != _configuredTelephonyMode)
+            var newMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+            if (newMode != _configuredConnectionMode)
             {
-                _configuredTelephonyMode = newMode;
+                _configuredConnectionMode = newMode;
                 _selectedMode = newMode;
                 ModeChanged?.Invoke(_selectedMode);
             }

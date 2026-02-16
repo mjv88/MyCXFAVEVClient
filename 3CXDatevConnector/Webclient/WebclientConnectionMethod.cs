@@ -13,14 +13,14 @@ using static DatevConnector.Interop.TapiInterop;
 namespace DatevConnector.Webclient
 {
     /// <summary>
-    /// Telephony provider for 3CX Webclient via browser extension.
+    /// Connection method for 3CX Webclient via browser extension.
     /// Call events arrive from the extension through a WebSocket connection;
     /// commands (DIAL, DROP) are sent back to the extension.
     ///
     /// The bridge listens on ws://127.0.0.1:{port} (default 19800).
     /// The browser extension connects directly — no relay process needed.
     /// </summary>
-    public class WebclientTelephonyProvider : ITelephonyProvider
+    public class WebclientConnectionMethod : IConnectionMethod
     {
         // Sentinel handle for the virtual line
         private static readonly IntPtr WebclientConnectedHandle = new IntPtr(-3);
@@ -46,7 +46,7 @@ namespace DatevConnector.Webclient
         // IPC — WebSocket
         private WebSocketBridgeServer _wsServer;
 
-        // ===== ITelephonyProvider Events =====
+        // ===== IConnectionMethod Events =====
         public event Action<TapiCallEvent> CallStateChanged;
         public event Action<TapiLineInfo> LineConnected;
         public event Action<TapiLineInfo> LineDisconnected;
@@ -60,7 +60,7 @@ namespace DatevConnector.Webclient
         public string Extension => _extension;
         public IReadOnlyList<TapiLineInfo> Lines => _lines.AsReadOnly();
 
-        public WebclientTelephonyProvider(string extension)
+        public WebclientConnectionMethod(string extension)
         {
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
             _connectTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
@@ -351,7 +351,7 @@ namespace DatevConnector.Webclient
                 callEvent.CallStateString, callId,
                 LogManager.Mask(callEvent.CallerNumber) ?? "-", LogManager.Mask(callEvent.CalledNumber) ?? "-", state);
 
-            EventHelper.SafeInvoke(CallStateChanged, callEvent, "WebclientTelephonyProvider.CallStateChanged");
+            EventHelper.SafeInvoke(CallStateChanged, callEvent, "WebclientConnectionMethod.CallStateChanged");
 
             // Clean up ended calls
             if (tapiState == LINECALLSTATE_DISCONNECTED)

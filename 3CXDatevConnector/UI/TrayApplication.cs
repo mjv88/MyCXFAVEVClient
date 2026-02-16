@@ -105,7 +105,7 @@ namespace DatevConnector.UI
             var helpMenu = _contextMenu.Items["helpMenu"] as ToolStripMenuItem;
             if (helpMenu != null)
             {
-                helpMenu.DropDownItems["helpItem"].Click += (s, e) => TroubleshootingForm.ShowHelp(_bridgeService.SelectedTelephonyMode);
+                helpMenu.DropDownItems["helpItem"].Click += (s, e) => TroubleshootingForm.ShowHelp(_bridgeService.SelectedConnectionMode);
                 helpMenu.DropDownItems["logItem"].Click += (s, e) => OnOpenLogFile();
                 helpMenu.DropDownItems["wizardItem"].Click += (s, e) => SetupWizardForm.ShowWizard(_bridgeService);
             }
@@ -178,7 +178,7 @@ namespace DatevConnector.UI
                     if (statusChanged)
                     {
                         string connMsg;
-                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.WebClient)
+                        if (_bridgeService.SelectedConnectionMode == Core.ConnectionMode.WebClient)
                             connMsg = string.Format(UIStrings.Notifications.WebclientConnected, _bridgeService.Extension);
                         else if (SessionManager.IsTerminalSession)
                             connMsg = string.Format(UIStrings.Notifications.PipeConnected, _bridgeService.Extension);
@@ -199,7 +199,7 @@ namespace DatevConnector.UI
                     if (statusChanged)
                     {
                         string discMsg;
-                        if (_bridgeService.SelectedTelephonyMode == Core.TelephonyMode.WebClient)
+                        if (_bridgeService.SelectedConnectionMode == Core.ConnectionMode.WebClient)
                             discMsg = UIStrings.Notifications.WebclientDisconnected;
                         else if (SessionManager.IsTerminalSession)
                             discMsg = UIStrings.Notifications.PipeDisconnected;

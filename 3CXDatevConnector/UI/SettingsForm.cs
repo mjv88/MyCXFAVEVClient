@@ -63,7 +63,7 @@ namespace DatevConnector.UI
         private CheckBox _chkTrayDoubleClickCallHistory;
 
         // Telephony Mode
-        private ComboBox _cboTelephonyMode;
+        private ComboBox _cboConnectionMode;
         private Label _lblMode;
 
         // Popup - Journaling
@@ -101,7 +101,7 @@ namespace DatevConnector.UI
             };
         }
 
-        private void OnModeChanged(TelephonyMode mode)
+        private void OnModeChanged(ConnectionMode mode)
         {
             SafeInvoke(() => RefreshOverviewStatus());
         }
@@ -165,7 +165,7 @@ namespace DatevConnector.UI
             root.Controls.Add(advancedCard);
 
             // === TELEPHONY MODE ===
-            var telephonyCard = BuildTelephonyModeCard();
+            var telephonyCard = BuildConnectionModeCard();
             telephonyCard.Location = new Point(LayoutConstants.SpaceMD, 430);
             telephonyCard.Size = new Size(492, 50);
             root.Controls.Add(telephonyCard);
@@ -292,7 +292,7 @@ namespace DatevConnector.UI
             y += 14;
 
             var modeText = _bridgeService != null
-                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                ? ConnectionMethodSelector.GetModeShortName(_bridgeService.SelectedConnectionMode)
                 : "\u2014";
             _lblMode = new Label
             {
@@ -452,7 +452,7 @@ namespace DatevConnector.UI
 
         // ========== TELEPHONY MODE CARD ==========
 
-        private Panel BuildTelephonyModeCard()
+        private Panel BuildConnectionModeCard()
         {
             var card = new Panel { BackColor = UITheme.CardBackground };
             card.Paint += CardBorder_Paint;
@@ -464,7 +464,7 @@ namespace DatevConnector.UI
             // Title
             card.Controls.Add(new Label
             {
-                Text = UIStrings.Sections.TelephonyMode,
+                Text = UIStrings.Sections.ConnectionMode,
                 Font = UITheme.FontLabel,
                 ForeColor = UITheme.TextPrimary,
                 AutoSize = true,
@@ -474,13 +474,13 @@ namespace DatevConnector.UI
             // Mode dropdown
             card.Controls.Add(new Label
             {
-                Text = UIStrings.SettingsLabels.TelephonyMode,
+                Text = UIStrings.SettingsLabels.ConnectionMode,
                 AutoSize = true,
                 ForeColor = UITheme.TextSecondary,
                 Location = new Point(col2, row1 + 2)
             });
 
-            _cboTelephonyMode = new ComboBox
+            _cboConnectionMode = new ComboBox
             {
                 Location = new Point(col2 + 100, row1 - 2),
                 Size = new Size(130, 22),
@@ -489,14 +489,14 @@ namespace DatevConnector.UI
                 ForeColor = UITheme.TextPrimary,
                 Font = UITheme.FontSmall
             };
-            _cboTelephonyMode.Items.AddRange(new object[]
+            _cboConnectionMode.Items.AddRange(new object[]
             {
-                UIStrings.SettingsLabels.TelephonyModeAuto,
-                UIStrings.SettingsLabels.TelephonyModeTapi,
-                UIStrings.SettingsLabels.TelephonyModePipe,
-                UIStrings.SettingsLabels.TelephonyModeWebclient
+                UIStrings.SettingsLabels.ConnectionModeAuto,
+                UIStrings.SettingsLabels.ConnectionModeTapi,
+                UIStrings.SettingsLabels.ConnectionModePipe,
+                UIStrings.SettingsLabels.ConnectionModeWebclient
             });
-            card.Controls.Add(_cboTelephonyMode);
+            card.Controls.Add(_cboConnectionMode);
 
             return card;
         }
@@ -577,7 +577,7 @@ namespace DatevConnector.UI
             _lblExtension.Text = string.Format(UIStrings.SettingsLabels.Extension, showExt ? ext : "");
 
             _lblMode.Text = tapiOk
-                ? TelephonyProviderSelector.GetModeShortName(_bridgeService.SelectedTelephonyMode)
+                ? ConnectionMethodSelector.GetModeShortName(_bridgeService.SelectedConnectionMode)
                 : "";
         }
 
@@ -744,13 +744,13 @@ namespace DatevConnector.UI
             _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
 
             // Telephony Mode
-            var telephonyMode = AppConfig.GetEnum(ConfigKeys.TelephonyMode, TelephonyMode.Auto);
+            var telephonyMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
             switch (telephonyMode)
             {
-                case TelephonyMode.Tapi: _cboTelephonyMode.SelectedIndex = 1; break;
-                case TelephonyMode.Pipe: _cboTelephonyMode.SelectedIndex = 2; break;
-                case TelephonyMode.WebClient: _cboTelephonyMode.SelectedIndex = 3; break;
-                default: _cboTelephonyMode.SelectedIndex = 0; break;
+                case ConnectionMode.Tapi: _cboConnectionMode.SelectedIndex = 1; break;
+                case ConnectionMode.Pipe: _cboConnectionMode.SelectedIndex = 2; break;
+                case ConnectionMode.WebClient: _cboConnectionMode.SelectedIndex = 3; break;
+                default: _cboConnectionMode.SelectedIndex = 0; break;
             }
 
             _isLoadingSettings = false;
@@ -836,10 +836,10 @@ namespace DatevConnector.UI
 
             // Telephony Mode (requires restart to take effect)
             string[] modeValues = { "Auto", "Tapi", "Pipe", "WebClient" };
-            int modeIndex = _cboTelephonyMode.SelectedIndex;
+            int modeIndex = _cboConnectionMode.SelectedIndex;
             if (modeIndex >= 0 && modeIndex < modeValues.Length)
             {
-                AppConfig.Set(ConfigKeys.TelephonyMode, modeValues[modeIndex]);
+                AppConfig.Set(ConfigKeys.ConnectionMode, modeValues[modeIndex]);
             }
 
             // Apply settings live to running service

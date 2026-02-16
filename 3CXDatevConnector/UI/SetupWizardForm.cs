@@ -13,8 +13,8 @@ namespace DatevConnector.UI
 {
     /// <summary>
     /// First-run setup wizard for initial configuration.
-    /// Auto-detects the telephony provider and guides user through
-    /// provider verification, DATEV connection test, and autostart setup.
+    /// Auto-detects the connection method and guides user through
+    /// connection verification, DATEV connection test, and autostart setup.
     /// </summary>
     public class SetupWizardForm : Form
     {
@@ -160,14 +160,14 @@ namespace DatevConnector.UI
             y += 70;
 
             // Feature list based on detected mode
-            var detectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            var detectedMode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
             string providerFeature;
             switch (detectedMode)
             {
-                case TelephonyMode.WebClient:
+                case ConnectionMode.WebClient:
                     providerFeature = UIStrings.Wizard.FeatureWebclient;
                     break;
-                case TelephonyMode.Pipe:
+                case ConnectionMode.Pipe:
                     providerFeature = UIStrings.Wizard.FeaturePipe;
                     break;
                 default:
@@ -214,17 +214,17 @@ namespace DatevConnector.UI
 
         private void ShowProviderConfigPage()
         {
-            var detectedMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            var detectedMode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
 
             switch (detectedMode)
             {
-                case TelephonyMode.WebClient:
+                case ConnectionMode.WebClient:
                     ShowWebclientPage();
                     break;
-                case TelephonyMode.Pipe:
+                case ConnectionMode.Pipe:
                     ShowPipePage();
                     break;
-                case TelephonyMode.Tapi:
+                case ConnectionMode.Tapi:
                     ShowTapiPage();
                     break;
                 default:
@@ -434,7 +434,7 @@ namespace DatevConnector.UI
 
             // Connection status
             bool webclientConnected = _bridgeService?.TapiConnected ?? false;
-            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
+            var activeMode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
 
             _lblTapiStatus = new Label
             {
@@ -443,7 +443,7 @@ namespace DatevConnector.UI
                 Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
             };
 
-            if (activeMode == TelephonyMode.WebClient && webclientConnected)
+            if (activeMode == ConnectionMode.WebClient && webclientConnected)
             {
                 _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
                 _lblTapiStatus.ForeColor = UITheme.StatusOk;
@@ -614,18 +614,18 @@ namespace DatevConnector.UI
             var lines = new System.Text.StringBuilder();
 
             // Telephony mode (auto-detected)
-            var activeMode = _bridgeService?.SelectedTelephonyMode ?? TelephonyMode.Auto;
-            lines.AppendLine(string.Format("Modus: {0}", TelephonyProviderSelector.GetModeDescription(activeMode)));
+            var activeMode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
+            lines.AppendLine(string.Format("Modus: {0}", ConnectionMethodSelector.GetModeDescription(activeMode)));
 
             // 3CX connection status
             bool connected = _bridgeService?.TapiConnected ?? false;
 
             switch (activeMode)
             {
-                case TelephonyMode.WebClient:
+                case ConnectionMode.WebClient:
                     lines.AppendLine(string.Format("WebClient: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
                     break;
-                case TelephonyMode.Pipe:
+                case ConnectionMode.Pipe:
                     lines.AppendLine(string.Format("3CX Pipe: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
                     break;
                 default:
@@ -684,8 +684,8 @@ namespace DatevConnector.UI
                 }
 
                 // Always use Auto mode (auto-detection)
-                AppConfig.Set(ConfigKeys.TelephonyMode, TelephonyMode.Auto.ToString());
-                LogManager.Log("SetupWizard: TelephonyMode auf Auto gesetzt");
+                AppConfig.Set(ConfigKeys.ConnectionMode, ConnectionMode.Auto.ToString());
+                LogManager.Log("SetupWizard: ConnectionMode auf Auto gesetzt");
 
                 LogManager.Log("SetupWizard: Konfiguration abgeschlossen");
             }
@@ -697,13 +697,13 @@ namespace DatevConnector.UI
 
         // ========== HELPERS ==========
 
-        private static string GetEnvironmentLabel(TelephonyMode mode)
+        private static string GetEnvironmentLabel(ConnectionMode mode)
         {
             switch (mode)
             {
-                case TelephonyMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
-                case TelephonyMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
-                case TelephonyMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
+                case ConnectionMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case ConnectionMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case ConnectionMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
                 default: return UIStrings.Troubleshooting.EnvAuto;
             }
         }

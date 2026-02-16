@@ -247,11 +247,11 @@ namespace DatevConnector.UI.Strings
             public const string WebclientWaiting = "Warte auf Browser-Erweiterung...";
             public const string WebclientNotDetected = "Browser-Erweiterung nicht erkannt";
 
-            // Telephony mode selection (setup wizard)
+            // Connection mode selection (setup wizard)
             public const string ModeSelectionTitle = "Telefonie-Modus";
             public const string ModeSelectionDesc = "Wie verbinden Sie sich mit 3CX?";
-            public const string ModeOptionTapi = "3CX Windows App (Desktop / TAPI)";
-            public const string ModeOptionPipe = "3CX Windows App (Terminal Server)";
+            public const string ModeOptionTapi = "3CX Windows App (Desktop (TAPI))";
+            public const string ModeOptionPipe = "3CX Windows App (Terminal Server (TAPI))";
             public const string ModeOptionWebclient = "3CX Webclient (nur Browser / WebRTC)";
             public const string ModeOptionAuto = "Automatisch erkennen";
             public const string FeatureWebclient = "Webclient / Browser-Erweiterung konfigurieren";
@@ -401,7 +401,7 @@ namespace DatevConnector.UI.Strings
             public const string CallerId = "Anruferkennung";
             public const string CallHistorySection = "Anrufliste";
             public const string Webclient = "WebClient";
-            public const string TelephonyMode = "Telefonie-Modus";
+            public const string ConnectionMode = "Verbindungsmodus";
         }
 
         // ===== SETTINGS LABELS =====
@@ -425,11 +425,11 @@ namespace DatevConnector.UI.Strings
             public const string Extension = "{0}";
             public const string Sync = "Sync: {0}";
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
-            public const string TelephonyMode = "Telefonie-Modus:";
-            public const string TelephonyModeAuto = "Automatisch";
-            public const string TelephonyModeTapi = "Desktop (TAPI)";
-            public const string TelephonyModePipe = "Terminal Server (TAPI)";
-            public const string TelephonyModeWebclient = "Webclient (Browser)";
+            public const string ConnectionMode = "Verbindungsmodus:";
+            public const string ConnectionModeAuto = "Automatisch";
+            public const string ConnectionModeTapi = "Desktop (TAPI)";
+            public const string ConnectionModePipe = "Terminal Server (TAPI)";
+            public const string ConnectionModeWebclient = "Webclient (Browser)";
             public const string WebclientTimeout = "Webclient Timeout:";
         }
     }

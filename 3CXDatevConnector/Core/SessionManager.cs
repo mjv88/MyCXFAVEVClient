@@ -89,7 +89,7 @@ namespace DatevConnector.Core
         /// </summary>
         internal static void LogSessionInfo()
         {
-            LogManager.Log("Terminal Server: {0}", IsTerminalSession ? "Ja" : "Nein");
+            LogManager.Log("Terminal Server (TAPI): {0}", IsTerminalSession ? "Ja" : "Nein");
         }
 
         /// <summary>
@@ -171,7 +171,7 @@ namespace DatevConnector.Core
             LogManager.Warning("=== 3CX TAPI Diagnostik ===");
             LogManager.Warning("  Session: {0} ({1})",
                 CurrentSessionKey,
-                IsTerminalSession ? "Terminal Server / RDP" : "Lokale Konsole");
+                IsTerminalSession ? "Terminal Server (TAPI) / RDP" : "Lokale Konsole");
             LogManager.Warning("  3CX Prozess läuft: {0}", is3CXRunning ? "Ja" : "Nein");
             LogManager.Warning("  3CX TAPI Pipe ({0}): {1}",
                 "3CX_tsp_server_" + (extension ?? "?"),
@@ -181,7 +181,7 @@ namespace DatevConnector.Core
             {
                 LogManager.Warning("  -> 3CX Desktop App muss in dieser Sitzung gestartet werden!");
                 if (IsTerminalSession)
-                    LogManager.Warning("  -> Auf dem Terminal Server muss die 3CX App pro RDP-Sitzung laufen.");
+                    LogManager.Warning("  -> Auf dem Terminal Server (TAPI) muss die 3CX App pro RDP-Sitzung laufen.");
             }
             else if (!isPipeAvailable)
             {

@@ -69,7 +69,7 @@ namespace DatevConnector.Core.Config
             // DATEV
             { ConfigKeys.ActiveContactsOnly, "false" },
 
-            // Telephony Mode
+            // Connection Mode
             { ConfigKeys.TelephonyMode, "Auto" },
             { ConfigKeys.AutoDetectionTimeoutSec, "10" },
             { ConfigKeys.WebclientConnectTimeoutSec, "8" },
@@ -124,7 +124,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.LogMaxFiles, SectionLogging },
             { ConfigKeys.LogAsync, SectionLogging },
 
-            // Telephony Mode
+            // Connection Mode
             { ConfigKeys.TelephonyMode, SectionConnection },
             { ConfigKeys.AutoDetectionTimeoutSec, SectionConnection },
             { ConfigKeys.WebclientConnectTimeoutSec, SectionConnection },
@@ -355,7 +355,7 @@ namespace DatevConnector.Core.Config
 
                     writer.WriteLine("[Connection]");
                     writer.WriteLine("// TelephonyMode: Auto, Tapi, Pipe, Webclient");
-                    writer.WriteLine("// Auto = detect best provider at startup (Desktop/TAPI -> Terminal Server/TAPI -> Webclient)");
+                    writer.WriteLine("// Auto = detect best provider at startup (Desktop (TAPI) -> Terminal Server (TAPI) -> Webclient)");
                     writer.WriteLine(DefaultLine(ConfigKeys.TelephonyMode));
                     writer.WriteLine("// Auto-detection timeout in seconds");
                     writer.WriteLine(DefaultLine(ConfigKeys.AutoDetectionTimeoutSec));

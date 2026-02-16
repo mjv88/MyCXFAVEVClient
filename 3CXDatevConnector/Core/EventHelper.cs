@@ -4,9 +4,9 @@ using DatevConnector.Datev.Managers;
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Shared helper for safe event invocation across all telephony providers.
+    /// Shared helper for safe event invocation across all connection methods.
     /// Centralizes disposal-aware exception handling that was previously duplicated
-    /// in TapiLineMonitor, PipeTelephonyProvider, and WebclientTelephonyProvider.
+    /// in TapiLineMonitor, PipeConnectionMethod, and WebclientConnectionMethod.
     /// </summary>
     public static class EventHelper
     {

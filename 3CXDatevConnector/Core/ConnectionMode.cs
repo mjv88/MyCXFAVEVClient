@@ -1,10 +1,10 @@
 namespace DatevConnector.Core
 {
     /// <summary>
-    /// Telephony provider mode selection.
+    /// Connection method mode selection.
     /// Auto (default) attempts detection in priority order: Desktop (TAPI) -> Terminal Server (TAPI) -> Webclient.
     /// </summary>
-    public enum TelephonyMode
+    public enum ConnectionMode
     {
         /// <summary>
         /// Auto-detect the best available provider at startup.
