@@ -5,9 +5,6 @@ using DatevConnector.Tapi;
 
 namespace DatevConnector.Core
 {
-    /// <summary>
-    /// Tracks state for a single call
-    /// </summary>
     public class CallRecord
     {
         /// <summary>
@@ -15,9 +12,6 @@ namespace DatevConnector.Core
         /// </summary>
         public string TapiCallId { get; set; }
 
-        /// <summary>
-        /// Is this an incoming call
-        /// </summary>
         public bool IsIncoming { get; set; }
 
         /// <summary>
@@ -35,9 +29,6 @@ namespace DatevConnector.Core
         /// </summary>
         public DateTime? ConnectedTime { get; set; }
 
-        /// <summary>
-        /// When the call ended
-        /// </summary>
         public DateTime? EndTime { get; set; }
 
         /// <summary>
@@ -50,19 +41,10 @@ namespace DatevConnector.Core
         /// </summary>
         public TapiCallState TapiState { get; set; }
 
-        /// <summary>
-        /// Was the call ever connected
-        /// </summary>
         public bool WasConnected => ConnectedTime.HasValue;
 
-        /// <summary>
-        /// The CallData object for DATEV notifications
-        /// </summary>
         public CallData CallData { get; set; }
 
-        /// <summary>
-        /// Create a new call record
-        /// </summary>
         public CallRecord(string tapiCallId, bool isIncoming)
         {
             TapiCallId = tapiCallId;

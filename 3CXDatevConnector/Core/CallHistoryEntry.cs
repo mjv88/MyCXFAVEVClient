@@ -48,9 +48,6 @@ namespace DatevConnector.Core
             };
         }
 
-        /// <summary>
-        /// Create a history entry from a completed call record
-        /// </summary>
         public static CallHistoryEntry FromCallRecord(CallRecord record)
         {
             var entry = new CallHistoryEntry
