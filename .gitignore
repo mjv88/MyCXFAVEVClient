@@ -65,3 +65,17 @@ nCrunchTemp_*
 
 # Publish
 publish/
+
+# Secrets and credentials
+*.env
+*.env.*
+*.ini
+secrets.json
+credentials*
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Claude Code local settings
+.claude/settings.local.json

@@ -1084,7 +1084,7 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 
 ## License
 
-Proprietary — Internal use only
+MIT — see [LICENSE](LICENSE)
 
 ## Design Decisions
 
