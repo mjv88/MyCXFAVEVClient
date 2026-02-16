@@ -772,7 +772,7 @@ Outbound no-answer (absence):
 
 ## 3CX WebClient Protocol Internals
 
-This section documents the internal signaling protocol of the 3CX Webclient, reverse-engineered from the 3CX PWA's main bundle. This knowledge is needed to build the browser extension that intercepts call events.
+This section documents the 3CX WebClient signaling protocol as used by the browser extension to intercept call events.
 
 ### Transport
 

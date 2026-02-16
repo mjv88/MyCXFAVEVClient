@@ -58,8 +58,6 @@ function resolveExtensionNumber() {
   return configuredExtension || detectedExtension || "";
 }
 
-// ===== WebSocket transport =====
-
 // Probe port with fetch before opening a WebSocket. Fetch errors are silently
 // catchable and do NOT appear on chrome://extensions, unlike WebSocket
 // ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
@@ -188,8 +186,6 @@ function scheduleReconnect() {
   }, reconnectDelay);
 }
 
-// ===== HELLO handshake =====
-
 function ensureHello(sourceTabId = "") {
   if (helloAcked) return;
   if (helloSent && ws && ws.readyState === WebSocket.OPEN) return;
@@ -255,8 +251,6 @@ function scheduleHelloBootstrap(delayMs = 250) {
   }, Math.max(0, delayMs));
 }
 
-// ===== Call event mapping =====
-
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
   return {
     v: PROTOCOL_VERSION,
@@ -281,8 +275,6 @@ function emitCallEvent(event, sourceTabId = "") {
   ensureHello(sourceTabId);
   sendBridge(event);
 }
-
-// ===== Bridge COMMAND handling (DIAL, DROP) =====
 
 function handleBridgeCommand(msg) {
   if (msg.cmd === "DIAL" && msg.number) {
@@ -437,8 +429,6 @@ function tryHandleDecodedMyExtensionInfo(message, sourceTabId = "") {
 
   return true;
 }
-
-// ===== Protobuf parsing =====
 
 function base64ToBytes(base64) {
   const binary = atob(base64);
@@ -686,8 +676,6 @@ function parse3cxFrame(payload) {
 
   return null;
 }
-
-// ===== Message listeners =====
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "GET_STATUS") {

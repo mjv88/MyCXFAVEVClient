@@ -84,9 +84,7 @@
 
   try {
     Object.setPrototypeOf(patchedWebSocket, NativeWebSocket);
-  } catch {
-    // best effort only
-  }
+  } catch {}
 
   ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach((name) => {
     try {
@@ -98,9 +96,7 @@
           writable: false
         });
       }
-    } catch {
-      // best effort only
-    }
+    } catch {}
   });
 
   window.WebSocket = patchedWebSocket;

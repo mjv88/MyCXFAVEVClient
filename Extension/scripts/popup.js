@@ -27,11 +27,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     extLabel.textContent = extension || "\u2014";
   });
 
-  // Load dial delay from storage
   const cfg = await chrome.storage.local.get(["dialDelay"]);
   dialDelayInput.value = cfg.dialDelay ?? DEFAULT_DIAL_DELAY;
 
-  // Save button
   saveBtn.addEventListener("click", async () => {
     const dialDelay = parseInt(dialDelayInput.value, 10);
     if (isNaN(dialDelay) || dialDelay < 0 || dialDelay > 5000) return;
@@ -46,7 +44,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 1200);
   });
 
-  // Reload button
   reloadBtn.addEventListener("click", () => {
     chrome.runtime.reload();
   });
