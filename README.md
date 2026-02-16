@@ -1009,8 +1009,8 @@ The following prefixes are used for structured logging (inline string prefixes i
 [INFO]   DATEV SDD (Kontakte): Available
 [INFO]   DATEV available - all components detected
 [INFO] =============================
-[INFO] TAPI line monitor connected: 161 : Marcos Valassas
-[INFO] Extension auto-detected from 3CX TAPI: 161
+[INFO] TAPI line monitor connected: 100 : Max Mustermann
+[INFO] Extension auto-detected from 3CX TAPI: 100
 [INFO] Contact cache initialized: 19421 contacts loaded, 24251 unique phone numbers indexed
 ```
 

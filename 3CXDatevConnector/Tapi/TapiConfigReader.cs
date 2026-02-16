@@ -171,7 +171,7 @@ namespace DatevConnector.Tapi
         /// </summary>
         private static TapiLineConfig ParseCsvLine(string line)
         {
-            // Split on comma: "161, Marcos Valassas" -> ["161", " Marcos Valassas"]
+            // Split on comma: "100, Max Mustermann" -> ["100", " Max Mustermann"]
             int commaIndex = line.IndexOf(',');
             if (commaIndex > 0)
             {

@@ -13,13 +13,8 @@ namespace DatevConnector.Tapi
     /// <summary>
     /// Named pipe server that replaces dialer.exe on terminal servers.
     /// Creates \\.\pipe\3CX_tsp_server_{extension} and waits for the
-    /// 3CX Softphone to connect as client (it polls every 2 seconds).
-    ///
-    /// Protocol (reverse-engineered from 3CXSoftphone.dll v20):
-    ///   Wire: [2 bytes LE length][UTF-16LE payload]
-    ///   Payload: comma-separated key=value pairs
-    ///   Commands from softphone: RINGING, RINGBACK, CONNECTED, DISCONNECTED, CALL-INFO
-    ///   Commands to softphone: MAKE-CALL, DROP-CALL
+    /// Commands from softphone: RINGING, RINGBACK, CONNECTED, DISCONNECTED, CALL-INFO
+    /// Commands to softphone: MAKE-CALL, DROP-CALL
     /// </summary>
     public class TapiPipeServer : IDisposable
     {
@@ -62,9 +57,7 @@ namespace DatevConnector.Tapi
 
         /// <summary>
         /// Create pipe security that allows MSIX/AppContainer apps to connect.
-        /// The 3CX Softphone v20 is an MSIX app running in an AppContainer sandbox.
-        /// Without explicit ACLs for ALL APPLICATION PACKAGES (S-1-15-2-1),
-        /// the Softphone cannot connect to our named pipe.
+        /// Without explicit ACLs for ALL APPLICATION PACKAGES (S-1-15-2-1), the Softphone cannot connect to our named pipe.
         /// </summary>
         private static PipeSecurity CreatePipeSecurity()
         {
@@ -80,8 +73,6 @@ namespace DatevConnector.Tapi
                     AccessControlType.Allow));
             }
 
-            // Grant read/write to ALL APPLICATION PACKAGES — required for MSIX AppContainer apps
-            // SID S-1-15-2-1 = APPLICATION PACKAGE AUTHORITY\ALL APPLICATION PACKAGES
             try
             {
                 var appPackagesSid = new SecurityIdentifier("S-1-15-2-1");
@@ -95,7 +86,6 @@ namespace DatevConnector.Tapi
                 LogManager.Debug("PipeServer: Could not add AppContainer ACL: {0}", ex.Message);
             }
 
-            // Grant read/write to Everyone as fallback for broad compatibility
             try
             {
                 var everyoneSid = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
@@ -113,22 +103,20 @@ namespace DatevConnector.Tapi
         }
 
         /// <summary>
-        /// Run the pipe server loop. Creates the pipe, waits for the 3CX Softphone
-        /// to connect, reads messages, and reconnects when the client disconnects.
+        /// Run the pipe server loop. Creates the pipe, waits for the 3CX Softphone to connect, reads messages, and reconnects when the client disconnects.
         /// Blocks until cancellation.
         /// </summary>
         public async Task RunAsync(CancellationToken cancellationToken)
         {
             LogManager.Log("PipeServer: Starte auf \\\\.\\pipe\\{0}", _pipeName);
 
-            // Diagnostic: list any existing 3CX pipes on the system
             LogExisting3CXPipes();
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    // Create a new pipe instance with permissive ACLs for MSIX AppContainer access
+
                     var security = CreatePipeSecurity();
                     _pipe = new NamedPipeServerStream(
                         _pipeName,
@@ -226,7 +214,6 @@ namespace DatevConnector.Tapi
             {
                 while (!cancellationToken.IsCancellationRequested && pipe.IsConnected)
                 {
-                    // Read 2-byte length prefix (little-endian)
                     int bytesRead = await ReadExactAsync(pipe, lengthBuffer, LengthPrefixSize, cancellationToken);
                     if (bytesRead < LengthPrefixSize)
                     {
@@ -242,7 +229,6 @@ namespace DatevConnector.Tapi
                         continue;
                     }
 
-                    // Read message payload
                     byte[] contentBuffer = new byte[messageLength];
                     bytesRead = await ReadExactAsync(pipe, contentBuffer, messageLength, cancellationToken);
                     if (bytesRead < messageLength)
@@ -251,11 +237,9 @@ namespace DatevConnector.Tapi
                         break;
                     }
 
-                    // Decode UTF-16LE
                     string content = Encoding.Unicode.GetString(contentBuffer);
                     LogManager.Debug("PipeServer RECV: {0}", content);
 
-                    // Parse and dispatch
                     var message = new TapiMessage(content);
                     try
                     {
@@ -292,7 +276,7 @@ namespace DatevConnector.Tapi
             {
                 int read = await pipe.ReadAsync(buffer, totalRead, count - totalRead, cancellationToken);
                 if (read == 0)
-                    return totalRead; // End of stream
+                    return totalRead; 
                 totalRead += read;
             }
             return totalRead;

@@ -24,7 +24,7 @@ namespace DatevConnector.Tapi
         public bool IsConnected => Handle != IntPtr.Zero;
 
         /// <summary>
-        /// Parse extension from line name (format: "161 : Name" -> "161")
+        /// Parse extension from line name (format: "100 : Name" -> "100")
         /// </summary>
         public static string ParseExtension(string lineName)
         {
@@ -156,7 +156,7 @@ namespace DatevConnector.Tapi
         /// </summary>
         /// <param name="lineNameFilter">Substring to match in line name (e.g. "3CX").
         /// If null/empty, opens the first available voice line.</param>
-        /// <param name="extensionFilter">Exact extension number to match (e.g. "150").
+        /// <param name="extensionFilter">Exact extension number to match (e.g. "100").
         /// If null/empty, opens all lines matching the name filter.</param>
         public TapiLineMonitor(string lineNameFilter = "3CX", string extensionFilter = null)
         {
