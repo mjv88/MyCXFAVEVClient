@@ -375,7 +375,7 @@ namespace DatevConnector.UI.Strings
             // Environment badge
             public const string DetectedEnvironmentFormat = "Erkannte Umgebung: {0}";
             public const string EnvDesktopTapi = "Desktop (TAPI)";
-            public const string EnvTerminalServer = "Terminal Server";
+            public const string EnvTerminalServer = "Terminal Server (TAPI)";
             public const string EnvWebClient = "WebClient";
             public const string EnvAuto = "Automatisch";
 
@@ -427,8 +427,8 @@ namespace DatevConnector.UI.Strings
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
             public const string TelephonyMode = "Telefonie-Modus:";
             public const string TelephonyModeAuto = "Automatisch";
-            public const string TelephonyModeTapi = "TAPI (Desktop)";
-            public const string TelephonyModePipe = "Terminal Server";
+            public const string TelephonyModeTapi = "Desktop (TAPI)";
+            public const string TelephonyModePipe = "Terminal Server (TAPI)";
             public const string TelephonyModeWebclient = "Webclient (Browser)";
             public const string WebclientTimeout = "Webclient Timeout:";
         }

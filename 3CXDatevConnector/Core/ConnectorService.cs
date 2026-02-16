@@ -384,12 +384,12 @@ namespace DatevConnector.Core
                     return new WebclientTelephonyProvider(_extension);
 
                 case TelephonyMode.Pipe:
-                    LogManager.Log("Terminal Server / Pipe-Modus - verwende Named Pipe Provider");
+                    LogManager.Log("Terminal Server (TAPI)-Modus - verwende Named Pipe Provider");
                     return new PipeTelephonyProvider(_extension);
 
                 case TelephonyMode.Tapi:
                 default:
-                    LogManager.Log("Desktop / TAPI-Modus - verwende TapiLineMonitor");
+                    LogManager.Log("Desktop (TAPI)-Modus - verwende TapiLineMonitor");
                     return new TapiLineMonitor(lineFilter, _extension);
             }
         }

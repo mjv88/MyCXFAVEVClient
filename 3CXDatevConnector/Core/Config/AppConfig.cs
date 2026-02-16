@@ -8,7 +8,6 @@ namespace DatevConnector.Core.Config
 {
     /// <summary>
     /// Application configuration backed by an INI file in %AppData%\3CXDATEVConnector\3CXDATEVConnector.ini.
-    /// Replaces System.Configuration.ConfigurationManager.AppSettings.
     /// Falls back to hardcoded defaults when a key is not present in the INI file.
     /// </summary>
     public static class AppConfig
@@ -24,7 +23,7 @@ namespace DatevConnector.Core.Config
 
             // Journaling
             { ConfigKeys.EnableJournaling, "true" },
-            { ConfigKeys.EnableJournalPopup, "true" },
+            { ConfigKeys.EnableJournalPopup, "false" },
             { ConfigKeys.EnableJournalPopupOutbound, "false" },
 
             // Caller Popup
@@ -41,7 +40,7 @@ namespace DatevConnector.Core.Config
             // Call History
             { ConfigKeys.CallHistoryInbound, "true" },
             { ConfigKeys.CallHistoryOutbound, "false" },
-            { ConfigKeys.CallHistoryMaxEntries, "5" },
+            { ConfigKeys.CallHistoryMaxEntries, "25" },
 
             // Connection
             { ConfigKeys.ReconnectIntervalSeconds, "5" },
@@ -320,51 +319,51 @@ namespace DatevConnector.Core.Config
             {
                 using (var writer = new StreamWriter(_iniPath, false, Encoding.UTF8))
                 {
-                    writer.WriteLine("; 3CX - DATEV Connector Configuration");
-                    writer.WriteLine("; Edit values below. Delete a line to restore its default.");
+                    writer.WriteLine("// 3CX - DATEV Connector Configuration");
+                    writer.WriteLine("// Edit values below. Delete a line to restore its default.");
                     writer.WriteLine();
 
                     writer.WriteLine("[Settings]");
-                    writer.WriteLine("; Extension number (auto-detected from TAPI if empty)");
+                    writer.WriteLine("// Extension number (auto-detected from TAPI if empty)");
                     writer.WriteLine(DefaultLine(ConfigKeys.ExtensionNumber));
                     writer.WriteLine();
-                    writer.WriteLine("; Journaling");
+                    writer.WriteLine("// Journaling");
                     writer.WriteLine(DefaultLine(ConfigKeys.EnableJournaling));
                     writer.WriteLine(DefaultLine(ConfigKeys.EnableJournalPopup));
                     writer.WriteLine(DefaultLine(ConfigKeys.EnableJournalPopupOutbound));
                     writer.WriteLine();
-                    writer.WriteLine("; Call Pop-Up");
+                    writer.WriteLine("// Call Pop-Up");
                     writer.WriteLine(DefaultLine(ConfigKeys.EnableCallerPopup));
                     writer.WriteLine(DefaultLine(ConfigKeys.EnableCallerPopupOutbound));
-                    writer.WriteLine("; CallerPopupMode: Both, Form, Balloon");
+                    writer.WriteLine("// CallerPopupMode: Both, Form, Balloon");
                     writer.WriteLine(DefaultLine(ConfigKeys.CallerPopupMode));
                     writer.WriteLine();
-                    writer.WriteLine("; Contact matching");
+                    writer.WriteLine("// Contact matching");
                     writer.WriteLine(DefaultLine(ConfigKeys.MinCallerIdLength));
                     writer.WriteLine(DefaultLine(ConfigKeys.MaxCompareLength));
                     writer.WriteLine(DefaultLine(ConfigKeys.ContactReshowDelaySeconds));
                     writer.WriteLine(DefaultLine(ConfigKeys.LastContactRoutingMinutes));
                     writer.WriteLine();
-                    writer.WriteLine("; Call History");
+                    writer.WriteLine("// Call History");
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryInbound));
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryOutbound));
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryMaxEntries));
                     writer.WriteLine();
-                    writer.WriteLine("; DATEV Contacts");
+                    writer.WriteLine("// DATEV Contacts");
                     writer.WriteLine(DefaultLine(ConfigKeys.ActiveContactsOnly));
                     writer.WriteLine();
 
                     writer.WriteLine("[Connection]");
-                    writer.WriteLine("; TelephonyMode: Auto, Tapi, Pipe, Webclient");
-                    writer.WriteLine("; Auto = detect best provider at startup (Webclient -> Pipe -> TAPI)");
+                    writer.WriteLine("// TelephonyMode: Auto, Tapi, Pipe, Webclient");
+                    writer.WriteLine("// Auto = detect best provider at startup (Desktop/TAPI -> Terminal Server/TAPI -> Webclient)");
                     writer.WriteLine(DefaultLine(ConfigKeys.TelephonyMode));
-                    writer.WriteLine("; Auto-detection timeout in seconds");
+                    writer.WriteLine("// Auto-detection timeout in seconds");
                     writer.WriteLine(DefaultLine(ConfigKeys.AutoDetectionTimeoutSec));
-                    writer.WriteLine("; Webclient extension connect timeout in seconds");
+                    writer.WriteLine("// Webclient extension connect timeout in seconds");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientConnectTimeoutSec));
-                    writer.WriteLine("; Enable Webclient mode (browser extension via WebSocket)");
+                    writer.WriteLine("// Enable Webclient mode (browser extension via WebSocket)");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientEnabled));
-                    writer.WriteLine("; WebSocket port for browser extension connection");
+                    writer.WriteLine("// WebSocket port for browser extension connection");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientWebSocketPort));
                 }
             }

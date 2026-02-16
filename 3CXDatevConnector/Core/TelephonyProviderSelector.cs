@@ -46,9 +46,9 @@ namespace DatevConnector.Core
     ///
     /// Explicit mode (Tapi/Pipe/Webclient): creates that provider, fails with guided error if unavailable.
     /// Auto mode: attempts detection in priority order:
-    ///   1. Webclient (browser extension via WebSocket)
-    ///   2. Pipe (3CX Softphone Named Pipe handshake)
-    ///   3. TAPI (enumerate and open 3CX TAPI lines)
+    ///   1. Pipe / Terminal Server (TAPI) (3CX Softphone Named Pipe handshake)
+    ///   2. TAPI / Desktop (TAPI) (enumerate and open 3CX TAPI lines)
+    ///   3. Webclient (browser extension via WebSocket)
     /// If none detected, returns failure with diagnostic summary for the Setup Wizard.
     /// </summary>
     public static class TelephonyProviderSelector
@@ -154,54 +154,9 @@ namespace DatevConnector.Core
             int webclientTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
             bool webclientEnabled = AppConfig.GetBool(ConfigKeys.WebclientEnabled, true);
 
-            // ── (A) Try Webclient ──
-            if (webclientEnabled)
-            {
-                progressText?.Invoke("Auto-Erkennung: Prüfe WebClient...");
-                LogManager.Log("WebClient = Detection..");
-                LogManager.Debug("TelephonyProviderSelector: [A] Versuche WebClient (Timeout={0}s)", webclientTimeoutSec);
-
-                try
-                {
-                    var webclientProvider = new WebclientTelephonyProvider(extension);
-                    bool connected = await webclientProvider.TryConnectAsync(cancellationToken,
-                        Math.Min(webclientTimeoutSec, totalTimeoutSec));
-
-                    if (connected)
-                    {
-                        string reason = "Extension connected via WebClient (browser extension)";
-                        LogManager.Debug("TelephonyProviderSelector: WebClient erkannt - {0}", reason);
-                        diagnostics.AppendLine("  [A] WebClient: DETECTED (extension connected)");
-
-                        return new ProviderSelectionResult
-                        {
-                            Provider = webclientProvider,
-                            SelectedMode = TelephonyMode.WebClient,
-                            Reason = reason,
-                            DiagnosticSummary = diagnostics.ToString()
-                        };
-                    }
-
-                    webclientProvider.Dispose();
-                    diagnostics.AppendLine("  [A] WebClient: Not detected (no extension connected within timeout)");
-                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient nicht erkannt");
-                    LogManager.Debug("TelephonyProviderSelector: [A] Hinweis: WebClient-Erkennung erfordert Browser-Erweiterung verbunden via WebSocket (Port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
-                }
-                catch (Exception ex)
-                {
-                    diagnostics.AppendLine("  [A] WebClient: Error - " + ex.Message);
-                    LogManager.Debug("TelephonyProviderSelector: [A] WebClient-Fehler - {0}", ex.Message);
-                }
-            }
-            else
-            {
-                diagnostics.AppendLine("  [A] WebClient: Disabled (Webclient.Enabled=false)");
-                LogManager.Debug("TelephonyProviderSelector: [A] WebClient deaktiviert");
-            }
-
-            // ── (B) Try Pipe (Terminal Server) ──
-            progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server...");
-            LogManager.Debug("TelephonyProviderSelector: [B] Versuche Pipe");
+            // ── (A) Try Pipe (Terminal Server) ──
+            progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server (TAPI)...");
+            LogManager.Debug("TelephonyProviderSelector: [A] Versuche Pipe");
 
             bool isTerminalSession = SessionManager.IsTerminalSession;
             bool pipeAvailable = SessionManager.Is3CXPipeAvailable(extension);
@@ -209,7 +164,7 @@ namespace DatevConnector.Core
 
             if (isTerminalSession || pipeAvailable)
             {
-                diagnostics.AppendFormat("  [B] Pipe: Terminal session={0}, Pipe available={1}, 3CX running={2}",
+                diagnostics.AppendFormat("  [A] Pipe: Terminal session={0}, Pipe available={1}, 3CX running={2}",
                     isTerminalSession, pipeAvailable, softphoneRunning);
                 diagnostics.AppendLine();
 
@@ -218,7 +173,7 @@ namespace DatevConnector.Core
                     // Terminal server — Pipe is the preferred mode
                     string reason = "Terminal server session detected - using Named Pipe";
                     LogManager.Debug("TelephonyProviderSelector: Pipe ausgewählt - {0}", reason);
-                    diagnostics.AppendLine("  [B] Pipe: SELECTED (terminal server session)");
+                    diagnostics.AppendLine("  [A] Pipe: SELECTED (terminal server session)");
 
                     return new ProviderSelectionResult
                     {
@@ -231,13 +186,13 @@ namespace DatevConnector.Core
             }
             else
             {
-                diagnostics.AppendLine("  [B] Pipe: Not applicable (not terminal server, no pipe found)");
-                LogManager.Debug("TelephonyProviderSelector: [B] Pipe nicht anwendbar");
+                diagnostics.AppendLine("  [A] Pipe: Not applicable (not terminal server, no pipe found)");
+                LogManager.Debug("TelephonyProviderSelector: [A] Pipe nicht anwendbar");
             }
 
-            // ── (C) Try TAPI ──
-            progressText?.Invoke("Auto-Erkennung: Prüfe TAPI...");
-            LogManager.Debug("TelephonyProviderSelector: [C] Versuche TAPI");
+            // ── (B) Try TAPI (Desktop) ──
+            progressText?.Invoke("Auto-Erkennung: Prüfe Desktop (TAPI)...");
+            LogManager.Debug("TelephonyProviderSelector: [B] Versuche TAPI");
 
             try
             {
@@ -245,11 +200,7 @@ namespace DatevConnector.Core
                 var tapiProvider = new TapiLineMonitor(lineFilter, extension);
                 string reason = "Desktop environment - using TAPI";
                 LogManager.Debug("TelephonyProviderSelector: TAPI ausgewählt - {0}", reason);
-                if (webclientEnabled)
-                {
-                    LogManager.Debug("TelephonyProviderSelector: TAPI-Fallback aktiv. Falls WebClient erwartet, TelephonyMode=WebClient setzen und Browser-Erweiterung prüfen");
-                }
-                diagnostics.AppendLine("  [C] TAPI: SELECTED (desktop environment)");
+                diagnostics.AppendLine("  [B] TAPI: SELECTED (desktop environment)");
 
                 return new ProviderSelectionResult
                 {
@@ -261,8 +212,53 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                diagnostics.AppendLine("  [C] TAPI: Error - " + ex.Message);
-                LogManager.Debug("TelephonyProviderSelector: [C] TAPI-Fehler - {0}", ex.Message);
+                diagnostics.AppendLine("  [B] TAPI: Error - " + ex.Message);
+                LogManager.Debug("TelephonyProviderSelector: [B] TAPI-Fehler - {0}", ex.Message);
+            }
+
+            // ── (C) Try Webclient ──
+            if (webclientEnabled)
+            {
+                progressText?.Invoke("Auto-Erkennung: Prüfe WebClient...");
+                LogManager.Log("WebClient = Detection..");
+                LogManager.Debug("TelephonyProviderSelector: [C] Versuche WebClient (Timeout={0}s)", webclientTimeoutSec);
+
+                try
+                {
+                    var webclientProvider = new WebclientTelephonyProvider(extension);
+                    bool connected = await webclientProvider.TryConnectAsync(cancellationToken,
+                        Math.Min(webclientTimeoutSec, totalTimeoutSec));
+
+                    if (connected)
+                    {
+                        string reason = "Extension connected via WebClient (browser extension)";
+                        LogManager.Debug("TelephonyProviderSelector: WebClient erkannt - {0}", reason);
+                        diagnostics.AppendLine("  [C] WebClient: DETECTED (extension connected)");
+
+                        return new ProviderSelectionResult
+                        {
+                            Provider = webclientProvider,
+                            SelectedMode = TelephonyMode.WebClient,
+                            Reason = reason,
+                            DiagnosticSummary = diagnostics.ToString()
+                        };
+                    }
+
+                    webclientProvider.Dispose();
+                    diagnostics.AppendLine("  [C] WebClient: Not detected (no extension connected within timeout)");
+                    LogManager.Debug("TelephonyProviderSelector: [C] WebClient nicht erkannt");
+                    LogManager.Debug("TelephonyProviderSelector: [C] Hinweis: WebClient-Erkennung erfordert Browser-Erweiterung verbunden via WebSocket (Port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
+                }
+                catch (Exception ex)
+                {
+                    diagnostics.AppendLine("  [C] WebClient: Error - " + ex.Message);
+                    LogManager.Debug("TelephonyProviderSelector: [C] WebClient-Fehler - {0}", ex.Message);
+                }
+            }
+            else
+            {
+                diagnostics.AppendLine("  [C] WebClient: Disabled (Webclient.Enabled=false)");
+                LogManager.Debug("TelephonyProviderSelector: [C] WebClient deaktiviert");
             }
 
             // ── (D) None detected ──
@@ -286,14 +282,14 @@ namespace DatevConnector.Core
             switch (mode)
             {
                 case TelephonyMode.Tapi:
-                    return "TAPI 2.x (3CX Windows App)";
+                    return "Desktop (TAPI)";
                 case TelephonyMode.Pipe:
-                    return "Terminal Server (3CX Softphone)";
+                    return "Terminal Server (TAPI)";
                 case TelephonyMode.WebClient:
                     return "WebClient (Browser-Erweiterung)";
                 case TelephonyMode.Auto:
                 default:
-                    return "Automatisch (WebClient -> Terminal Server -> TAPI)";
+                    return "Automatisch (Desktop / Terminal Server -> WebClient)";
             }
         }
 
