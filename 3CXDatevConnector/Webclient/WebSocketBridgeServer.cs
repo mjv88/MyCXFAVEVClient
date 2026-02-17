@@ -473,7 +473,7 @@ namespace DatevConnector.Webclient
                     LogManager.Warning("WebClient Connector: CALL_EVENT vor HELLO, ignoriert");
                     return;
                 }
-                LogManager.Log("WebClient Connector: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
+                LogManager.Debug("WebClient Connector: CALL_EVENT callId={0} state={1} direction={2} remote={3}",
                     msg.CallId, msg.State, msg.Direction, LogManager.Mask(msg.RemoteNumber));
                 try { CallEventReceived?.Invoke(msg); }
                 catch (Exception ex)

@@ -318,6 +318,13 @@ namespace DatevConnector.Webclient
                 return;
             }
 
+            // Skip phantom ended events for calls we never tracked
+            if (tapiState == LINECALLSTATE_DISCONNECTED && !_activeCalls.ContainsKey(callId))
+            {
+                LogManager.Debug("WebClient Connector: Ignoring ended event for unknown call {0}", callId);
+                return;
+            }
+
             // Get or create TapiCallEvent for this call
             int numericCallId = Math.Abs(callId.GetHashCode());
             var callEvent = _activeCalls.GetOrAdd(callId, _ => new TapiCallEvent
@@ -353,13 +360,11 @@ namespace DatevConnector.Webclient
 
             EventHelper.SafeInvoke(CallStateChanged, callEvent, "WebclientConnectionMethod.CallStateChanged");
 
-            // Clean up ended calls
+            // Clean up ended calls (keep _lastCallState to debounce duplicate ended events)
             if (tapiState == LINECALLSTATE_DISCONNECTED)
             {
                 TapiCallEvent removed;
                 _activeCalls.TryRemove(callId, out removed);
-                string removedState;
-                _lastCallState.TryRemove(callId, out removedState);
             }
         }
 
