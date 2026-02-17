@@ -23,10 +23,11 @@ namespace DatevConnector.UI
         /// </summary>
         public static ContextMenuStrip Build()
         {
-            var menu = new ContextMenuStrip();
+            var menu = new DarkContextMenuStrip();
             menu.Renderer = new DarkMenuRenderer();
             menu.ShowImageMargin = true;
             menu.ShowCheckMargin = true;
+            menu.ImageScalingSize = new Size(20, 20);
 
             // App title (bold, non-interactive)
             var titleItem = new ToolStripMenuItem(UIStrings.MenuItems.AppTitle)
@@ -96,14 +97,14 @@ namespace DatevConnector.UI
         /// </summary>
         public static Image CreateStatusDot(Color color)
         {
-            var bmp = new Bitmap(16, 16);
+            var bmp = new Bitmap(20, 20);
             using (var g = Graphics.FromImage(bmp))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.Transparent);
                 using (var brush = new SolidBrush(color))
                 {
-                    g.FillEllipse(brush, 3, 3, 10, 10);
+                    g.FillEllipse(brush, 4, 4, 12, 12);
                 }
             }
             return bmp;

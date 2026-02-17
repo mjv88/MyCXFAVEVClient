@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -20,6 +21,9 @@ namespace DatevConnector.UI.Theme
         private static readonly Color CheckBackground = Color.FromArgb(62, 62, 66);
         private static readonly Color SubmenuBackground = UITheme.FormBackground;
 
+        private static readonly bool IsWin11 =
+            Environment.OSVersion.Version.Build >= 22000;
+
         public DarkMenuRenderer() : base(new DarkColorTable())
         {
         }
@@ -34,10 +38,17 @@ namespace DatevConnector.UI.Theme
 
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {
+            // On Win11, DWM draws the native rounded border — skip custom border
+            if (IsWin11) return;
+
+            // Fallback: draw rounded border on older Windows
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var rect = new Rectangle(0, 0, e.AffectedBounds.Width - 1, e.AffectedBounds.Height - 1);
             using (var pen = new Pen(MenuBorder))
+            using (var path = CreateRoundedPath(rect, 8))
             {
-                var rect = new Rectangle(0, 0, e.AffectedBounds.Width - 1, e.AffectedBounds.Height - 1);
-                e.Graphics.DrawRectangle(pen, rect);
+                g.DrawPath(pen, path);
             }
         }
 
@@ -45,7 +56,7 @@ namespace DatevConnector.UI.Theme
         {
             var g = e.Graphics;
             var item = e.Item;
-            var rect = new Rectangle(2, 0, item.Width - 4, item.Height);
+            var rect = new Rectangle(4, 2, item.Width - 8, item.Height - 4);
 
             if (!item.Enabled)
             {
@@ -59,7 +70,7 @@ namespace DatevConnector.UI.Theme
                 using (var brush = new SolidBrush(color))
                 {
                     g.SmoothingMode = SmoothingMode.AntiAlias;
-                    FillRoundedRect(g, brush, rect, 3);
+                    FillRoundedRect(g, brush, rect, 6);
                 }
             }
         }
@@ -76,7 +87,7 @@ namespace DatevConnector.UI.Theme
             int y = e.Item.Height / 2;
             using (var pen = new Pen(SeparatorColor))
             {
-                g.DrawLine(pen, 8, y, e.Item.Width - 8, y);
+                g.DrawLine(pen, 12, y, e.Item.Width - 12, y);
             }
         }
 
@@ -90,7 +101,7 @@ namespace DatevConnector.UI.Theme
                 e.ImageRectangle.Width + 4, e.ImageRectangle.Height + 4);
             using (var brush = new SolidBrush(CheckBackground))
             {
-                FillRoundedRect(g, brush, bgRect, 3);
+                FillRoundedRect(g, brush, bgRect, 4);
             }
 
             // Draw checkmark
@@ -119,18 +130,27 @@ namespace DatevConnector.UI.Theme
         }
 
         /// <summary>
-        /// Fill a rounded rectangle
+        /// Create a rounded rectangle GraphicsPath.
+        /// </summary>
+        private static GraphicsPath CreateRoundedPath(Rectangle rect, int radius)
+        {
+            var path = new GraphicsPath();
+            int d = radius * 2;
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        /// <summary>
+        /// Fill a rounded rectangle.
         /// </summary>
         private static void FillRoundedRect(Graphics g, Brush brush, Rectangle rect, int radius)
         {
-            using (var path = new GraphicsPath())
+            using (var path = CreateRoundedPath(rect, radius))
             {
-                int d = radius * 2;
-                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-                path.CloseFigure();
                 g.FillPath(brush, path);
             }
         }
