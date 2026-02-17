@@ -143,7 +143,7 @@ namespace DatevConnector.Tapi
         {
             if (!IsTapiInstalled())
             {
-                LogManager.Log("3CX TAPI Treiber: Nicht installiert");
+                LogManager.Debug("3CX TAPI Treiber: Nicht installiert");
                 return null;
             }
 

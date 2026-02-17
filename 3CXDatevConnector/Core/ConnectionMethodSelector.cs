@@ -154,66 +154,84 @@ namespace DatevConnector.Core
             int webclientTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
             bool webclientEnabled = AppConfig.GetBool(ConfigKeys.WebclientEnabled, true);
 
-            // ── (A) Try Pipe (Terminal Server) ──
-            progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server (TAPI)...");
-            LogManager.Debug("ConnectionMethodSelector: [A] Versuche Pipe");
+            // ── Check if TAPI driver is installed ──
+            bool tapiInstalled = TapiConfigReader.IsTapiInstalled();
 
-            bool isTerminalSession = SessionManager.IsTerminalSession;
-            bool pipeAvailable = SessionManager.Is3CXPipeAvailable(extension);
-            bool softphoneRunning = SessionManager.Is3CXProcessRunning();
-
-            if (isTerminalSession || pipeAvailable)
+            if (tapiInstalled)
             {
-                diagnostics.AppendFormat("  [A] Pipe: Terminal session={0}, Pipe available={1}, 3CX running={2}",
-                    isTerminalSession, pipeAvailable, softphoneRunning);
-                diagnostics.AppendLine();
+                // ── (A) Try TAPI (Desktop) ──
+                progressText?.Invoke("Auto-Erkennung: Prüfe Desktop (TAPI)...");
+                LogManager.Debug("ConnectionMethodSelector: [A] Versuche TAPI");
 
-                if (isTerminalSession)
+                try
                 {
-                    // Terminal server — Pipe is the preferred mode
-                    string reason = "Terminal server session detected - using Named Pipe";
-                    LogManager.Debug("ConnectionMethodSelector: Pipe ausgewählt - {0}", reason);
-                    diagnostics.AppendLine("  [A] Pipe: SELECTED (terminal server session)");
+                    var tapiProvider = new TapiLineMonitor(lineFilter, extension);
 
-                    return new ProviderSelectionResult
+                    if (tapiProvider.ProbeLines())
                     {
-                        Provider = new PipeConnectionMethod(extension),
-                        SelectedMode = ConnectionMode.Pipe,
-                        Reason = reason,
-                        DiagnosticSummary = diagnostics.ToString()
-                    };
+                        string reason = "Desktop environment - TAPI lines available";
+                        LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
+                        diagnostics.AppendLine("  [A] TAPI: SELECTED (lines available)");
+
+                        return new ProviderSelectionResult
+                        {
+                            Provider = tapiProvider,
+                            SelectedMode = ConnectionMode.Tapi,
+                            Reason = reason,
+                            DiagnosticSummary = diagnostics.ToString()
+                        };
+                    }
+
+                    tapiProvider.Dispose();
+                    diagnostics.AppendLine("  [A] TAPI: No lines available - skipping");
+                    LogManager.Debug("ConnectionMethodSelector: [A] TAPI hat keine Leitungen - überspringe");
+                }
+                catch (Exception ex)
+                {
+                    diagnostics.AppendLine("  [A] TAPI: Error - " + ex.Message);
+                    LogManager.Debug("ConnectionMethodSelector: [A] TAPI-Fehler - {0}", ex.Message);
+                }
+
+                // ── (B) Try Terminal Server ──
+                progressText?.Invoke("Auto-Erkennung: Prüfe Terminal Server...");
+                LogManager.Debug("ConnectionMethodSelector: [B] Versuche Terminal Server");
+
+                bool isTerminalSession = SessionManager.IsTerminalSession;
+                bool pipeAvailable = SessionManager.Is3CXPipeAvailable(extension);
+                bool softphoneRunning = SessionManager.Is3CXProcessRunning();
+
+                if (isTerminalSession || pipeAvailable)
+                {
+                    diagnostics.AppendFormat("  [B] Terminal Server: session={0}, available={1}, 3CX running={2}",
+                        isTerminalSession, pipeAvailable, softphoneRunning);
+                    diagnostics.AppendLine();
+
+                    if (isTerminalSession)
+                    {
+                        string reason = "Terminal server session detected";
+                        LogManager.Debug("ConnectionMethodSelector: Terminal Server ausgewählt - {0}", reason);
+                        diagnostics.AppendLine("  [B] Terminal Server: SELECTED");
+
+                        return new ProviderSelectionResult
+                        {
+                            Provider = new PipeConnectionMethod(extension),
+                            SelectedMode = ConnectionMode.Pipe,
+                            Reason = reason,
+                            DiagnosticSummary = diagnostics.ToString()
+                        };
+                    }
+                }
+                else
+                {
+                    diagnostics.AppendLine("  [B] Terminal Server: Not applicable (not terminal server)");
+                    LogManager.Debug("ConnectionMethodSelector: [B] Terminal Server nicht anwendbar");
                 }
             }
             else
             {
-                diagnostics.AppendLine("  [A] Pipe: Not applicable (not terminal server, no pipe found)");
-                LogManager.Debug("ConnectionMethodSelector: [A] Pipe nicht anwendbar");
-            }
-
-            // ── (B) Try TAPI (Desktop) ──
-            progressText?.Invoke("Auto-Erkennung: Prüfe Desktop (TAPI)...");
-            LogManager.Debug("ConnectionMethodSelector: [B] Versuche TAPI");
-
-            try
-            {
-                // On desktop environments, TAPI is the standard choice
-                var tapiProvider = new TapiLineMonitor(lineFilter, extension);
-                string reason = "Desktop environment - using TAPI";
-                LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
-                diagnostics.AppendLine("  [B] TAPI: SELECTED (desktop environment)");
-
-                return new ProviderSelectionResult
-                {
-                    Provider = tapiProvider,
-                    SelectedMode = ConnectionMode.Tapi,
-                    Reason = reason,
-                    DiagnosticSummary = diagnostics.ToString()
-                };
-            }
-            catch (Exception ex)
-            {
-                diagnostics.AppendLine("  [B] TAPI: Error - " + ex.Message);
-                LogManager.Debug("ConnectionMethodSelector: [B] TAPI-Fehler - {0}", ex.Message);
+                LogManager.Log("3CX TAPI Treiber: Nicht installiert");
+                diagnostics.AppendLine("  [A] TAPI: Skipped (TAPI not installed)");
+                diagnostics.AppendLine("  [B] Terminal Server: Skipped (TAPI not installed)");
             }
 
             // ── (C) Try Webclient ──

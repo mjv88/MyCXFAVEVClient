@@ -189,8 +189,6 @@ namespace DatevConnector.Core
             LogManager.Log("3CX Telefonie Modus: {0} (konfiguriert)",
                 _configuredConnectionMode == ConnectionMode.Auto ? "Auto-Detection" : _configuredConnectionMode.ToString());
 
-            SessionManager.LogSessionInfo();
-
             // ── Step 2: Provider selection / auto-detection ──────────────
 
             var selectionResult = await ConnectionMethodSelector.SelectProviderAsync(
@@ -404,6 +402,10 @@ namespace DatevConnector.Core
                 LogManager.Debug("Nebenstelle erkannt von {0}: {1}", source, firstLine.Extension);
                 _extension = firstLine.Extension;
                 CallIdGenerator.Initialize(_extension);
+
+                // Save detected extension to config
+                AppConfig.Set(ConfigKeys.ExtensionNumber, _extension);
+                LogManager.Log("Nebenstelle gespeichert: {0}", _extension);
 
                 if (_extension.Length > _minCallerIdLength)
                 {

@@ -25,9 +25,10 @@ namespace DatevConnector.Tapi
         }
 
         /// <summary>
-        /// Initialize TAPI subsystem (lineInitializeEx)
+        /// Initialize TAPI subsystem (lineInitializeEx).
+        /// Returns true if initialization succeeded, false otherwise.
         /// </summary>
-        public void Initialize(Action<string> progressText = null)
+        public bool Initialize(Action<string> progressText = null)
         {
             progressText?.Invoke("Initialisiere TAPI...");
 
@@ -50,7 +51,8 @@ namespace DatevConnector.Tapi
             if (result != LINEERR_OK)
             {
                 progressText?.Invoke("TAPI Initialisierung fehlgeschlagen");
-                throw new InvalidOperationException($"lineInitializeEx failed: 0x{result:X8}");
+                LogManager.Log("lineInitializeEx fehlgeschlagen: 0x{0:X8}", result);
+                return false;
             }
 
             LineAppHandle = hLineApp;
@@ -60,6 +62,7 @@ namespace DatevConnector.Tapi
                 ? "TAPI initialisiert: Keine Leitung gefunden"
                 : string.Format("TAPI initialisiert: {0} Leitung(en)", _numDevices));
             progressText?.Invoke($"{_numDevices} TAPI Leitungen gefunden");
+            return true;
         }
 
         /// <summary>

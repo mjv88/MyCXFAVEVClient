@@ -494,7 +494,7 @@ namespace DatevConnector.Webclient
             if (_listener != null) return;
             _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
-            LogManager.Log("WebClient Connector: Lausche");
+            LogManager.Debug("WebClient Connector: Lausche auf Port {0}", _port);
         }
 
         private void StopListener()
@@ -527,7 +527,7 @@ namespace DatevConnector.Webclient
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
             {
-                LogManager.Log("WebClient Connector: Handshake fehlgeschlagen");
+                LogManager.Debug("WebClient Connector: Handshake fehlgeschlagen (HTTP-Probe)");
                 client.Close();
                 return false;
             }

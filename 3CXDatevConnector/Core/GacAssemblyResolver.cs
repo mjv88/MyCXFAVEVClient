@@ -82,7 +82,7 @@ namespace DatevConnector.Core
                         string dllPath = Path.Combine(versionDir, assemblyName.Name + ".dll");
                         if (File.Exists(dllPath))
                         {
-                            LogManager.Log("GAC Resolver: Lade '{0}' von {1}", assemblyName.Name, dllPath);
+                            LogManager.Debug("GAC Resolver: Erfolgreich '{0}'", assemblyName.Name);
                             return context.LoadFromAssemblyPath(dllPath);
                         }
                     }

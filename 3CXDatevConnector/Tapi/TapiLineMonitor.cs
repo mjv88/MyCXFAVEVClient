@@ -192,6 +192,21 @@ namespace DatevConnector.Tapi
         }
 
         /// <summary>
+        /// Probe whether TAPI lines are available without starting the message loop.
+        /// Used by auto-detection to decide if TAPI should be selected.
+        /// If this returns true, the monitor is initialized and ready for StartAsync.
+        /// If false, the caller should Dispose and try another provider.
+        /// </summary>
+        public bool ProbeLines()
+        {
+            if (!_initializer.Initialize())
+                return false;
+
+            _initializer.FindLines(_lines);
+            return _lines.Count > 0;
+        }
+
+        /// <summary>
         /// Initialize TAPI and start monitoring
         /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -204,13 +219,23 @@ namespace DatevConnector.Tapi
         /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
-            _initializer.Initialize(progressText);
-            _initializer.FindLines(_lines, progressText);
-
+            // Skip init/find if ProbeLines() already succeeded
             if (_lines.Count == 0)
             {
-                progressText?.Invoke("Keine 3CX TAPI Leitung gefunden");
-                throw new InvalidOperationException("No matching TAPI line device found");
+                if (!_initializer.Initialize(progressText))
+                {
+                    progressText?.Invoke("TAPI nicht verfügbar");
+                    return;
+                }
+
+                _initializer.FindLines(_lines, progressText);
+
+                if (_lines.Count == 0)
+                {
+                    progressText?.Invoke("Keine 3CX TAPI Leitung gefunden");
+                    LogManager.Log("Keine passende TAPI Leitung gefunden");
+                    return;
+                }
             }
 
             // Open all discovered lines
@@ -223,12 +248,14 @@ namespace DatevConnector.Tapi
                 if (!is3CXRunning)
                 {
                     progressText?.Invoke("Warte auf 3CX Desktop App...");
-                    throw new InvalidOperationException(
-                        "TAPI lines found but not registered - 3CX Desktop App is not running in this session");
+                    LogManager.Log("TAPI Leitungen gefunden aber nicht registriert - 3CX Desktop App läuft nicht");
                 }
-
-                progressText?.Invoke("Keine Leitung konnte geöffnet werden");
-                throw new InvalidOperationException("Failed to open any TAPI line");
+                else
+                {
+                    progressText?.Invoke("Keine Leitung konnte geöffnet werden");
+                    LogManager.Log("Keine TAPI Leitung konnte geöffnet werden");
+                }
+                return;
             }
 
             if (connectedCount == 1)

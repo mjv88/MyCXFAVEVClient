@@ -219,7 +219,7 @@ namespace DatevConnector.Webclient
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);
                 if (ok)
                 {
-                    LogManager.Log("WebClient Verbindung über WS erfolgreich");
+                    LogManager.Log("WebClient Verbindung erfolgreich");
                     return true;
                 }
 

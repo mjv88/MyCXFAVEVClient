@@ -354,17 +354,17 @@ namespace DatevConnector.Core.Config
                     writer.WriteLine();
 
                     writer.WriteLine("[Connection]");
-                    writer.WriteLine("// TelephonyMode: Auto, Tapi, Pipe, Webclient");
-                    writer.WriteLine("// Auto = detect best provider at startup (Desktop (TAPI) -> Terminal Server (TAPI) -> Webclient)");
+                    writer.WriteLine("// TelephonyMode: Auto, Tapi, TerminalServer, Webclient");
+                    writer.WriteLine("// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)");
                     writer.WriteLine(DefaultLine(ConfigKeys.TelephonyMode));
+                    writer.WriteLine("// Reconnect interval in seconds when connection is lost");
+                    writer.WriteLine(DefaultLine(ConfigKeys.ReconnectIntervalSeconds));
                     writer.WriteLine("// Auto-detection timeout in seconds");
                     writer.WriteLine(DefaultLine(ConfigKeys.AutoDetectionTimeoutSec));
                     writer.WriteLine("// Webclient extension connect timeout in seconds");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientConnectTimeoutSec));
                     writer.WriteLine("// Enable Webclient mode (browser extension via WebSocket)");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientEnabled));
-                    writer.WriteLine("// WebSocket port for browser extension connection");
-                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientWebSocketPort));
                 }
             }
             catch
