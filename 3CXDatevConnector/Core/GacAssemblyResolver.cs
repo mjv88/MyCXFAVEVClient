@@ -19,7 +19,15 @@ namespace DatevConnector.Core
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
                 "Microsoft.NET", "assembly", "GAC_MSIL"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-                "assembly", "GAC_MSIL")
+                "Microsoft.NET", "assembly", "GAC_32"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "Microsoft.NET", "assembly", "GAC_64"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "assembly", "GAC_MSIL"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "assembly", "GAC_32"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "assembly", "GAC_64")
         };
 
         private static readonly string[] SddAssemblyNames =

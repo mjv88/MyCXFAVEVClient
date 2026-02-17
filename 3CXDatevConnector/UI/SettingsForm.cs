@@ -734,7 +734,7 @@ namespace DatevConnector.UI
             // Call History
             _chkHistoryInbound.Checked = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
             _chkHistoryOutbound.Checked = AppConfig.GetBool(ConfigKeys.CallHistoryOutbound, false);
-            _numHistoryCount.Value = AppConfig.GetInt(ConfigKeys.CallHistoryMaxEntries, 5);
+            _numHistoryCount.Value = Math.Min(Math.Max(AppConfig.GetInt(ConfigKeys.CallHistoryMaxEntries, 5), (int)_numHistoryCount.Minimum), (int)_numHistoryCount.Maximum);
 
             // DATEV Filter - default to false (all contacts)
             _chkActiveContactsOnly.Checked = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
