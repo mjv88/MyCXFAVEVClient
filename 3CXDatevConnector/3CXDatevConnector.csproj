@@ -37,10 +37,4 @@
     <EmbeddedResource Include="UI\Assets\bridge_icon.png" />
     <EmbeddedResource Include="UI\Assets\DATEVLogo.png" />
   </ItemGroup>
-
-  <!-- Exclude DATEVReq SDK folder from compilation -->
-  <ItemGroup>
-    <Compile Remove="DATEVReq\**" />
-    <None Remove="DATEVReq\**" />
-  </ItemGroup>
 </Project>

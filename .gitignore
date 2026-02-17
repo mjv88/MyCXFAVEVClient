@@ -78,7 +78,7 @@ credentials*
 *.p12
 
 # DATEV SDK reference files (not part of our source)
-3CXDatevConnector/DATEVReq/
+DATEVReq/
 
 # Stub build artifacts (only the DLLs are committed)
 lib/*.deps.json
