@@ -46,19 +46,10 @@ namespace DatevConnector.Core
         private ConnectionMode _configuredConnectionMode = ConnectionMode.Auto;
         private string _detectionDiagnostics;
 
-        /// <summary>
-        /// Event fired when connection status changes
-        /// </summary>
         public event Action<ConnectorStatus> StatusChanged;
 
-        /// <summary>
-        /// Event fired when the selected connection mode changes (for immediate UI updates).
-        /// </summary>
         public event Action<ConnectionMode> ModeChanged;
 
-        /// <summary>
-        /// Current connection status (thread-safe)
-        /// </summary>
         public ConnectorStatus Status
         {
             get
@@ -84,34 +75,16 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Extension number being monitored (first connected line for backward compatibility)
-        /// </summary>
         public string Extension => _extension;
 
-        /// <summary>
-        /// All connected TAPI lines
-        /// </summary>
         public IReadOnlyList<TapiLineInfo> TapiLines => _tapiMonitor?.Lines ?? EmptyLineList;
 
-        /// <summary>
-        /// Number of connected TAPI lines
-        /// </summary>
         public int ConnectedLineCount => _tapiMonitor?.ConnectedLineCount ?? 0;
 
-        /// <summary>
-        /// Whether DATEV is currently available (ROT check)
-        /// </summary>
         public bool DatevAvailable { get; private set; }
 
-        /// <summary>
-        /// Whether TAPI is currently connected (at least one line)
-        /// </summary>
         public bool TapiConnected => Status == ConnectorStatus.Connected;
 
-        /// <summary>
-        /// When true, all popups and notifications are suppressed (silent mode).
-        /// </summary>
         public bool IsMuted
         {
             get => _isMuted;
@@ -125,24 +98,12 @@ namespace DatevConnector.Core
 
         public int ContactCount => DatevContactRepository.ContactCount;
 
-        /// <summary>
-        /// Call history store for re-journaling
-        /// </summary>
         public CallHistoryStore CallHistory => _callHistory;
 
-        /// <summary>
-        /// The selected connection mode (after auto-detection or explicit config).
-        /// </summary>
         public ConnectionMode SelectedConnectionMode => _selectedMode;
 
-        /// <summary>
-        /// Diagnostic summary from provider auto-detection (for Setup Wizard / troubleshooting).
-        /// </summary>
         public string DetectionDiagnostics => _detectionDiagnostics;
 
-        /// <summary>
-        /// Get all cached contacts (for developer diagnostics)
-        /// </summary>
         public List<DatevContactInfo> GetCachedContacts() => DatevContactRepository.GetAllContacts();
 
         public ConnectorService(string extension)
@@ -176,9 +137,6 @@ namespace DatevConnector.Core
                 _minCallerIdLength, DatevContactRepository.FilterActiveContactsOnly);
         }
 
-        /// <summary>
-        /// Start the bridge service
-        /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -263,9 +221,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Load contacts from DATEV SDD with proper logging
-        /// </summary>
         private async Task LoadContactsAsync()
         {
             try
@@ -292,22 +247,13 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Show balloon notification that DATEV is not available
-        /// </summary>
         private void ShowDatevUnavailableNotification()
         {
             DatevUnavailableNotified?.Invoke(this, EventArgs.Empty);
         }
 
-        /// <summary>
-        /// Event raised when DATEV is not available (for UI notification)
-        /// </summary>
         public event EventHandler DatevUnavailableNotified;
 
-        /// <summary>
-        /// Event raised when DATEV becomes available (for UI notification)
-        /// </summary>
         public event EventHandler DatevBecameAvailable;
 
         /// <summary>
@@ -369,10 +315,6 @@ namespace DatevConnector.Core
             }, _cts.Token);
         }
 
-        /// <summary>
-        /// Create the appropriate connection method based on the selected mode.
-        /// Supports TAPI 2.x, Named Pipe, and Webclient (browser extension).
-        /// </summary>
         private IConnectionMethod CreateConnectionMethod(string lineFilter)
         {
             switch (_selectedMode)
@@ -392,9 +334,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Auto-detect and adopt extension number from the first connected line.
-        /// </summary>
         private void AdoptExtensionFromProvider(string source)
         {
             var firstLine = System.Linq.Enumerable.FirstOrDefault(_tapiMonitor.Lines, l => l.IsConnected);
@@ -418,9 +357,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Connect to 3CX via Windows TAPI with automatic retry
-        /// </summary>
         private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, IConnectionMethod initialProvider = null)
         {
             var ini = DebugConfigWatcher.Instance;
@@ -541,18 +477,11 @@ namespace DatevConnector.Core
         // Call event processing is delegated to CallEventProcessor
         // DATEV command handling (Dial/Drop) is delegated to DatevCommandHandler
 
-        /// <summary>
-        /// Reload contacts from DATEV SDD
-        /// </summary>
         public async Task ReloadContactsAsync()
         {
             await ReloadContactsAsync(null);
         }
 
-        /// <summary>
-        /// Reload contacts from DATEV SDD with progress callback
-        /// </summary>
-        /// <param name="progressText">Optional callback for progress text updates</param>
         public async Task ReloadContactsAsync(Action<string> progressText)
         {
             // First check if DATEV is available
@@ -569,18 +498,11 @@ namespace DatevConnector.Core
                 DatevContactRepository.ContactCount, DatevContactRepository.PhoneNumberKeyCount);
         }
 
-        /// <summary>
-        /// Force TAPI reconnection by disposing current monitor
-        /// </summary>
         public Task ReconnectTapiAsync()
         {
             return ReconnectTapiAsync(null);
         }
 
-        /// <summary>
-        /// Force TAPI reconnection with progress callback
-        /// </summary>
-        /// <param name="progressText">Optional callback for progress text updates</param>
         public Task ReconnectTapiAsync(Action<string> progressText)
         {
             LogManager.Log("Manuelle TAPI Neuverbindung angefordert");
@@ -603,12 +525,6 @@ namespace DatevConnector.Core
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Reconnect a specific TAPI line by extension
-        /// </summary>
-        /// <param name="extension">Extension to reconnect</param>
-        /// <param name="progressText">Optional progress callback</param>
-        /// <returns>True if reconnected successfully</returns>
         public bool ReconnectTapiLine(string extension, Action<string> progressText = null)
         {
             if (_tapiMonitor == null)
@@ -621,10 +537,6 @@ namespace DatevConnector.Core
             return _tapiMonitor.ReconnectLine(extension, progressText);
         }
 
-        /// <summary>
-        /// Reconnect all TAPI lines without full TAPI restart
-        /// </summary>
-        /// <param name="progressText">Optional progress callback</param>
         public void ReconnectAllTapiLines(Action<string> progressText = null)
         {
             if (_tapiMonitor == null)
@@ -640,12 +552,6 @@ namespace DatevConnector.Core
             StatusChanged?.Invoke(Status);
         }
 
-        /// <summary>
-        /// Test a specific TAPI line to verify it's connected and responsive
-        /// </summary>
-        /// <param name="extension">Extension to test</param>
-        /// <param name="progressText">Optional progress callback</param>
-        /// <returns>True if line is connected and responsive</returns>
         public bool TestTapiLine(string extension, Action<string> progressText = null)
         {
             if (_tapiMonitor == null)
@@ -658,9 +564,6 @@ namespace DatevConnector.Core
             return _tapiMonitor.TestLine(extension, progressText);
         }
 
-        /// <summary>
-        /// Send a journal from call history (re-journal)
-        /// </summary>
         public void SendHistoryJournal(CallHistoryEntry entry, string note)
         {
             if (entry == null || string.IsNullOrWhiteSpace(note)) return;
@@ -680,9 +583,6 @@ namespace DatevConnector.Core
                 LogManager.Mask(entry.RemoteNumber), callData.CallID, note.Length);
         }
 
-        /// <summary>
-        /// Re-read settings from INI after a save.
-        /// </summary>
         public void ApplySettings()
         {
             // Delegate popup/journal settings to CallEventProcessor

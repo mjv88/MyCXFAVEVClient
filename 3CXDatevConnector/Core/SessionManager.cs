@@ -24,9 +24,6 @@ namespace DatevConnector.Core
             "3CX Phone"
         };
 
-        /// <summary>
-        /// Current Windows session ID
-        /// </summary>
         internal static int SessionId
         {
             get
@@ -37,9 +34,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Whether running in a terminal server (RDP) session
-        /// </summary>
         internal static bool IsTerminalSession
         {
             get
@@ -84,9 +78,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Log session information at startup
-        /// </summary>
         internal static void LogSessionInfo()
         {
             LogManager.Log("Terminal Server (TAPI): {0}", IsTerminalSession ? "Ja" : "Nein");

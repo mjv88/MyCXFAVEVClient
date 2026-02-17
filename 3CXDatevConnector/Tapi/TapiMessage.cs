@@ -14,17 +14,11 @@ namespace DatevConnector.Tapi
         private static int _requestCounter;
         private static int _callIdCounter;
 
-        /// <summary>
-        /// Create empty message
-        /// </summary>
         public TapiMessage()
         {
             _content = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Parse message from raw string (comma-separated key=value pairs)
-        /// </summary>
         public TapiMessage(string rawMessage) : this()
         {
             if (string.IsNullOrEmpty(rawMessage))
@@ -46,23 +40,13 @@ namespace DatevConnector.Tapi
             }
         }
 
-        // ===== Indexer / Key Access =====
-
-        /// <summary>
-        /// Get or set a value by key
-        /// </summary>
         public string this[string key]
         {
             get => _content.TryGetValue(key, out var v) ? v : string.Empty;
             set => _content[key] = value ?? string.Empty;
         }
 
-        /// <summary>
-        /// Check if key exists
-        /// </summary>
         public bool ContainsKey(string key) => _content.ContainsKey(key);
-
-        // ===== Protocol Properties =====
 
         /// <summary>Command type (cmd field)</summary>
         public string Command => this[TapiCommands.KeyCommand];
@@ -108,11 +92,6 @@ namespace DatevConnector.Tapi
         /// <summary>Called party display name (called_name field)</summary>
         public string CalledName => this[TapiCommands.KeyCalledName];
 
-        // ===== Serialization =====
-
-        /// <summary>
-        /// Encode message to string for transmission
-        /// </summary>
         public override string ToString()
         {
             var sb = new StringBuilder();
@@ -151,11 +130,6 @@ namespace DatevConnector.Tapi
             return result;
         }
 
-        // ===== Factory Methods (Server → Softphone commands) =====
-
-        /// <summary>
-        /// Get the next request ID for outgoing commands
-        /// </summary>
         private static string NextRequestId()
         {
             return System.Threading.Interlocked.Increment(ref _requestCounter).ToString();
@@ -172,9 +146,7 @@ namespace DatevConnector.Tapi
             return msg;
         }
 
-        /// <summary>
-        /// Generate the next call ID for outgoing calls (emulates TSP call ID assignment)
-        /// </summary>
+        // Emulates TSP call ID assignment for outgoing calls
         private static string NextCallId()
         {
             return System.Threading.Interlocked.Increment(ref _callIdCounter).ToString();

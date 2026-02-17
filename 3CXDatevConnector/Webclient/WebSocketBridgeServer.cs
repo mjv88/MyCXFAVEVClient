@@ -61,13 +61,8 @@ namespace DatevConnector.Webclient
 
         private readonly ClientConnection _conn = new ClientConnection();
 
-        /// <summary>Fired when a CALL_EVENT message is received.</summary>
         public event Action<ExtensionMessage> CallEventReceived;
-
-        /// <summary>Fired when the HELLO handshake completes.</summary>
         public event Action<string> HelloReceived;
-
-        /// <summary>Fired when the client disconnects.</summary>
         public event Action Disconnected;
 
         public bool IsConnected => _conn.IsFullyConnected && !_disposed;

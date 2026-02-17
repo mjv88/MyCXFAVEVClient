@@ -136,9 +136,6 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.WebclientWebSocketPort, SectionConnection },
         };
 
-        /// <summary>
-        /// Path to the INI config file
-        /// </summary>
         public static string FilePath => _iniPath;
 
         /// <summary>
@@ -161,18 +158,13 @@ namespace DatevConnector.Core.Config
 
             _iniPath = Path.Combine(folder, "3CXDATEVConnector.ini");
 
-            // Initialize IniConfig with the same path
             IniConfig.Initialize(_iniPath);
 
-            // Generate default config if it doesn't exist
             IsFirstRun = !File.Exists(_iniPath);
             if (IsFirstRun)
                 GenerateDefaultConfig();
         }
 
-        /// <summary>
-        /// Get a string value. Falls back to hardcoded default.
-        /// </summary>
         public static string GetString(string key, string defaultValue = null)
         {
             string section = GetSection(key);
@@ -185,9 +177,6 @@ namespace DatevConnector.Core.Config
             return string.IsNullOrEmpty(value) ? fallback : value;
         }
 
-        /// <summary>
-        /// Get an integer value. Falls back to hardcoded default.
-        /// </summary>
         public static int GetInt(string key, int defaultValue = 0)
         {
             string strDefault = GetDefault(key);
@@ -217,14 +206,8 @@ namespace DatevConnector.Core.Config
             return raw;
         }
 
-        /// <summary>
-        /// Parse a string as a boolean. Delegates to shared ConfigParser.
-        /// </summary>
         private static bool? ParseBool(string value) => ConfigParser.ParseBool(value);
 
-        /// <summary>
-        /// Get a boolean value. Falls back to hardcoded default.
-        /// </summary>
         public static bool GetBool(string key, bool defaultValue = false)
         {
             bool fallback = ParseBool(GetDefault(key)) ?? defaultValue;
@@ -237,9 +220,6 @@ namespace DatevConnector.Core.Config
             return ParseBool(value) ?? fallback;
         }
 
-        /// <summary>
-        /// Get an enum value. Falls back to hardcoded default.
-        /// </summary>
         public static T GetEnum<T>(string key, T defaultValue) where T : struct
         {
             string value = GetString(key, null);
@@ -248,9 +228,6 @@ namespace DatevConnector.Core.Config
             return Enum.TryParse<T>(value, ignoreCase: true, out var result) ? result : defaultValue;
         }
 
-        /// <summary>
-        /// Set a value in the INI file
-        /// </summary>
         public static bool Set(string key, string value)
         {
             if (string.IsNullOrEmpty(_iniPath))
@@ -260,43 +237,28 @@ namespace DatevConnector.Core.Config
             return IniConfig.SetString(section, key, value);
         }
 
-        /// <summary>
-        /// Set a boolean value in the INI file
-        /// </summary>
         public static bool SetBool(string key, bool value)
         {
             return Set(key, value ? "true" : "false");
         }
 
-        /// <summary>
-        /// Set an integer value in the INI file
-        /// </summary>
         public static bool SetInt(string key, int value)
         {
             return Set(key, value.ToString());
         }
 
-        /// <summary>
-        /// Check if a key exists with a non-empty value in the INI file
-        /// </summary>
         public static bool HasValue(string key)
         {
             string value = GetString(key, null);
             return !string.IsNullOrEmpty(value);
         }
 
-        /// <summary>
-        /// Get the hardcoded default for a key (null if no default defined)
-        /// </summary>
         public static string GetDefault(string key)
         {
             string value;
             return Defaults.TryGetValue(key, out value) ? value : null;
         }
 
-        /// <summary>
-        /// Get the INI section for a key (defaults to "Settings")
-        /// </summary>
         private static string GetSection(string key)
         {
             string section;

@@ -21,8 +21,6 @@ namespace DatevConnector.Extensions
         /// 1. Converting international prefixes (00XX → XX, +XX → XX)
         /// 2. Removing all non-digit characters
         /// </summary>
-        /// <param name="phoneNumber">The phone number to normalize</param>
-        /// <returns>Digits only, or empty string if null/empty input</returns>
         /// <example>
         /// "+49 89 12345678" → "498912345678"
         /// "0049 89 12345678" → "498912345678"
@@ -55,9 +53,6 @@ namespace DatevConnector.Extensions
         /// <summary>
         /// Normalizes a phone number and returns the last N digits for comparison.
         /// </summary>
-        /// <param name="phoneNumber">The phone number to normalize</param>
-        /// <param name="maxLength">Maximum number of digits to return (from the end)</param>
-        /// <returns>Last N digits of the normalized number</returns>
         /// <example>
         /// NormalizeForComparison("+49 89 12345678", 10) → "8912345678"
         /// NormalizeForComparison("089/12345678", 10) → "8912345678"

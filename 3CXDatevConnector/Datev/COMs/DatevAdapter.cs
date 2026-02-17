@@ -18,19 +18,15 @@ namespace DatevConnector.Datev.COMs
     {
         private readonly Action<IDatevCtiData, DatevEventType> _eventHandler;
 
-        /// <summary>
-        /// Constructor
-        /// </summary>
         public DatevAdapter(Action<IDatevCtiData, DatevEventType> eventHandler)
         {
             _eventHandler = eventHandler;
         }
 
         /// <summary>
-        /// This method handles the COM-events for IDatevCtiControl.Dial.
+        /// Handles IDatevCtiControl.Dial COM event.
         /// DATEV expects CallID to be set on pCallData before this method returns.
         /// </summary>
-        /// <param name="pCallData">Struct with the necessary information about the call.</param>
         public void Dial(object pCallData)
         {
             try
@@ -60,10 +56,6 @@ namespace DatevConnector.Datev.COMs
             }
         }
 
-        /// <summary>
-        /// This method handles the COM-events for IDatevCtiControl.Drop
-        /// </summary>
-        /// <param name="pCallData">Struct with the necessary information about the drop.</param>
         public void Drop(object pCallData)
         {
             ProcessEvent(pCallData, "Drop", DatevEventType.Drop);

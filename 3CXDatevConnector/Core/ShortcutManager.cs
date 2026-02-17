@@ -11,37 +11,17 @@ namespace DatevConnector.Core
     {
         // ========== SHORTCUT DEFINITIONS ==========
 
-        /// <summary>Test all connections (Ctrl+T)</summary>
         public static readonly Keys TestAll = Keys.Control | Keys.T;
-
-        /// <summary>Reload contacts (Ctrl+R)</summary>
         public static readonly Keys ReloadContacts = Keys.Control | Keys.R;
-
-        /// <summary>Open log file (Ctrl+L)</summary>
         public static readonly Keys OpenLog = Keys.Control | Keys.L;
-
-        /// <summary>Open call history (Ctrl+H)</summary>
         public static readonly Keys CallHistory = Keys.Control | Keys.H;
-
-        /// <summary>Open settings (Ctrl+,)</summary>
         public static readonly Keys Settings = Keys.Control | Keys.Oemcomma;
-
-        /// <summary>Save settings (Ctrl+S)</summary>
         public static readonly Keys SaveSettings = Keys.Control | Keys.S;
-
-        /// <summary>Close window (Escape)</summary>
         public static readonly Keys CloseWindow = Keys.Escape;
-
-        /// <summary>Refresh/Reload (F5)</summary>
         public static readonly Keys Refresh = Keys.F5;
 
         // ========== DISPLAY STRING HELPERS ==========
 
-        /// <summary>
-        /// Returns German display string for a keyboard shortcut (e.g., "Strg+T")
-        /// </summary>
-        /// <param name="keys">The key combination</param>
-        /// <returns>Formatted display string</returns>
         public static string GetDisplayString(Keys keys)
         {
             var parts = new List<string>();
@@ -60,9 +40,6 @@ namespace DatevConnector.Core
             return string.Join("+", parts);
         }
 
-        /// <summary>
-        /// Get display name for individual key
-        /// </summary>
         private static string GetKeyDisplayName(Keys keyCode)
         {
             switch (keyCode)
@@ -90,9 +67,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Check if a KeyEventArgs matches a shortcut
-        /// </summary>
         public static bool Matches(KeyEventArgs e, Keys shortcut)
         {
             // Build the key combination from the event
@@ -104,20 +78,11 @@ namespace DatevConnector.Core
             return eventKeys == shortcut;
         }
 
-        /// <summary>
-        /// Get tooltip text with shortcut hint
-        /// </summary>
-        /// <param name="baseText">The base tooltip text</param>
-        /// <param name="shortcut">The keyboard shortcut</param>
-        /// <returns>Combined tooltip with shortcut hint</returns>
         public static string GetTooltipWithShortcut(string baseText, Keys shortcut)
         {
             return $"{baseText} ({GetDisplayString(shortcut)})";
         }
 
-        /// <summary>
-        /// Get menu item text with shortcut hint (uses tab character)
-        /// </summary>
         public static string GetMenuItemText(string baseText, Keys shortcut)
         {
             return $"{baseText}\t{GetDisplayString(shortcut)}";
@@ -125,9 +90,6 @@ namespace DatevConnector.Core
 
         // ========== SHORTCUT REFERENCE ==========
 
-        /// <summary>
-        /// Get the German description for a shortcut key combination
-        /// </summary>
         public static string GetShortcutDescription(Keys keys)
         {
             if (keys == TestAll) return "Alle Verbindungen testen";
@@ -140,9 +102,6 @@ namespace DatevConnector.Core
             return keys.ToString();
         }
 
-        /// <summary>
-        /// Get formatted help text showing all shortcuts
-        /// </summary>
         public static string GetHelpText()
         {
             return @"Tastenkürzel:

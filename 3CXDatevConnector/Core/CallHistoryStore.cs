@@ -44,9 +44,6 @@ namespace DatevConnector.Core
             Load();
         }
 
-        /// <summary>
-        /// Update configuration at runtime (from settings save)
-        /// </summary>
         public void UpdateConfig(int maxEntries, bool trackInbound, bool trackOutbound, int retentionDays)
         {
             lock (_lock)
@@ -63,9 +60,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Add a completed call to history
-        /// </summary>
         public void AddEntry(CallHistoryEntry entry)
         {
             if (entry == null) return;
@@ -93,9 +87,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Get inbound call history (most recent first)
-        /// </summary>
         public List<CallHistoryEntry> GetInbound()
         {
             lock (_lock)
@@ -104,9 +95,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Get outbound call history (most recent first)
-        /// </summary>
         public List<CallHistoryEntry> GetOutbound()
         {
             lock (_lock)
@@ -115,9 +103,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Mark an entry as journal-sent
-        /// </summary>
         public void MarkJournalSent(CallHistoryEntry entry)
         {
             lock (_lock)

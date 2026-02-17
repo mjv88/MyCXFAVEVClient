@@ -19,9 +19,6 @@ namespace DatevConnector.UI
     /// </summary>
     public class StatusForm : ThemedForm
     {
-        /// <summary>
-        /// Which action the user requested before closing.
-        /// </summary>
         public enum Action { None, CallHistory, Settings }
 
         private readonly ConnectorService _bridgeService;
@@ -39,9 +36,6 @@ namespace DatevConnector.UI
         private SingleLineStatusPanel _singleLinePanel;
         private MultiLineStatusPanel _multiLinePanel;
 
-        /// <summary>
-        /// The action requested by the user (check after ShowDialog returns).
-        /// </summary>
         public Action RequestedAction { get; private set; }
 
         public StatusForm(ConnectorService bridgeService)
@@ -328,7 +322,6 @@ namespace DatevConnector.UI
             SafeInvoke(() =>
             {
                 label.Text = text;
-                // Show the label when there's text to display
                 if (!string.IsNullOrEmpty(text) && !label.Visible)
                     label.Visible = true;
             });

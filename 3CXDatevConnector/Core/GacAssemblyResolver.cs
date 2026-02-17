@@ -38,9 +38,6 @@ namespace DatevConnector.Core
 
         private static bool _registered;
 
-        /// <summary>
-        /// Register the assembly resolver. Call once at startup before any SDD types are used.
-        /// </summary>
         internal static void Register()
         {
             if (_registered) return;

@@ -8,9 +8,6 @@ using DatevConnector.Core.Config;
 
 namespace DatevConnector.Datev.Managers
 {
-    /// <summary>
-    /// Log severity levels
-    /// </summary>
     public enum LogLevel
     {
         Debug = 0,
@@ -20,9 +17,6 @@ namespace DatevConnector.Datev.Managers
         Critical = 4
     }
 
-    /// <summary>
-    /// Enhanced logging implementation with log levels and rotation
-    /// </summary>
     public static class LogManager
     {
         private static readonly object _lockObj = new object();
@@ -43,7 +37,6 @@ namespace DatevConnector.Datev.Managers
 
         static LogManager()
         {
-            // Setup log folder
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             _logFolder = Path.Combine(appDataPath, "3CXDATEVConnector");
 
@@ -53,7 +46,6 @@ namespace DatevConnector.Datev.Managers
             _logFileBaseName = "3CXDatevConnector";
             _currentLogFilePath = Path.Combine(_logFolder, $"{_logFileBaseName}.log");
 
-            // Read configuration from INI
             string levelStr = AppConfig.GetString(ConfigKeys.LogLevel, "Info");
             if (!Enum.TryParse(levelStr, true, out _minLogLevel))
                 _minLogLevel = LogLevel.Info;
@@ -65,22 +57,17 @@ namespace DatevConnector.Datev.Managers
             // Remember configured level for restoring after debug toggle
             _configuredLogLevel = _minLogLevel;
 
-            // Max log size in MB (default 10MB)
             int maxSizeMb = AppConfig.GetInt(ConfigKeys.LogMaxSizeMB, 10);
             _maxLogSizeBytes = maxSizeMb * 1024L * 1024L;
 
-            // Max number of log files to keep (default 5)
             _maxLogFiles = AppConfig.GetInt(ConfigKeys.LogMaxFiles, 5);
 
-            // Log retention in days (default 7)
             _logRetentionDays = AppConfig.GetInt(ConfigKeys.LogRetentionDays, 7);
             if (_logRetentionDays < 1) _logRetentionDays = 1;
             if (_logRetentionDays > 90) _logRetentionDays = 90;
 
-            // Async logging (default true for better performance)
             bool asyncEnabled = AppConfig.GetBool(ConfigKeys.LogAsync, true);
 
-            // Initialize current log size
             if (File.Exists(_currentLogFilePath))
             {
                 try
@@ -105,21 +92,14 @@ namespace DatevConnector.Datev.Managers
                 _logWriterTask = Task.Run(() => LogWriterLoop(_cts.Token));
             }
 
-            // Purge rotated log files older than retention period
             PurgeOldLogs();
         }
 
-        /// <summary>
-        /// Log a message at Info level (backward compatible)
-        /// </summary>
         public static void Log(string format, params object[] parameters)
         {
             Log(LogLevel.Info, format, parameters);
         }
 
-        /// <summary>
-        /// Log a message at specified level
-        /// </summary>
         public static void Log(LogLevel level, string format, params object[] parameters)
         {
             if (level < _minLogLevel)
@@ -136,10 +116,8 @@ namespace DatevConnector.Datev.Managers
                 string threadId = Thread.CurrentThread.ManagedThreadId.ToString().PadLeft(4);
                 string logLine = $"[{timestamp}] [{levelStr}] [T{threadId}] {message}";
 
-                // Always write to console
                 WriteToConsole(level, logLine);
 
-                // Write to file
                 if (_asyncLogging)
                 {
                     _logQueue.Enqueue(logLine);
@@ -163,41 +141,26 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Log debug message
-        /// </summary>
         public static void Debug(string format, params object[] parameters)
         {
             Log(LogLevel.Debug, format, parameters);
         }
 
-        /// <summary>
-        /// Log info message
-        /// </summary>
         public static void Info(string format, params object[] parameters)
         {
             Log(LogLevel.Info, format, parameters);
         }
 
-        /// <summary>
-        /// Log warning message
-        /// </summary>
         public static void Warning(string format, params object[] parameters)
         {
             Log(LogLevel.Warning, format, parameters);
         }
 
-        /// <summary>
-        /// Log error message
-        /// </summary>
         public static void Error(string format, params object[] parameters)
         {
             Log(LogLevel.Error, format, parameters);
         }
 
-        /// <summary>
-        /// Log error with exception
-        /// </summary>
         public static void Error(Exception ex, string format, params object[] parameters)
         {
             string message = parameters.Length > 0
@@ -206,17 +169,11 @@ namespace DatevConnector.Datev.Managers
             Log(LogLevel.Error, "{0}: {1}\nStackTrace: {2}", message, ex.Message, ex.StackTrace);
         }
 
-        /// <summary>
-        /// Log critical message
-        /// </summary>
         public static void Critical(string format, params object[] parameters)
         {
             Log(LogLevel.Critical, format, parameters);
         }
 
-        /// <summary>
-        /// Write to console with color coding
-        /// </summary>
         private static void WriteToConsole(LogLevel level, string logLine)
         {
             ConsoleColor originalColor = Console.ForegroundColor;
@@ -251,16 +208,12 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Write to log file (synchronous)
-        /// </summary>
         private static void WriteToFile(string logLine)
         {
             lock (_lockObj)
             {
                 try
                 {
-                    // Check if rotation needed
                     if (_currentLogSize >= _maxLogSizeBytes)
                     {
                         RotateLogs();
@@ -277,22 +230,17 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Async log writer loop
-        /// </summary>
         private static async Task LogWriterLoop(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    // Process queued log entries
                     while (_logQueue.TryDequeue(out string logLine))
                     {
                         WriteToFile(logLine);
                     }
 
-                    // Wait before next batch
                     await Task.Delay(100, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
@@ -305,28 +253,22 @@ namespace DatevConnector.Datev.Managers
                 }
             }
 
-            // Flush remaining entries on shutdown
             while (_logQueue.TryDequeue(out string logLine))
             {
                 WriteToFile(logLine);
             }
         }
 
-        /// <summary>
-        /// Rotate log files
-        /// </summary>
         private static void RotateLogs()
         {
             try
             {
-                // Delete oldest log if at max
                 string oldestLog = Path.Combine(_logFolder, $"{_logFileBaseName}.{_maxLogFiles}.log");
                 if (File.Exists(oldestLog))
                 {
                     File.Delete(oldestLog);
                 }
 
-                // Rotate existing logs
                 for (int i = _maxLogFiles - 1; i >= 1; i--)
                 {
                     string currentPath = Path.Combine(_logFolder, $"{_logFileBaseName}.{i}.log");
@@ -338,14 +280,12 @@ namespace DatevConnector.Datev.Managers
                     }
                 }
 
-                // Rename current log to .1.log
                 if (File.Exists(_currentLogFilePath))
                 {
                     string firstRotated = Path.Combine(_logFolder, $"{_logFileBaseName}.1.log");
                     File.Move(_currentLogFilePath, firstRotated);
                 }
 
-                // Reset size counter
                 _currentLogSize = 0;
 
                 PurgeOldLogs();
@@ -378,14 +318,10 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Flush pending log entries (call on shutdown)
-        /// </summary>
         public static void Flush()
         {
             if (_asyncLogging && _logQueue != null)
             {
-                // Wait for queue to drain
                 int maxWait = 50; // 5 seconds max
                 while (!_logQueue.IsEmpty && maxWait > 0)
                 {
@@ -395,9 +331,6 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Shutdown the log manager
-        /// </summary>
         public static void Shutdown()
         {
             if (_asyncLogging)
@@ -411,24 +344,12 @@ namespace DatevConnector.Datev.Managers
             }
         }
 
-        /// <summary>
-        /// Path to the log folder
-        /// </summary>
         public static string LogFolder => _logFolder;
 
-        /// <summary>
-        /// Path to the current log file
-        /// </summary>
         public static string LogFilePath => _currentLogFilePath;
 
-        /// <summary>
-        /// Current minimum log level
-        /// </summary>
         public static LogLevel MinLogLevel => _minLogLevel;
 
-        /// <summary>
-        /// Whether debug logging is currently enabled
-        /// </summary>
         public static bool IsDebugEnabled => _minLogLevel <= LogLevel.Debug;
 
         /// <summary>
@@ -450,14 +371,8 @@ namespace DatevConnector.Datev.Managers
             return new string('*', value.Length - visible) + value.Substring(value.Length - visible);
         }
 
-        /// <summary>
-        /// Mask a phone number for log output.
-        /// </summary>
         public static string Mask(string number) => MaskValue(number);
 
-        /// <summary>
-        /// Mask a contact name for log output.
-        /// </summary>
         public static string MaskName(string name) => MaskValue(name);
 
         /// <summary>

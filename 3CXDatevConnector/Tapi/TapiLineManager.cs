@@ -7,9 +7,6 @@ using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
 {
-    /// <summary>
-    /// Manages opening, closing, and reconnecting TAPI lines.
-    /// </summary>
     internal class TapiLineManager
     {
         private readonly ConcurrentDictionary<int, TapiLineInfo> _lines;
@@ -32,9 +29,6 @@ namespace DatevConnector.Tapi
             _onLineDisconnected = onLineDisconnected;
         }
 
-        /// <summary>
-        /// Open all discovered lines in monitor mode
-        /// </summary>
         public void OpenAllLines(Action<string> progressText = null)
         {
             foreach (var line in _lines.Values)
@@ -44,10 +38,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Open a single line in monitor mode
-        /// </summary>
-        /// <returns>True if opened successfully</returns>
         public bool OpenSingleLine(TapiLineInfo line, Action<string> progressText = null)
         {
             IntPtr hLine;
@@ -93,9 +83,6 @@ namespace DatevConnector.Tapi
             return true;
         }
 
-        /// <summary>
-        /// Reconnect a specific line by extension
-        /// </summary>
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
             var line = _lines.Values.FirstOrDefault(l => l.Extension == extension);
@@ -105,7 +92,6 @@ namespace DatevConnector.Tapi
                 return false;
             }
 
-            // Close existing handle if open
             if (line.Handle != IntPtr.Zero)
             {
                 progressText?.Invoke($"Trenne Leitung {extension}...");
@@ -115,17 +101,12 @@ namespace DatevConnector.Tapi
                 _onLineDisconnected?.Invoke(line);
             }
 
-            // Reopen the line
             progressText?.Invoke($"Öffne Leitung {extension}...");
             return OpenSingleLine(line, progressText);
         }
 
-        /// <summary>
-        /// Reconnect all lines
-        /// </summary>
         public void ReconnectAllLines(Action<string> progressText = null)
         {
-            // Close all open lines
             foreach (var line in _lines.Values.Where(l => l.IsConnected).ToList())
             {
                 progressText?.Invoke($"Trenne Leitung {line.Extension}...");
@@ -135,7 +116,6 @@ namespace DatevConnector.Tapi
                 _onLineDisconnected?.Invoke(line);
             }
 
-            // Reopen all lines
             OpenAllLines(progressText);
         }
     }

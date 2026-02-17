@@ -58,15 +58,12 @@ namespace DatevConnector.Core
             if (!_cache.TryGetValue(normalized, out var usage))
                 return contacts;
 
-            // Check if within routing window
             if ((DateTime.Now - usage.Timestamp).TotalMinutes > _routingWindowMinutes)
             {
-                // Expired, remove entry
                 _cache.TryRemove(normalized, out _);
                 return contacts;
             }
 
-            // Find the previously-used contact in the list
             int preferredIndex = -1;
             for (int i = 0; i < contacts.Count; i++)
             {
@@ -80,7 +77,6 @@ namespace DatevConnector.Core
             if (preferredIndex <= 0) // Already first, or not found
                 return contacts;
 
-            // Move preferred contact to front
             var reordered = new List<DatevContactInfo>(contacts.Count);
             reordered.Add(contacts[preferredIndex]);
             for (int i = 0; i < contacts.Count; i++)

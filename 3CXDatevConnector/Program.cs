@@ -18,9 +18,6 @@ namespace DatevConnector
     /// </summary>
     static class Program
     {
-        /// <summary>
-        /// Application entry point
-        /// </summary>
         [STAThread]
         static void Main(string[] args)
         {
@@ -32,7 +29,6 @@ namespace DatevConnector
                 return;
             }
 
-            // Check for single instance
             bool createdNew;
             using (var mutex = new Mutex(true, "DatevConnector_SingleInstance", out createdNew))
             {
@@ -63,14 +59,12 @@ namespace DatevConnector
 
                 string extension = ResolveExtension();
 
-                // Enable visual styles for modern look
                 Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
                 try
                 {
-                    // Run the tray application
                     using (var trayApp = new TrayApplication(extension))
                     {
                         Application.Run(trayApp);
@@ -193,34 +187,22 @@ namespace DatevConnector
             Console.WriteLine("=== Test mode ended ===");
         }
 
-        /// <summary>
-        /// Simulate a call event in the provider for test mode.
-        /// </summary>
         private static void SimulateCallEvent(WebclientConnectionMethod provider, ExtensionMessage msg)
         {
             provider.SimulateCallEvent(msg);
         }
 
-        /// <summary>
-        /// Handle UI thread exceptions
-        /// </summary>
         private static void OnThreadException(object sender, ThreadExceptionEventArgs e)
         {
             LogManager.Log("UI-Thread Ausnahme: {0}", e.Exception);
         }
 
-        /// <summary>
-        /// Handle non-UI thread exceptions
-        /// </summary>
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             var ex = e.ExceptionObject as Exception;
             LogManager.Log("Unbehandelte Ausnahme: {0}", ex);
         }
 
-        /// <summary>
-        /// Handle unobserved task exceptions (fire-and-forget tasks)
-        /// </summary>
         private static void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
         {
             LogManager.Log("Unbeobachtete Task-Ausnahme: {0}", e.Exception?.Flatten());

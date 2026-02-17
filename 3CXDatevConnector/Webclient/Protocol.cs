@@ -137,9 +137,6 @@ namespace DatevConnector.Webclient
     /// </summary>
     public static class BridgeMessageBuilder
     {
-        /// <summary>
-        /// Build HELLO_ACK response after receiving HELLO from extension.
-        /// </summary>
         public static string BuildHelloAck(string bridgeVersion, string extension)
         {
             var sb = new StringBuilder();
@@ -152,9 +149,6 @@ namespace DatevConnector.Webclient
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Build DIAL command to send to the extension.
-        /// </summary>
         public static string BuildDialCommand(string number, string syncId = null)
         {
             var sb = new StringBuilder();
@@ -170,9 +164,6 @@ namespace DatevConnector.Webclient
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Build DROP command to send to the extension.
-        /// </summary>
         public static string BuildDropCommand(string callId = null)
         {
             var sb = new StringBuilder();

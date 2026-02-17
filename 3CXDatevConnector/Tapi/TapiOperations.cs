@@ -8,9 +8,6 @@ using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
 {
-    /// <summary>
-    /// Handles TAPI call operations (make/drop/find) and line health testing.
-    /// </summary>
     internal class TapiOperations
     {
         private readonly ConcurrentDictionary<int, TapiLineInfo> _lines;
@@ -30,17 +27,11 @@ namespace DatevConnector.Tapi
             _onLineDisconnected = onLineDisconnected;
         }
 
-        /// <summary>
-        /// Make an outbound call on the first connected line
-        /// </summary>
         public int MakeCall(string destination)
         {
             return MakeCall(destination, null);
         }
 
-        /// <summary>
-        /// Make an outbound call on a specific line
-        /// </summary>
         public int MakeCall(string destination, string extension)
         {
             TapiLineInfo line;
@@ -82,9 +73,6 @@ namespace DatevConnector.Tapi
             return result;
         }
 
-        /// <summary>
-        /// Drop/end a call by handle
-        /// </summary>
         public int DropCall(IntPtr hCall)
         {
             if (hCall == IntPtr.Zero)
@@ -104,9 +92,6 @@ namespace DatevConnector.Tapi
             return result;
         }
 
-        /// <summary>
-        /// Find an active call by its TAPI call ID
-        /// </summary>
         public TapiCallEvent FindCallById(int callId)
         {
             foreach (var kvp in _activeCalls)
@@ -133,7 +118,6 @@ namespace DatevConnector.Tapi
 
             progressText?.Invoke($"Prüfe Leitung {extension}...");
 
-            // First check: is the handle valid?
             if (line.Handle == IntPtr.Zero)
             {
                 progressText?.Invoke($"Leitung {extension} nicht verbunden");
@@ -141,7 +125,6 @@ namespace DatevConnector.Tapi
                 return false;
             }
 
-            // Execute test with retry logic for transient errors
             int attempt = 0;
             int delayMs = 500; // Start with 500ms delay
 
@@ -196,9 +179,6 @@ namespace DatevConnector.Tapi
             return false;
         }
 
-        /// <summary>
-        /// Internal test result with error category
-        /// </summary>
         private struct TestLineResult
         {
             public TapiErrorCategory Category;
@@ -206,9 +186,6 @@ namespace DatevConnector.Tapi
             public int ErrorCode;
         }
 
-        /// <summary>
-        /// Internal method to perform the actual TAPI line test
-        /// </summary>
         private TestLineResult TestLineInternal(TapiLineInfo line, Action<string> progressText, bool isRetry)
         {
             if (!isRetry)
@@ -241,10 +218,8 @@ namespace DatevConnector.Tapi
                     };
                 }
 
-                // Parse the LINEDEVSTATUS structure
                 var devStatus = (LINEDEVSTATUS)Marshal.PtrToStructure(pDevStatus, typeof(LINEDEVSTATUS));
 
-                // Check INSERVICE flag
                 bool inService = (devStatus.dwDevStatusFlags & LINEDEVSTATUSFLAGS_INSERVICE) != 0;
                 bool connected = (devStatus.dwDevStatusFlags & LINEDEVSTATUSFLAGS_CONNECTED) != 0;
                 int activeCalls = devStatus.dwNumActiveCalls;
@@ -253,7 +228,6 @@ namespace DatevConnector.Tapi
                 LogManager.Log("TAPI TestLine {0}: Opens={1}, ActiveCalls={2}, InService={3}, Connected={4}",
                     line.Extension, numOpens, activeCalls, inService, connected);
 
-                // Build status message
                 string statusMsg;
                 bool isConnected;
 

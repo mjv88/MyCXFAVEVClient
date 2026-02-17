@@ -49,14 +49,8 @@ namespace DatevConnector.Core
         public int? ReconnectIntervalSeconds { get; private set; }
         public int? ContactReshowDelaySeconds { get; private set; }
 
-        /// <summary>
-        /// Singleton instance (null until Start is called)
-        /// </summary>
         public static DebugConfigWatcher Instance => _instance;
 
-        /// <summary>
-        /// Start watching for 3CXDATEVConnector.ini
-        /// </summary>
         public static void Start()
         {
             lock (_instanceLock)
@@ -66,9 +60,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Stop watching
-        /// </summary>
         public static void Stop()
         {
             lock (_instanceLock)
@@ -344,9 +335,6 @@ namespace DatevConnector.Core
             LogManager.Log("3CXDATEVConnector.ini entfernt - Standardwerte wiederhergestellt");
         }
 
-        /// <summary>
-        /// Helper to get an int setting with INI override, falling back to AppConfig then default.
-        /// </summary>
         public static int GetInt(int? iniValue, string appConfigKey, int defaultValue)
         {
             if (iniValue.HasValue)

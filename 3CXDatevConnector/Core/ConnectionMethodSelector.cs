@@ -15,29 +15,10 @@ namespace DatevConnector.Core
     /// </summary>
     public class ProviderSelectionResult
     {
-        /// <summary>
-        /// The selected provider (null if none available).
-        /// </summary>
         public IConnectionMethod Provider { get; set; }
-
-        /// <summary>
-        /// The mode that was selected.
-        /// </summary>
         public ConnectionMode SelectedMode { get; set; }
-
-        /// <summary>
-        /// Human-readable reason for the selection.
-        /// </summary>
         public string Reason { get; set; }
-
-        /// <summary>
-        /// Diagnostic summary of what was detected and what failed.
-        /// </summary>
         public string DiagnosticSummary { get; set; }
-
-        /// <summary>
-        /// Whether detection succeeded and a provider is available.
-        /// </summary>
         public bool Success => Provider != null;
     }
 
@@ -53,13 +34,6 @@ namespace DatevConnector.Core
     /// </summary>
     public static class ConnectionMethodSelector
     {
-        /// <summary>
-        /// Select a connection method based on configuration and environment.
-        /// </summary>
-        /// <param name="extension">Extension number</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="progressText">Optional progress callback for UI updates</param>
-        /// <returns>Selection result with provider or diagnostic information</returns>
         public static async Task<ProviderSelectionResult> SelectProviderAsync(
             string extension,
             CancellationToken cancellationToken,
@@ -292,9 +266,6 @@ namespace DatevConnector.Core
             };
         }
 
-        /// <summary>
-        /// Get a human-readable description of a connection mode.
-        /// </summary>
         public static string GetModeDescription(ConnectionMode mode)
         {
             switch (mode)
@@ -311,9 +282,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Get the short UI label for a connection mode (matches Settings dropdown text).
-        /// </summary>
         public static string GetModeShortName(ConnectionMode mode)
         {
             switch (mode)

@@ -23,9 +23,6 @@ namespace DatevConnector.UI
         private Action<string> _onSubmit;
         private Action _onClosed;
 
-        /// <summary>
-        /// The journal note text entered by the user
-        /// </summary>
         public string JournalText
         {
             get

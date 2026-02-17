@@ -15,9 +15,6 @@ namespace DatevConnector.UI
     /// </summary>
     public class CallHistoryForm : ThemedForm
     {
-        /// <summary>
-        /// Which action the user requested before closing.
-        /// </summary>
         public enum Action { None, Back }
 
         private ListView _lstInbound;
@@ -42,9 +39,6 @@ namespace DatevConnector.UI
         private const int BtnSpacing = 8; // LayoutConstants.SpaceSM
         private const int JournalBtnWidth = 120;
 
-        /// <summary>
-        /// The action requested by the user (check after ShowDialog returns).
-        /// </summary>
         public Action RequestedAction { get; private set; }
 
         protected override void ApplyTheme()
@@ -170,10 +164,6 @@ namespace DatevConnector.UI
                 LayoutControls();
         }
 
-        /// <summary>
-        /// Position and size all controls based on current ClientSize.
-        /// Column widths remain hardcoded; ListViews fill available space.
-        /// </summary>
         private void LayoutControls()
         {
             int cw = ClientSize.Width;

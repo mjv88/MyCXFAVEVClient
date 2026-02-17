@@ -26,30 +26,12 @@ namespace DatevConnector.Tapi
         private bool _disposed;
         private volatile bool _clientConnected;
 
-        /// <summary>
-        /// Fired when a message is received from the 3CX Softphone
-        /// </summary>
         public event Action<TapiMessage> MessageReceived;
-
-        /// <summary>
-        /// Fired when the 3CX Softphone connects to our pipe
-        /// </summary>
         public event Action ClientConnected;
-
-        /// <summary>
-        /// Fired when the 3CX Softphone disconnects
-        /// </summary>
         public event Action ClientDisconnected;
-
-        /// <summary>
-        /// Whether a client (3CX Softphone) is currently connected
-        /// </summary>
         public bool IsClientConnected => _clientConnected;
 
-        /// <summary>
-        /// Create a pipe server for the specified extension.
-        /// The pipe name follows 3CX convention: 3CX_tsp_server_{extension}
-        /// </summary>
+        // Pipe name follows 3CX convention: 3CX_tsp_server_{extension}
         public TapiPipeServer(string extension)
         {
             _pipeName = "3CX_tsp_server_" + extension;
@@ -102,10 +84,6 @@ namespace DatevConnector.Tapi
             return security;
         }
 
-        /// <summary>
-        /// Run the pipe server loop. Creates the pipe, waits for the 3CX Softphone to connect, reads messages, and reconnects when the client disconnects.
-        /// Blocks until cancellation.
-        /// </summary>
         public async Task RunAsync(CancellationToken cancellationToken)
         {
             LogManager.Log("PipeServer: Starte auf \\\\.\\pipe\\{0}", _pipeName);
@@ -158,7 +136,6 @@ namespace DatevConnector.Tapi
                         LogManager.Debug("PipeServer: Fehler im ClientConnected-Handler: {0}", ex.Message);
                     }
 
-                    // Read messages until client disconnects or cancellation
                     await ReadLoopAsync(_pipe, cancellationToken);
                 }
                 catch (OperationCanceledException)
@@ -195,17 +172,11 @@ namespace DatevConnector.Tapi
             LogManager.Log("PipeServer: Beendet");
         }
 
-        /// <summary>
-        /// Wait for client connection with cancellation support
-        /// </summary>
         private async Task WaitForConnectionAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
         {
             await pipe.WaitForConnectionAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Read messages from the connected 3CX Softphone
-        /// </summary>
         private async Task ReadLoopAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
         {
             byte[] lengthBuffer = new byte[LengthPrefixSize];
@@ -265,9 +236,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Read exact number of bytes from the pipe
-        /// </summary>
         private static async Task<int> ReadExactAsync(
             PipeStream pipe, byte[] buffer, int count, CancellationToken cancellationToken)
         {
@@ -282,9 +250,6 @@ namespace DatevConnector.Tapi
             return totalRead;
         }
 
-        /// <summary>
-        /// Send a message to the connected 3CX Softphone
-        /// </summary>
         public async Task SendAsync(TapiMessage message, CancellationToken cancellationToken)
         {
             if (_pipe == null || !_pipe.IsConnected)
@@ -297,9 +262,6 @@ namespace DatevConnector.Tapi
             await _pipe.FlushAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Try to send a message, returning false on failure instead of throwing
-        /// </summary>
         public bool TrySend(TapiMessage message)
         {
             try
@@ -330,9 +292,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Diagnostic: list all named pipes matching "3CX" on the system
-        /// </summary>
         private static void LogExisting3CXPipes()
         {
             try

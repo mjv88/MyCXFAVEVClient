@@ -12,9 +12,6 @@ namespace DatevConnector.Core
         private const string AutoStartKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AutoStartValue = "3CXDATEVConnector";
 
-        /// <summary>
-        /// Check whether autostart is currently enabled.
-        /// </summary>
         public static bool IsEnabled()
         {
             try
@@ -31,9 +28,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Enable or disable autostart.
-        /// </summary>
         public static void SetEnabled(bool enable)
         {
             try

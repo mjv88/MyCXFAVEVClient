@@ -18,9 +18,6 @@ namespace DatevConnector.UI
     /// </summary>
     internal static class TrayContextMenuBuilder
     {
-        /// <summary>
-        /// Build the fully styled context menu. Returns named items for later updates.
-        /// </summary>
         public static ContextMenuStrip Build()
         {
             var menu = new DarkContextMenuStrip();
@@ -92,9 +89,6 @@ namespace DatevConnector.UI
             return menu;
         }
 
-        /// <summary>
-        /// Create a small colored dot image for status menu items.
-        /// </summary>
         public static Image CreateStatusDot(Color color)
         {
             var bmp = new Bitmap(20, 20);

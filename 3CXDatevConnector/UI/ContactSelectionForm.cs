@@ -25,10 +25,6 @@ namespace DatevConnector.UI
         // Track the current open dialog for closing on disconnect
         private static ContactSelectionForm _currentDialog;
 
-        /// <summary>
-        /// Close the current contact selection dialog if one is open.
-        /// Called when a call disconnects.
-        /// </summary>
         public static void CloseCurrentDialog()
         {
             try
@@ -49,9 +45,6 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// The contact selected by the user (or first contact if auto-selected)
-        /// </summary>
         public DatevContactInfo SelectedContact => _selectedContact;
 
         protected override void ApplyTheme()

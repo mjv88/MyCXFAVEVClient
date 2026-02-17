@@ -182,9 +182,6 @@ namespace DatevConnector.Interop
         public const int LINEERR_UNINITIALIZED = unchecked((int)0x80000050);
         public const int LINEERR_REINIT = unchecked((int)0x80000052);
 
-        /// <summary>
-        /// TAPI error categories for handling
-        /// </summary>
         public enum TapiErrorCategory
         {
             /// <summary>No error</summary>
@@ -199,9 +196,6 @@ namespace DatevConnector.Interop
             Permanent
         }
 
-        /// <summary>
-        /// Categorize a TAPI error code for appropriate handling
-        /// </summary>
         public static TapiErrorCategory CategorizeError(int errorCode)
         {
             if (errorCode == LINEERR_OK)
@@ -238,9 +232,6 @@ namespace DatevConnector.Interop
             }
         }
 
-        /// <summary>
-        /// Get a human-readable description of a TAPI error code
-        /// </summary>
         public static string GetErrorDescription(int errorCode)
         {
             switch (errorCode)

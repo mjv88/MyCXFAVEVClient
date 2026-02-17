@@ -698,9 +698,6 @@ namespace DatevConnector.UI
 
         private static SetupWizardForm _current;
 
-        /// <summary>
-        /// Show the setup wizard as a non-modal singleton window.
-        /// </summary>
         public static void ShowWizard(ConnectorService bridgeService = null)
         {
             if (_current != null && !_current.IsDisposed)

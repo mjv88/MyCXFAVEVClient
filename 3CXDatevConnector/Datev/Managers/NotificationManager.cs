@@ -16,17 +16,12 @@ namespace DatevConnector.Datev.Managers
         {
             _clsIdDatev = clsIdDatev;
 
-            // Configure circuit breaker from settings
             int failureThreshold = AppConfig.GetIntClamped(ConfigKeys.DatevCircuitBreakerThreshold, 3, 1, 10);
             int openTimeout = AppConfig.GetIntClamped(ConfigKeys.DatevCircuitBreakerTimeoutSeconds, 30, 10, 300);
 
             _circuitBreaker = new CircuitBreaker("DATEV", failureThreshold, openTimeout);
         }
 
-        /// <summary>
-        /// This method is called for doing a new call (Notification interface).
-        /// </summary>
-        /// <param name="objCallData">The object for doing a NewCall.</param>
         internal bool NewCall(CallData objCallData)
         {
             LogManager.Log("DATEV: NewCall (CallId={0}, Direction={1}, Number={2}, Contact={3}, DataSource={4})",
@@ -43,10 +38,6 @@ namespace DatevConnector.Datev.Managers
             return NotificationWrapper(action, "NewCall");
         }
 
-        /// <summary>
-        /// This method is called for doing a CallState changed (Notification interface).
-        /// </summary>
-        /// <param name="objCallData">The object for doing a CallStateChanged.</param>
         internal bool CallStateChanged(CallData objCallData)
         {
             LogManager.Log("DATEV: CallStateChanged (CallId={0}, State={1})",
@@ -55,10 +46,6 @@ namespace DatevConnector.Datev.Managers
             return NotificationWrapper(s => s.CallStateChanged(objCallData), "CallStateChanged");
         }
 
-        /// <summary>
-        /// This method is called when contact assignment changes during a call (Notification interface).
-        /// </summary>
-        /// <param name="objCallData">The object for doing a CallAdressatChanged.</param>
         internal bool CallAdressatChanged(CallData objCallData)
         {
             LogManager.Log("DATEV: CallAdressatChanged (CallId={0}, Contact={1}, DataSource={2})",
@@ -69,10 +56,6 @@ namespace DatevConnector.Datev.Managers
             return NotificationWrapper(s => s.CallAdressatChanged(objCallData), "CallAdressatChanged");
         }
 
-        /// <summary>
-        /// This method is called for doing a new journal (Notification interface).
-        /// </summary>
-        /// <param name="objCallData">The object for doing a NewJournal.</param>
         internal bool NewJournal(CallData objCallData)
         {
             TimeSpan duration = objCallData.End - objCallData.Begin;
@@ -87,14 +70,12 @@ namespace DatevConnector.Datev.Managers
 
         private bool NotificationWrapper(Action<IDatevCtiNotification> action, string actionName)
         {
-            // Check circuit breaker before attempting operation
             if (!_circuitBreaker.IsOperationAllowed())
             {
                 LogManager.Log("Benachrichtigung '{0}' übersprungen - DATEV Circuit-Breaker offen", actionName);
                 return false;
             }
 
-            // Quick check if DATEV is available (uses cache)
             if (!DatevConnectionChecker.IsDatevAvailable())
             {
                 _circuitBreaker.RecordFailure();
@@ -110,7 +91,6 @@ namespace DatevConnector.Datev.Managers
             {
                 uint i = 0;
 
-                // Finding the active object of the DATEV-Software
                 Rot.GetActiveObject(ref _clsIdDatev, ref i, out datevObj);
 
                 if (datevObj == null)

@@ -109,10 +109,6 @@ namespace DatevConnector.UI
             _lblMode.Text = modeName;
         }
 
-        /// <summary>
-        /// Called by StatusForm when ConnectorService.StatusChanged fires.
-        /// Updates display and resets button states.
-        /// </summary>
         public void HandleStatusChanged(bool tapiOk, string ext, string modeName)
         {
             UpdateDisplay(tapiOk, ext);
@@ -128,18 +124,12 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Disable all buttons (used by Test All)
-        /// </summary>
         public void DisableButtons()
         {
             _btnTest.Enabled = false;
             _btnReconnect.Enabled = false;
         }
 
-        /// <summary>
-        /// Restore buttons after Test All completes
-        /// </summary>
         public void OnTestAllComplete(bool tapiOk, string ext)
         {
             UpdateDisplay(tapiOk, ext);
@@ -160,9 +150,6 @@ namespace DatevConnector.UI
             _lblProgress.Visible = false;
         }
 
-        /// <summary>
-        /// Thread-safe progress update for use from background tasks
-        /// </summary>
         public void UpdateProgressSafe(string text)
         {
             if (_lblProgress.IsDisposed) return;

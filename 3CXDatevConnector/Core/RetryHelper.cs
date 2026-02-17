@@ -12,14 +12,8 @@ namespace DatevConnector.Core
     /// </summary>
     public static class RetryHelper
     {
-        /// <summary>
-        /// Default maximum retry attempts
-        /// </summary>
         public static int DefaultMaxRetries => AppConfig.GetIntClamped(ConfigKeys.SddMaxRetries, 3, 0, 10);
 
-        /// <summary>
-        /// Default initial delay in seconds
-        /// </summary>
         public static int DefaultInitialDelaySeconds => AppConfig.GetIntClamped(ConfigKeys.SddRetryDelaySeconds, 1, 1, 30);
 
         /// <summary>

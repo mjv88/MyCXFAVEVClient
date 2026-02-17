@@ -40,16 +40,13 @@ namespace DatevConnector.UI
             // Initialize UI context for popup forms (must be done on UI thread)
             FormDisplayHelper.InitializeUIContext();
 
-            // Create tray icons with status ring colors
             _iconConnected = UITheme.CreateTrayIcon(UITheme.StatusOk);
             _iconDisconnected = UITheme.CreateTrayIcon(UITheme.StatusBad);
             _iconConnecting = UITheme.CreateTrayIcon(UITheme.StatusWarn);
 
-            // Build context menu (delegated to TrayContextMenuBuilder)
             _contextMenu = TrayContextMenuBuilder.Build();
             WireMenuEvents();
 
-            // Create notify icon
             _notifyIcon = new NotifyIcon
             {
                 Icon = _iconDisconnected,
@@ -60,25 +57,20 @@ namespace DatevConnector.UI
 
             _notifyIcon.DoubleClick += OnNotifyIconDoubleClick;
 
-            // Pass NotifyIcon to CallerPopupForm for balloon notifications
             CallerPopupForm.SetNotifyIcon(_notifyIcon);
 
-            // Create bridge service
             _bridgeService = new ConnectorService(extension);
             _bridgeService.StatusChanged += OnStatusChanged;
             _bridgeService.DatevUnavailableNotified += OnDatevUnavailable;
             _bridgeService.DatevBecameAvailable += OnDatevBecameAvailable;
 
-            // Create form navigator (delegated form lifecycle management)
             _navigator = new FormNavigator(_bridgeService, this);
 
             // Status balloons muted by default (caller popups still work via their own settings)
             _muteStatusBalloons = AppConfig.GetBool(ConfigKeys.MuteNotifications, true);
 
-            // Create cancellation token
             _cts = new CancellationTokenSource();
 
-            // Hide the form
             ShowInTaskbar = false;
             WindowState = FormWindowState.Minimized;
             FormBorderStyle = FormBorderStyle.None;
@@ -88,9 +80,6 @@ namespace DatevConnector.UI
             _ = StartConnectorServiceAsync();
         }
 
-        /// <summary>
-        /// Wire event handlers to named menu items built by TrayContextMenuBuilder.
-        /// </summary>
         private void WireMenuEvents()
         {
             _contextMenu.Items["statusItem"].Click += (s, e) => _navigator.ShowStatus();

@@ -40,15 +40,11 @@ namespace DatevConnector.Tapi
         private readonly ConcurrentDictionary<string, TapiCallEvent> _activeCalls =
             new ConcurrentDictionary<string, TapiCallEvent>(StringComparer.OrdinalIgnoreCase);
 
-        // ===== Events =====
-
         public event Action<TapiCallEvent> CallStateChanged;
         public event Action<TapiLineInfo> LineConnected;
         public event Action<TapiLineInfo> LineDisconnected;
         public event Action Connected;
         public event Action Disconnected;
-
-        // ===== Properties =====
 
         public bool IsMonitoring => _connected;
         public int ConnectedLineCount => _connected ? 1 : 0;
@@ -56,17 +52,11 @@ namespace DatevConnector.Tapi
         public string Extension => _extension;
         public IReadOnlyList<TapiLineInfo> Lines => _lines.AsReadOnly();
 
-        /// <summary>
-        /// Create a pipe connection method for the specified extension
-        /// </summary>
         public PipeConnectionMethod(string extension)
         {
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
         }
 
-        /// <summary>
-        /// Start monitoring via named pipe server (blocks until cancelled)
-        /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             await StartAsync(cancellationToken, null);
@@ -82,7 +72,6 @@ namespace DatevConnector.Tapi
             LogManager.Log("PipeConnectionMethod: Erstelle Pipe-Server für Nebenstelle {0}", _extension);
             progressText?.Invoke($"Erstelle 3CX Pipe Server (Nst: {_extension})...");
 
-            // Set up virtual line before server starts
             _virtualLine = new TapiLineInfo
             {
                 DeviceId = 0,
@@ -245,10 +234,7 @@ namespace DatevConnector.Tapi
                 Origin = DetermineOrigin(msg, callState)
             });
 
-            // Update call state
             callEvent.CallState = callState;
-
-            // Update caller/called info from message
             UpdateCallInfo(callEvent, msg);
 
             LogManager.Log("PipeConnectionMethod: {0} callId={1} caller={2} called={3}",
@@ -319,12 +305,6 @@ namespace DatevConnector.Tapi
             return LINECALLORIGIN_UNKNOWN;
         }
 
-        // ===== Call Control =====
-
-        /// <summary>
-        /// Send MAKE-CALL command to the 3CX Softphone via pipe.
-        /// Protocol: __reqId={n},cmd=MAKE-CALL,number={destination}
-        /// </summary>
         public int MakeCall(string destination)
         {
             if (!_connected || _server == null)
@@ -357,9 +337,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Send DROP-CALL command to the 3CX Softphone via pipe
-        /// </summary>
         public int DropCall(IntPtr hCall)
         {
             if (!_connected || _server == null)
@@ -407,8 +384,6 @@ namespace DatevConnector.Tapi
             return _activeCalls.Values.FirstOrDefault(c => c.CallId == callId);
         }
 
-        // ===== Diagnostics =====
-
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
             // Server keeps running and accepts reconnects automatically
@@ -429,8 +404,6 @@ namespace DatevConnector.Tapi
                 : $"3CX Pipe Server ({_extension}): Warte auf 3CX Softphone");
             return ok;
         }
-
-        // ===== Cleanup =====
 
         private void SetLineDisconnected()
         {

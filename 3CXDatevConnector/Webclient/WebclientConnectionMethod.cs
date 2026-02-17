@@ -368,9 +368,6 @@ namespace DatevConnector.Webclient
             }
         }
 
-        /// <summary>
-        /// Simulate a call event for test mode (replaces reflection-based invocation).
-        /// </summary>
         public void SimulateCallEvent(ExtensionMessage msg)
         {
             OnExtensionCallEvent(msg);

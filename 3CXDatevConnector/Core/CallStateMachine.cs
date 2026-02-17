@@ -3,14 +3,8 @@ using DatevConnector.Tapi;
 
 namespace DatevConnector.Core
 {
-    /// <summary>
-    /// Validates call state transitions
-    /// </summary>
     public static class CallStateMachine
     {
-        /// <summary>
-        /// Check if a state transition is valid
-        /// </summary>
         public static bool IsValidTransition(TapiCallState from, TapiCallState to)
         {
             switch (from)
@@ -45,9 +39,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Attempt state transition with logging
-        /// </summary>
         public static bool TryTransition(CallRecord record, TapiCallState newState)
         {
             if (record == null)

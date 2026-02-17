@@ -26,9 +26,6 @@ namespace DatevConnector.UI
             _owner = owner;
         }
 
-        /// <summary>
-        /// Show the status form, or bring it to front if already open.
-        /// </summary>
         public void ShowStatus()
         {
             if (_currentMainForm is StatusForm existing && !existing.IsDisposed)
@@ -54,9 +51,6 @@ namespace DatevConnector.UI
             ShowMainForm(form);
         }
 
-        /// <summary>
-        /// Show the settings form, or bring it to front if already open.
-        /// </summary>
         public void ShowSettings()
         {
             if (_currentMainForm is SettingsForm existing && !existing.IsDisposed)
@@ -80,9 +74,6 @@ namespace DatevConnector.UI
             ShowMainForm(form);
         }
 
-        /// <summary>
-        /// Show the call history form, or bring it to front if already open.
-        /// </summary>
         public void ShowCallHistory()
         {
             if (_currentMainForm is CallHistoryForm existing && !existing.IsDisposed)
@@ -108,9 +99,6 @@ namespace DatevConnector.UI
             ShowMainForm(form);
         }
 
-        /// <summary>
-        /// Dispose any currently open main form.
-        /// </summary>
         public void DisposeCurrentForm()
         {
             if (_currentMainForm != null && !_currentMainForm.IsDisposed)

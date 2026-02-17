@@ -14,9 +14,6 @@ namespace DatevConnector.UI
     {
         private static SynchronizationContext _uiContext;
 
-        /// <summary>
-        /// Capture the UI SynchronizationContext. Call once from the main UI thread at startup.
-        /// </summary>
         public static void InitializeUIContext()
         {
             _uiContext = SynchronizationContext.Current;

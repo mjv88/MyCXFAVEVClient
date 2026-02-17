@@ -16,14 +16,8 @@ namespace DatevConnector.UI
     /// </summary>
     public class SettingsForm : ThemedForm
     {
-        /// <summary>
-        /// Which action the user requested before closing.
-        /// </summary>
         public enum Action { None, Status }
 
-        /// <summary>
-        /// The action requested by the user (check after form closes).
-        /// </summary>
         public Action RequestedAction { get; private set; }
 
         // Status badges

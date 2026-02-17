@@ -3,16 +3,10 @@ using DatevConnector.Datev.Managers;
 
 namespace DatevConnector.Core
 {
-    /// <summary>
-    /// Circuit breaker states
-    /// </summary>
     public enum CircuitState
     {
-        /// <summary>Circuit is closed - operations proceed normally</summary>
         Closed,
-        /// <summary>Circuit is open - operations are blocked</summary>
         Open,
-        /// <summary>Circuit is half-open - testing if operations can succeed</summary>
         HalfOpen
     }
 
@@ -34,13 +28,6 @@ namespace DatevConnector.Core
         private DateTime _lastFailureTime;
         private DateTime _lastStateChange;
 
-        /// <summary>
-        /// Creates a new circuit breaker
-        /// </summary>
-        /// <param name="name">Name for logging</param>
-        /// <param name="failureThreshold">Number of failures before opening circuit</param>
-        /// <param name="openTimeoutSeconds">Seconds to wait before allowing test request</param>
-        /// <param name="halfOpenTestTimeoutSeconds">Seconds between test requests in half-open state</param>
         public CircuitBreaker(string name, int failureThreshold = 3, int openTimeoutSeconds = 30, int halfOpenTestTimeoutSeconds = 5)
         {
             _name = name;
@@ -53,10 +40,6 @@ namespace DatevConnector.Core
             _lastStateChange = DateTime.UtcNow;
         }
 
-        /// <summary>
-        /// Checks if an operation is allowed to proceed
-        /// </summary>
-        /// <returns>True if operation can proceed, false if circuit is open</returns>
         public bool IsOperationAllowed()
         {
             lock (_lock)
@@ -67,18 +50,14 @@ namespace DatevConnector.Core
                         return true;
 
                     case CircuitState.Open:
-                        // Check if timeout has elapsed
                         if (DateTime.UtcNow - _lastStateChange >= _openTimeout)
                         {
-                            // Transition to half-open to allow a test request
                             TransitionTo(CircuitState.HalfOpen);
                             return true;
                         }
                         return false;
 
                     case CircuitState.HalfOpen:
-                        // In half-open, only allow one test request at a time
-                        // If enough time has passed since last state change, allow test
                         if (DateTime.UtcNow - _lastStateChange >= _halfOpenTestTimeout)
                         {
                             _lastStateChange = DateTime.UtcNow;
@@ -92,9 +71,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Records a successful operation
-        /// </summary>
         public void RecordSuccess()
         {
             lock (_lock)
@@ -103,15 +79,11 @@ namespace DatevConnector.Core
 
                 if (_state == CircuitState.HalfOpen)
                 {
-                    // Test succeeded, close the circuit
                     TransitionTo(CircuitState.Closed);
                 }
             }
         }
 
-        /// <summary>
-        /// Records a failed operation
-        /// </summary>
         public void RecordFailure()
         {
             lock (_lock)
@@ -121,12 +93,10 @@ namespace DatevConnector.Core
 
                 if (_state == CircuitState.HalfOpen)
                 {
-                    // Test failed, reopen the circuit
                     TransitionTo(CircuitState.Open);
                 }
                 else if (_state == CircuitState.Closed && _failureCount >= _failureThreshold)
                 {
-                    // Too many failures, open the circuit
                     TransitionTo(CircuitState.Open);
                 }
             }

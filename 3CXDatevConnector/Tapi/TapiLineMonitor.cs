@@ -11,9 +11,6 @@ using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
 {
-    /// <summary>
-    /// Information about a single TAPI line
-    /// </summary>
     public class TapiLineInfo
     {
         public int DeviceId { get; set; }
@@ -23,9 +20,7 @@ namespace DatevConnector.Tapi
         public int ApiVersion { get; set; }
         public bool IsConnected => Handle != IntPtr.Zero;
 
-        /// <summary>
-        /// Parse extension from line name (format: "100 : Name" -> "100")
-        /// </summary>
+        // Format: "100 : Name" -> "100"
         public static string ParseExtension(string lineName)
         {
             if (string.IsNullOrEmpty(lineName))
@@ -40,9 +35,6 @@ namespace DatevConnector.Tapi
         }
     }
 
-    /// <summary>
-    /// Call event data from TAPI
-    /// </summary>
     public class TapiCallEvent
     {
         public IntPtr CallHandle { get; set; }
@@ -101,63 +93,18 @@ namespace DatevConnector.Tapi
         private readonly TapiLineManager _lineManager;
         private readonly TapiOperations _operations;
 
-        /// <summary>
-        /// Fired when a call state changes (includes line info via Extension property)
-        /// </summary>
         public event Action<TapiCallEvent> CallStateChanged;
-
-        /// <summary>
-        /// Fired when a specific line connects
-        /// </summary>
         public event Action<TapiLineInfo> LineConnected;
-
-        /// <summary>
-        /// Fired when a specific line disconnects
-        /// </summary>
         public event Action<TapiLineInfo> LineDisconnected;
-
-        /// <summary>
-        /// Fired when TAPI is initialized and at least one line is open (backward compatibility)
-        /// </summary>
         public event Action Connected;
-
-        /// <summary>
-        /// Fired when all lines are closed or TAPI shuts down (backward compatibility)
-        /// </summary>
         public event Action Disconnected;
 
-        /// <summary>
-        /// Whether at least one line is currently open and monitoring
-        /// </summary>
         public bool IsMonitoring => _lines.Values.Any(l => l.IsConnected);
-
-        /// <summary>
-        /// Number of connected lines
-        /// </summary>
         public int ConnectedLineCount => _lines.Values.Count(l => l.IsConnected);
-
-        /// <summary>
-        /// All discovered lines (connected or not)
-        /// </summary>
         public IReadOnlyList<TapiLineInfo> Lines => _lines.Values.ToList().AsReadOnly();
-
-        /// <summary>
-        /// The name of the first opened line device (backward compatibility)
-        /// </summary>
         public string LineName => _lines.Values.FirstOrDefault(l => l.IsConnected)?.LineName;
-
-        /// <summary>
-        /// The extension of the first opened line (backward compatibility)
-        /// </summary>
         public string Extension => _lines.Values.FirstOrDefault(l => l.IsConnected)?.Extension;
 
-        /// <summary>
-        /// Create a TAPI line monitor
-        /// </summary>
-        /// <param name="lineNameFilter">Substring to match in line name (e.g. "3CX").
-        /// If null/empty, opens the first available voice line.</param>
-        /// <param name="extensionFilter">Exact extension number to match (e.g. "100").
-        /// If null/empty, opens all lines matching the name filter.</param>
         public TapiLineMonitor(string lineNameFilter = "3CX", string extensionFilter = null)
         {
             _initializer = new TapiInitializer(lineNameFilter, extensionFilter);
@@ -171,9 +118,6 @@ namespace DatevConnector.Tapi
                 line => SafeInvokeEvent(LineDisconnected, line));
         }
 
-        /// <summary>
-        /// Safely invoke an action, checking for disposal state first.
-        /// </summary>
         private bool SafeInvokeEvent<T>(Action<T> handler, T arg)
         {
             if (_disposing || _disposed)
@@ -181,9 +125,6 @@ namespace DatevConnector.Tapi
             return EventHelper.SafeInvoke(handler, arg, "TapiLineMonitor");
         }
 
-        /// <summary>
-        /// Safely invoke a parameterless action, checking for disposal state first.
-        /// </summary>
         private bool SafeInvokeEvent(Action handler)
         {
             if (_disposing || _disposed)
@@ -206,17 +147,11 @@ namespace DatevConnector.Tapi
             return _lines.Count > 0;
         }
 
-        /// <summary>
-        /// Initialize TAPI and start monitoring
-        /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             await StartAsync(cancellationToken, null);
         }
 
-        /// <summary>
-        /// Initialize TAPI and start monitoring with progress callback
-        /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken, Action<string> progressText)
         {
             // Skip init/find if ProbeLines() already succeeded
@@ -238,7 +173,6 @@ namespace DatevConnector.Tapi
                 }
             }
 
-            // Open all discovered lines
             _lineManager.OpenAllLines(progressText);
 
             int connectedCount = _lines.Values.Count(l => l.IsConnected);
@@ -271,11 +205,8 @@ namespace DatevConnector.Tapi
 
             SafeInvokeEvent(Connected);
 
-            // Run message loop
             await Task.Run(() => MessageLoop(cancellationToken), cancellationToken);
         }
-
-        // ===== IConnectionMethod delegations =====
 
         public bool ReconnectLine(string extension, Action<string> progressText = null)
         {
@@ -297,9 +228,6 @@ namespace DatevConnector.Tapi
             return _operations.MakeCall(destination);
         }
 
-        /// <summary>
-        /// Make an outbound call on a specific line
-        /// </summary>
         public int MakeCall(string destination, string extension)
         {
             return _operations.MakeCall(destination, extension);
@@ -315,11 +243,6 @@ namespace DatevConnector.Tapi
             return _operations.FindCallById(callId);
         }
 
-        // ===== Message loop and event processing =====
-
-        /// <summary>
-        /// Message loop - waits for TAPI events and processes them
-        /// </summary>
         private void MessageLoop(CancellationToken cancellationToken)
         {
             LogManager.Log("3CX - DATEV Connector (TAPI) ready");
@@ -335,7 +258,6 @@ namespace DatevConnector.Tapi
                 if (waitResult != WAIT_OBJECT_0)
                     break;
 
-                // Drain all pending messages
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     var msg = new LINEMESSAGE();
@@ -352,9 +274,6 @@ namespace DatevConnector.Tapi
             SafeInvokeEvent(Disconnected);
         }
 
-        /// <summary>
-        /// Process a TAPI message
-        /// </summary>
         private void ProcessMessage(LINEMESSAGE msg)
         {
             switch (msg.dwMessageID)
@@ -383,9 +302,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Handle LINE_CLOSE - a specific line was closed
-        /// </summary>
         private void HandleLineClose(IntPtr hLine)
         {
             TapiLineInfo line;
@@ -401,7 +317,6 @@ namespace DatevConnector.Tapi
                 LogManager.Log("TAPI: LINE_CLOSE empfangen für unbekanntes Handle 0x{0:X}", hLine.ToInt64());
             }
 
-            // Check if all lines are now disconnected
             if (!_lines.Values.Any(l => l.IsConnected))
             {
                 LogManager.Log("TAPI: Alle Leitungen getrennt");
@@ -409,16 +324,12 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Handle LINE_APPNEWCALL - new call handle assigned
-        /// </summary>
         private void HandleNewCall(IntPtr hLine, int addressId, IntPtr hCall)
         {
             var callEvent = GetOrCreateCallEvent(hCall);
             callEvent.AddressId = addressId;
             callEvent.LineHandle = hLine;
 
-            // Associate call with line extension
             TapiLineInfo line;
             if (_linesByHandle.TryGetValue(hLine, out line))
             {
@@ -432,15 +343,11 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Handle LINE_CALLSTATE - call state change
-        /// </summary>
         private void HandleCallState(IntPtr hCall, int callState, IntPtr param2, IntPtr param3)
         {
             var callEvent = GetOrCreateCallEvent(hCall);
             callEvent.CallState = callState;
 
-            // Get call info for caller/called details
             GetCallInfo(hCall, callEvent);
 
             string direction = callEvent.IsIncoming ? "inbound" : "outbound";
@@ -467,13 +374,11 @@ namespace DatevConnector.Tapi
                     callEvent.CallStateString, direction, LogManager.Mask(caller), called);
             }
 
-            // Safely invoke the event handler, checking for disposal state
             if (!_disposing && !_disposed)
             {
                 EventHelper.SafeInvoke(CallStateChanged, callEvent, "TapiLineMonitor.CallStateChanged");
             }
 
-            // Clean up after disconnect/idle
             if (callState == LINECALLSTATE_IDLE || callState == LINECALLSTATE_DISCONNECTED)
             {
                 if (callState == LINECALLSTATE_IDLE)
@@ -485,9 +390,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Handle LINE_REPLY - async operation result
-        /// </summary>
         private void HandleReply(int requestId, int result)
         {
             if (result != LINEERR_OK)
@@ -496,17 +398,11 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Get or create a call event for tracking
-        /// </summary>
         private TapiCallEvent GetOrCreateCallEvent(IntPtr hCall)
         {
             return _activeCalls.GetOrAdd(hCall, h => new TapiCallEvent { CallHandle = h });
         }
 
-        /// <summary>
-        /// Get call information (caller ID, called ID, etc.)
-        /// </summary>
         private void GetCallInfo(IntPtr hCall, TapiCallEvent callEvent)
         {
             int bufferSize = 2048;
@@ -534,7 +430,6 @@ namespace DatevConnector.Tapi
                         callEvent.CallId = info.dwCallID;
                         callEvent.Origin = info.dwOrigin;
 
-                        // Extract caller/called info using shared helper
                         callEvent.CallerNumber = ExtractField(pCallInfo, info.dwCallerIDOffset, info.dwCallerIDSize);
                         callEvent.CallerName = ExtractField(pCallInfo, info.dwCallerIDNameOffset, info.dwCallerIDNameSize);
                         callEvent.CalledNumber = ExtractField(pCallInfo, info.dwCalledIDOffset, info.dwCalledIDSize);
@@ -553,18 +448,12 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Extract a string field from a TAPI buffer if offset and size are valid.
-        /// </summary>
         private string ExtractField(IntPtr basePtr, int offset, int size)
         {
             if (offset <= 0 || size <= 0) return null;
             return ReadStringFromBuffer(basePtr, offset, size);
         }
 
-        /// <summary>
-        /// Read a null-terminated string from a buffer at given offset
-        /// </summary>
         private string ReadStringFromBuffer(IntPtr basePtr, int offset, int size)
         {
             if (offset <= 0 || size <= 0)
@@ -580,7 +469,7 @@ namespace DatevConnector.Tapi
             if (_disposed)
                 return;
 
-            // Set disposing flag first to prevent callbacks from firing
+            // Prevent callbacks from firing during teardown
             _disposing = true;
             _disposed = true;
             GC.SuppressFinalize(this);

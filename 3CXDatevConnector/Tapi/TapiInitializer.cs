@@ -6,9 +6,6 @@ using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
 {
-    /// <summary>
-    /// Handles TAPI subsystem initialization, line discovery, and shutdown.
-    /// </summary>
     internal class TapiInitializer
     {
         private readonly string _lineNameFilter;
@@ -24,10 +21,6 @@ namespace DatevConnector.Tapi
             _extensionFilter = extensionFilter;
         }
 
-        /// <summary>
-        /// Initialize TAPI subsystem (lineInitializeEx).
-        /// Returns true if initialization succeeded, false otherwise.
-        /// </summary>
         public bool Initialize(Action<string> progressText = null)
         {
             progressText?.Invoke("Initialisiere TAPI...");
@@ -66,7 +59,6 @@ namespace DatevConnector.Tapi
         }
 
         /// <summary>
-        /// Find ALL matching line devices by name filter.
         /// Must be called after Initialize().
         /// </summary>
         public void FindLines(ConcurrentDictionary<int, TapiLineInfo> lines, Action<string> progressText = null)
@@ -96,7 +88,6 @@ namespace DatevConnector.Tapi
 
                 string lineExtension = TapiLineInfo.ParseExtension(lineName);
 
-                // Also filter by extension number if specified
                 if (matches && !string.IsNullOrEmpty(_extensionFilter))
                 {
                     if (lineExtension != _extensionFilter)
@@ -134,9 +125,6 @@ namespace DatevConnector.Tapi
             }
         }
 
-        /// <summary>
-        /// Get the name of a line device
-        /// </summary>
         private string GetLineName(int deviceId, int apiVersion)
         {
             int bufferSize = 1024;
@@ -180,9 +168,6 @@ namespace DatevConnector.Tapi
             return null;
         }
 
-        /// <summary>
-        /// Shutdown TAPI: close all lines and call lineShutdown
-        /// </summary>
         public void Shutdown(ConcurrentDictionary<int, TapiLineInfo> lines, ConcurrentDictionary<IntPtr, TapiLineInfo> linesByHandle)
         {
             foreach (var line in lines.Values)

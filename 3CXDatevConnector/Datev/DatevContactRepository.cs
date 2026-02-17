@@ -25,7 +25,6 @@ namespace DatevConnector.Datev
     /// </summary>
     public static class DatevContactRepository
     {
-        // Contact data
         private static List<DatevContact> _datevContacts;
         private static SortedDictionary<string, List<DatevContactInfo>> _datevContactsSDict;
         private static int? _maxCompareLength;
@@ -38,10 +37,8 @@ namespace DatevConnector.Datev
 
         // ===== Public Properties =====
 
-        /// <summary>Number of contacts loaded</summary>
         public static int ContactCount => _datevContacts?.Count ?? 0;
 
-        /// <summary>Number of unique phone number keys in lookup dictionary</summary>
         public static int PhoneNumberKeyCount => _datevContactsSDict?.Count ?? 0;
 
         /// <summary>
@@ -65,13 +62,11 @@ namespace DatevConnector.Datev
 
         // ===== Load / Reload =====
 
-        /// <summary>Start async loading of contacts</summary>
         public static Task StartLoadAsync(IProgress<int> progress = null)
         {
             return StartLoadAsync(progress, null);
         }
 
-        /// <summary>Start async loading of contacts with text progress</summary>
         public static Task StartLoadAsync(IProgress<int> progress, Action<string> progressText)
         {
             return Task.Factory.StartNew(() =>
@@ -85,9 +80,6 @@ namespace DatevConnector.Datev
 
         // ===== Lookup =====
 
-        /// <summary>
-        /// Get contacts matching a phone number
-        /// </summary>
         public static List<DatevContactInfo> GetContactByNumber(string contactNumber)
         {
             lock (_lock)
@@ -151,7 +143,6 @@ namespace DatevConnector.Datev
             }
         }
 
-        /// <summary>Get all cached contacts (for developer diagnostics)</summary>
         public static List<DatevContactInfo> GetAllContacts()
         {
             lock (_lock)

@@ -129,9 +129,6 @@ namespace DatevConnector.UI.Theme
             // No image margin background (keeps it clean)
         }
 
-        /// <summary>
-        /// Create a rounded rectangle GraphicsPath.
-        /// </summary>
         private static GraphicsPath CreateRoundedPath(Rectangle rect, int radius)
         {
             var path = new GraphicsPath();
@@ -144,9 +141,6 @@ namespace DatevConnector.UI.Theme
             return path;
         }
 
-        /// <summary>
-        /// Fill a rounded rectangle.
-        /// </summary>
         private static void FillRoundedRect(Graphics g, Brush brush, Rectangle rect, int radius)
         {
             using (var path = CreateRoundedPath(rect, radius))
@@ -155,9 +149,6 @@ namespace DatevConnector.UI.Theme
             }
         }
 
-        /// <summary>
-        /// Custom color table for dark theme (overrides the professional color scheme)
-        /// </summary>
         private class DarkColorTable : ProfessionalColorTable
         {
             public override Color MenuItemSelected => ItemHover;

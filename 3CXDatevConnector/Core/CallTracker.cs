@@ -49,17 +49,11 @@ namespace DatevConnector.Core
                 staleMinutes, stalePendingSeconds);
         }
 
-        /// <summary>
-        /// Generate a temporary call ID for DATEV-initiated calls
-        /// </summary>
         public string GenerateTempCallId()
         {
             return $"DATEV_{Interlocked.Increment(ref _nextTempId)}";
         }
 
-        /// <summary>
-        /// Add a pending call (DATEV-initiated, waiting for TAPI ID)
-        /// </summary>
         public CallRecord AddPendingCall(string tempId, bool isIncoming = false)
         {
             var record = new CallRecord(tempId, isIncoming);
@@ -73,9 +67,6 @@ namespace DatevConnector.Core
             return _pendingCalls[tempId];
         }
 
-        /// <summary>
-        /// Promote a pending call to active (when we get the real TAPI ID)
-        /// </summary>
         public CallRecord PromotePendingCall(string tempId, string tapiCallId)
         {
             if (_pendingCalls.TryRemove(tempId, out var record))
@@ -105,9 +96,6 @@ namespace DatevConnector.Core
             return null;
         }
 
-        /// <summary>
-        /// Remove a pending call (e.g., if MAKE-CALL fails)
-        /// </summary>
         public CallRecord RemovePendingCall(string tempId)
         {
             if (_pendingCalls.TryRemove(tempId, out var record))
@@ -125,9 +113,6 @@ namespace DatevConnector.Core
             return null;
         }
 
-        /// <summary>
-        /// Add a new call
-        /// </summary>
         public CallRecord AddCall(string tapiCallId, bool isIncoming)
         {
             var record = new CallRecord(tapiCallId, isIncoming);
@@ -141,18 +126,12 @@ namespace DatevConnector.Core
             return _calls[tapiCallId];
         }
 
-        /// <summary>
-        /// Get a call by TAPI call ID
-        /// </summary>
         public CallRecord GetCall(string tapiCallId)
         {
             _calls.TryGetValue(tapiCallId, out var record);
             return record;
         }
 
-        /// <summary>
-        /// Update the phone number index for a pending call (normalizes number for matching)
-        /// </summary>
         public void UpdatePendingPhoneIndex(string tempId, string phoneNumber)
         {
             if (!string.IsNullOrEmpty(phoneNumber) && !string.IsNullOrEmpty(tempId))
@@ -232,9 +211,6 @@ namespace DatevConnector.Core
             return null;
         }
 
-        /// <summary>
-        /// Remove a call
-        /// </summary>
         public CallRecord RemoveCall(string tapiCallId)
         {
             if (_calls.TryRemove(tapiCallId, out var record))
@@ -251,14 +227,8 @@ namespace DatevConnector.Core
             return null;
         }
 
-        /// <summary>
-        /// Get count of active calls
-        /// </summary>
         public int Count => _calls.Count;
 
-        /// <summary>
-        /// Cleanup stale calls that never received DISCONNECTED
-        /// </summary>
         private void CleanupStaleCalls(object state)
         {
             try

@@ -264,9 +264,6 @@ namespace DatevConnector.UI
 
         private static TroubleshootingForm _current;
 
-        /// <summary>
-        /// Show the troubleshooting form as a non-modal singleton window.
-        /// </summary>
         public static void ShowHelp(ConnectionMode selectedMode)
         {
             if (_current != null && !_current.IsDisposed)

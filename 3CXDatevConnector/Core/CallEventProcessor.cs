@@ -371,9 +371,6 @@ namespace DatevConnector.Core
             }
         }
 
-        /// <summary>
-        /// Format a nullable TimeSpan as HH:MM:SS.
-        /// </summary>
         private static string FormatDuration(TimeSpan? duration)
         {
             if (!duration.HasValue) return "N/A";
@@ -428,9 +425,6 @@ namespace DatevConnector.Core
                 });
         }
 
-        /// <summary>
-        /// Re-read popup/journal settings from INI.
-        /// </summary>
         public void ApplySettings()
         {
             _enableJournaling = AppConfig.GetBool(ConfigKeys.EnableJournaling, true);

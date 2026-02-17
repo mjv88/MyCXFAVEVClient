@@ -133,9 +133,6 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Update all line status displays from current TapiLines state.
-        /// </summary>
         public void UpdateLineStatuses()
         {
             var tapiLines = _service?.TapiLines;
@@ -169,9 +166,6 @@ namespace DatevConnector.UI
             _lblMode.Text = modeName;
         }
 
-        /// <summary>
-        /// Called by StatusForm when ConnectorService.StatusChanged fires.
-        /// </summary>
         public void HandleStatusChanged(string modeName)
         {
             UpdateLineStatuses();
@@ -184,9 +178,6 @@ namespace DatevConnector.UI
             }
         }
 
-        /// <summary>
-        /// Disable all buttons (used by Test All)
-        /// </summary>
         public void DisableButtons()
         {
             _btnReconnectAll.Enabled = false;
@@ -196,9 +187,6 @@ namespace DatevConnector.UI
                 btn.Enabled = false;
         }
 
-        /// <summary>
-        /// Restore buttons after Test All completes
-        /// </summary>
         public void OnTestAllComplete()
         {
             _btnReconnectAll.Text = UIStrings.Labels.ReconnectShort;
@@ -206,9 +194,6 @@ namespace DatevConnector.UI
             UpdateLineStatuses();
         }
 
-        /// <summary>
-        /// Thread-safe progress update for a specific line
-        /// </summary>
         private void UpdateProgressSafe(Label label, string text)
         {
             if (label == null || label.IsDisposed) return;

@@ -12,9 +12,6 @@ namespace DatevConnector.Datev
     /// </summary>
     internal static class DatevContactDiagnostics
     {
-        /// <summary>
-        /// Log all contacts (debug)
-        /// </summary>
         public static void LogContactList(List<DatevContact> contacts)
         {
             LogManager.Log("----------- Contact list from DATEV:");
@@ -48,9 +45,6 @@ namespace DatevConnector.Datev
             LogManager.Log("----------- End contact list");
         }
 
-        /// <summary>
-        /// Log lookup dictionary (debug)
-        /// </summary>
         public static void LogLookupDictionary(SortedDictionary<string, List<DatevContactInfo>> dictionary)
         {
             LogManager.Log("----------- Lookup dictionary:");

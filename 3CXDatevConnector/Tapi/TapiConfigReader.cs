@@ -14,9 +14,6 @@ namespace DatevConnector.Tapi
     {
         private const string DefaultIniPath = @"C:\ProgramData\3CXMultiLineTapi\3CXTAPI.ini";
 
-        /// <summary>
-        /// Represents a configured 3CX TAPI line from the INI file
-        /// </summary>
         internal class TapiLineConfig
         {
             public string Extension { get; set; }
@@ -24,34 +21,21 @@ namespace DatevConnector.Tapi
             public string Section { get; set; }
         }
 
-        /// <summary>
-        /// Check if 3CX TAPI is installed by looking for the INI file
-        /// </summary>
         internal static bool IsTapiInstalled()
         {
             return File.Exists(DefaultIniPath);
         }
 
-        /// <summary>
-        /// Get the default INI path
-        /// </summary>
         internal static string GetIniPath()
         {
             return DefaultIniPath;
         }
 
-        /// <summary>
-        /// Read all configured TAPI lines from the INI file.
-        /// Returns empty list if file not found or unreadable.
-        /// </summary>
         internal static List<TapiLineConfig> ReadLines()
         {
             return ReadLines(DefaultIniPath);
         }
 
-        /// <summary>
-        /// Read all configured TAPI lines from a specific INI file path.
-        /// </summary>
         internal static List<TapiLineConfig> ReadLines(string iniPath)
         {
             var lines = new List<TapiLineConfig>();
@@ -75,10 +59,8 @@ namespace DatevConnector.Tapi
                     if (string.IsNullOrEmpty(line) || line.StartsWith(";") || line.StartsWith("#"))
                         continue;
 
-                    // Section header: [SectionName]
                     if (line.StartsWith("[") && line.EndsWith("]"))
                     {
-                        // Save previous section if it was a line section
                         if (currentSection != null && sectionData.Count > 0)
                         {
                             var lineConfig = CreateLineConfig(currentSection, sectionData);
@@ -91,7 +73,6 @@ namespace DatevConnector.Tapi
                         continue;
                     }
 
-                    // Key=Value (INI format)
                     int eqIndex = line.IndexOf('=');
                     if (eqIndex > 0)
                     {
@@ -108,7 +89,6 @@ namespace DatevConnector.Tapi
                         lines.Add(csvConfig);
                 }
 
-                // Handle last INI section
                 if (currentSection != null && sectionData.Count > 0)
                 {
                     var lineConfig = CreateLineConfig(currentSection, sectionData);
@@ -126,19 +106,12 @@ namespace DatevConnector.Tapi
             return lines;
         }
 
-        /// <summary>
-        /// Get the first configured line (for auto-configuration when only one line exists)
-        /// </summary>
         internal static TapiLineConfig GetFirstLine()
         {
             var lines = ReadLines();
             return lines.Count > 0 ? lines[0] : null;
         }
 
-        /// <summary>
-        /// Try to auto-detect the extension number from 3CXTAPI.ini.
-        /// Returns null if not found or not installed.
-        /// </summary>
         internal static string DetectExtension()
         {
             if (!IsTapiInstalled())
@@ -160,7 +133,6 @@ namespace DatevConnector.Tapi
                 return lines[0].Extension;
             }
 
-            // Multiple lines - log all and use first
             LogManager.Log("3CXTAPI.ini enthält {0} Leitungen, verwende erste: {1}", lines.Count, lines[0].Extension);
             return lines[0].Extension;
         }
@@ -178,8 +150,7 @@ namespace DatevConnector.Tapi
                 string ext = line.Substring(0, commaIndex).Trim();
                 string name = line.Substring(commaIndex + 1).Trim();
 
-                // Extension must be numeric
-                if (ext.Length > 0 && IsDigitsOnly(ext))
+                    if (ext.Length > 0 && IsDigitsOnly(ext))
                 {
                     return new TapiLineConfig
                     {
@@ -216,11 +187,9 @@ namespace DatevConnector.Tapi
 
         private static TapiLineConfig CreateLineConfig(string section, Dictionary<string, string> data)
         {
-            // Look for extension/number in common key names
             string extension = GetValue(data, "Extension", "Number", "Ext", "DN");
             string name = GetValue(data, "Name", "DisplayName", "Label", "Description");
 
-            // Only create a config if we have at least an extension
             if (!string.IsNullOrWhiteSpace(extension))
             {
                 return new TapiLineConfig

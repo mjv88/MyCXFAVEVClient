@@ -7,9 +7,6 @@ using System.Runtime.InteropServices;
 
 namespace DatevConnector.Datev
 {
-    /// <summary>
-    /// Helper class to check DATEV application availability
-    /// </summary>
     public static class DatevConnectionChecker
     {
         private static DateTime _lastCheckTime = DateTime.MinValue;
@@ -21,12 +18,10 @@ namespace DatevConnector.Datev
         /// Checks if DATEV application is running and available for CTI integration.
         /// Results are cached for a short period to avoid excessive COM lookups.
         /// </summary>
-        /// <returns>True if DATEV is available, false otherwise</returns>
         public static bool IsDatevAvailable()
         {
             lock (_lock)
             {
-                // Use cached result if recent
                 if (DateTime.UtcNow - _lastCheckTime < CacheTimeout)
                 {
                     return _lastCheckResult;
@@ -39,9 +34,8 @@ namespace DatevConnector.Datev
         }
 
         /// <summary>
-        /// Forces a fresh check for DATEV availability (bypasses cache)
+        /// Forces a fresh check, bypassing the cached result.
         /// </summary>
-        /// <returns>True if DATEV is available, false otherwise</returns>
         public static bool CheckDatevAvailability()
         {
             lock (_lock)
@@ -89,7 +83,6 @@ namespace DatevConnector.Datev
         /// Performs a comprehensive DATEV connection test.
         /// Checks DATEV processes, Telefonie ROT entry, and SDD availability.
         /// </summary>
-        /// <returns>True if DATEV is fully available, false otherwise</returns>
         public static bool CheckAndLogDatevStatus()
         {
             return CheckAndLogDatevStatus(null);
@@ -99,8 +92,6 @@ namespace DatevConnector.Datev
         /// Performs a comprehensive DATEV connection test with progress reporting.
         /// Checks DATEV processes, Telefonie ROT entry, and SDD availability.
         /// </summary>
-        /// <param name="progressText">Optional callback for progress text updates</param>
-        /// <returns>True if DATEV is fully available, false otherwise</returns>
         public static bool CheckAndLogDatevStatus(Action<string> progressText)
         {
             LogManager.Log("========================================");
@@ -152,9 +143,6 @@ namespace DatevConnector.Datev
             return rotAvailable || sddAvailable;
         }
 
-        /// <summary>
-        /// Check if SDD (Stammdatendienst) is accessible for contact lookups
-        /// </summary>
         private static bool CheckSddAvailability()
         {
             try

@@ -13,11 +13,8 @@ namespace DatevConnector.UI
     /// </summary>
     public enum CallerPopupMode
     {
-        /// <summary>Both balloon notification and form dialog</summary>
-        Both,
-        /// <summary>Only the Windows Form dialog</summary>
+            Both,
         Form,
-        /// <summary>Only the system tray balloon notification</summary>
         Balloon
     }
 
@@ -39,10 +36,6 @@ namespace DatevConnector.UI
         // System tray icon reference for balloon notifications
         private static NotifyIcon _notifyIcon;
 
-        /// <summary>
-        /// Set the NotifyIcon reference for balloon tip notifications.
-        /// Call this from TrayApplication after creating the NotifyIcon.
-        /// </summary>
         public static void SetNotifyIcon(NotifyIcon notifyIcon)
         {
             _notifyIcon = notifyIcon;
@@ -252,10 +245,6 @@ namespace DatevConnector.UI
                 ShowPopupInternal(callerNumber, callerName, contactInfo, isIncoming));
         }
 
-        /// <summary>
-        /// Close the current caller popup if one is open.
-        /// Called when a call transitions to Connected.
-        /// </summary>
         public static void CloseCurrentPopup()
         {
             try

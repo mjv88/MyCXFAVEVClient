@@ -60,9 +60,6 @@ namespace DatevConnector.UI
         // Accent bar height
         public const int AccentBarHeight = 4;
 
-        /// <summary>
-        /// Create a styled progress/status label with subtle background
-        /// </summary>
         public static Label CreateProgressLabel(int width)
         {
             return new Label
@@ -77,9 +74,6 @@ namespace DatevConnector.UI
             };
         }
 
-        /// <summary>
-        /// Create the standard accent bar panel at the top of the form
-        /// </summary>
         public static Panel CreateAccentBar(Color accentColor)
         {
             return new Panel
@@ -90,9 +84,6 @@ namespace DatevConnector.UI
             };
         }
 
-        /// <summary>
-        /// Create a standard primary action button (rounded, owner-drawn)
-        /// </summary>
         public static Button CreatePrimaryButton(string text, int width = 120)
         {
             var btn = new RoundedButton
@@ -113,9 +104,6 @@ namespace DatevConnector.UI
             return btn;
         }
 
-        /// <summary>
-        /// Create a standard secondary action button (rounded, owner-drawn)
-        /// </summary>
         public static Button CreateSecondaryButton(string text, int width = 100)
         {
             var btn = new RoundedButton
@@ -130,9 +118,6 @@ namespace DatevConnector.UI
             return btn;
         }
 
-        /// <summary>
-        /// Get the accent color based on call direction
-        /// </summary>
         public static Color GetDirectionColor(bool isIncoming)
         {
             return AccentIncoming;
@@ -307,10 +292,6 @@ namespace DatevConnector.UI
             return _formIcon;
         }
 
-        /// <summary>
-        /// Apply base form settings (background, border style, center, topmost)
-        /// and set the application icon.
-        /// </summary>
         public static void ApplyFormDefaults(Form form)
         {
             form.BackColor = FormBackground;
@@ -329,10 +310,6 @@ namespace DatevConnector.UI
                 form.Icon = icon;
         }
 
-        /// <summary>
-        /// Dispose static resources at application shutdown.
-        /// Call from TrayApplication.Dispose().
-        /// </summary>
         public static void Cleanup()
         {
             _baseIcon?.Dispose();
