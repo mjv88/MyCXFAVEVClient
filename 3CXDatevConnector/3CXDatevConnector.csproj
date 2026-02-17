@@ -6,6 +6,12 @@
     <RootNamespace>DatevConnector</RootNamespace>
     <AssemblyName>3CXDatevConnector</AssemblyName>
     <PlatformTarget>x86</PlatformTarget>
+
+    <!-- Single-file publish: produces one .exe (requires .NET 9 Desktop Runtime on target) -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+
     <!-- Assembly info (replaces Properties/AssemblyInfo.cs) -->
     <AssemblyTitle>3CX - DATEV Connector</AssemblyTitle>
     <Description>Integration zwischen 3CX Windows Softphone App (V20) und DATEV.</Description>

@@ -44,7 +44,7 @@ namespace DatevConnector.Core
 
                     if (enable)
                     {
-                        string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                        string exePath = Environment.ProcessPath;
                         key.SetValue(AutoStartValue, $"\"{exePath}\"");
                         LogManager.Log("Autostart aktiviert");
                     }
