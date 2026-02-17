@@ -1,4 +1,3 @@
-using Datev.Sdd.Data.ClientInterfaces;
 using DatevConnector.Core;
 using DatevConnector.Datev.Constants;
 using DatevConnector.Datev.Managers;
@@ -160,8 +159,8 @@ namespace DatevConnector.Datev
         {
             try
             {
-                // Check if the SDD assembly is loadable (indicates DATEV SDD is installed)
-                var assembly = typeof(IRequestHandler).Assembly;
+                // Try to load the SDD assembly dynamically (resolved via GacAssemblyResolver on .NET 9)
+                var assembly = System.Reflection.Assembly.Load("Datev.Sdd.Data.ClientInterfaces");
                 if (assembly != null)
                 {
                     LogManager.Debug("SDD Assembly geladen: {0}", assembly.FullName);

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Datev.Sdd.Data.ClientInterfaces</AssemblyName>
+    <RootNamespace>Datev.Sdd.Data.ClientInterfaces</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Datev.Sdd.Data.ClientInterfaces.cs" />
+  </ItemGroup>
+</Project>

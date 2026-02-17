@@ -46,6 +46,9 @@ namespace DatevConnector
                     return;
                 }
 
+                // Register GAC resolver for DATEV SDD assemblies (must be before any SDD type usage)
+                GacAssemblyResolver.Register();
+
                 // Register exception handlers BEFORE any initialization
                 Application.ThreadException += OnThreadException;
                 AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Datev.Cti.Buddylib;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev;
 using DatevConnector.Datev.COMs;

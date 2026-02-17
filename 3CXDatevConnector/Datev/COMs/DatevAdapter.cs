@@ -1,4 +1,3 @@
-using Datev.Cti.Buddylib;
 using DatevConnector.Core;
 using DatevConnector.Datev.Enums;
 using DatevConnector.Datev.Managers;

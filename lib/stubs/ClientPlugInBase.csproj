@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Datev.Sdd.Data.ClientPlugIn.Base</AssemblyName>
+    <RootNamespace>Datev.Sdd.Data.ClientPlugIn</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Datev.Sdd.Data.ClientPlugIn.Base.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="ClientInterfaces.csproj" />
+  </ItemGroup>
+</Project>

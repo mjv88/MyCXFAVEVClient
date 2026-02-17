@@ -1,4 +1,3 @@
-using Datev.Cti.Buddylib;
 using DatevConnector.Datev.COMs;
 using DatevConnector.Datev.Constants;
 using DatevConnector.Datev.PluginData;

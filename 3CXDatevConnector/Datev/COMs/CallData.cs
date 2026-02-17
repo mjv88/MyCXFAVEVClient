@@ -1,4 +1,3 @@
-using Datev.Cti.Buddylib;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

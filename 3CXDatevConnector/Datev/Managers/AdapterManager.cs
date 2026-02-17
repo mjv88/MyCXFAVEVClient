@@ -38,7 +38,7 @@ namespace DatevConnector.Datev.Managers
             {
                 try
                 {
-                    Rot.RevokeActiveObject(_registrationId, null);
+                    Rot.RevokeActiveObject(_registrationId, IntPtr.Zero);
                     LogManager.Log("DatevAdapter aus ROT abgemeldet");
                 }
                 catch (Exception ex)

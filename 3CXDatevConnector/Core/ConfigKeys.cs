@@ -72,6 +72,7 @@ namespace DatevConnector.Core
         public const string MuteNotifications = "MuteNotifications";
 
         // ===== Connection Mode =====
+        public const string ConnectionMode = "TelephonyMode";
         public const string TelephonyMode = "TelephonyMode";
         public const string AutoDetectionTimeoutSec = "Auto.DetectionTimeoutSec";
         public const string WebclientConnectTimeoutSec = "Webclient.ConnectTimeoutSec";

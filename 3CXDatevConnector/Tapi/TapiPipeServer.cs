@@ -118,7 +118,7 @@ namespace DatevConnector.Tapi
                 {
 
                     var security = CreatePipeSecurity();
-                    _pipe = new NamedPipeServerStream(
+                    _pipe = NamedPipeServerStreamAcl.Create(
                         _pipeName,
                         PipeDirection.InOut,
                         1,                          // maxNumberOfServerInstances

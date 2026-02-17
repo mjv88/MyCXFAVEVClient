@@ -1,5 +1,4 @@
 using System;
-using Datev.Cti.Buddylib;
 using DatevConnector.Datev.COMs;
 
 namespace DatevConnector.Core

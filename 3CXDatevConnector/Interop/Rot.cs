@@ -23,6 +23,6 @@ namespace DatevConnector.Interop
         [DllImport("oleaut32.dll", EntryPoint = "RevokeActiveObject",
             CharSet = CharSet.Unicode, ExactSpelling = true,
             CallingConvention = CallingConvention.StdCall)]
-        public static extern uint RevokeActiveObject(uint pdwRegister, [MarshalAs(UnmanagedType.AsAny)] object reserved);
+        public static extern uint RevokeActiveObject(uint pdwRegister, IntPtr reserved);
     }
 }

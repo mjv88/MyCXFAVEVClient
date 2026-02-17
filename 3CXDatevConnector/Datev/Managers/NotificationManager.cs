@@ -1,4 +1,3 @@
-using Datev.Cti.Buddylib;
 using DatevConnector.Core;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev.COMs;
