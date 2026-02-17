@@ -16,8 +16,6 @@ namespace DatevConnector.Webclient
     /// Connection method for 3CX Webclient via browser extension.
     /// Call events arrive from the extension through a WebSocket connection;
     /// commands (DIAL, DROP) are sent back to the extension.
-    ///
-    /// The bridge listens on ws://127.0.0.1:{port} (default 19800).
     /// The browser extension connects directly — no relay process needed.
     /// </summary>
     public class WebclientConnectionMethod : IConnectionMethod
