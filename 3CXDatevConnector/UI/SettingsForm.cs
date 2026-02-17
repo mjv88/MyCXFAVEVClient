@@ -116,7 +116,7 @@ namespace DatevConnector.UI
             // ThemedForm base class handles: BackColor, ForeColor, FormBorderStyle,
             // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Overview;
-            Size = new Size(540, 576);
+            Size = new Size(540, 546);
 
             var root = new Panel
             {
@@ -124,21 +124,10 @@ namespace DatevConnector.UI
                 Padding = new Padding(LayoutConstants.SpaceMD)
             };
 
-            // === TITLE ===
-            var lblTitle = new Label
-            {
-                Text = UIStrings.FormTitles.Overview,
-                Font = UITheme.FontTitle,
-                ForeColor = UITheme.TextPrimary,
-                AutoSize = true,
-                Location = new Point(LayoutConstants.SpaceMD, LayoutConstants.CardPadding)
-            };
-            root.Controls.Add(lblTitle);
-
             // === STATUS ROW (3 cards side by side) ===
             var statusRow = new TableLayoutPanel
             {
-                Location = new Point(LayoutConstants.SpaceMD, 38),
+                Location = new Point(LayoutConstants.SpaceMD, LayoutConstants.CardPadding),
                 Size = new Size(492, 115),
                 ColumnCount = 3,
                 RowCount = 1
@@ -154,19 +143,19 @@ namespace DatevConnector.UI
 
             // === POP-UP BEHAVIOR ===
             var popupCard = BuildPopupCard();
-            popupCard.Location = new Point(LayoutConstants.SpaceMD, 161);
+            popupCard.Location = new Point(LayoutConstants.SpaceMD, 131);
             popupCard.Size = new Size(492, 124);
             root.Controls.Add(popupCard);
 
             // === ADVANCED ===
             var advancedCard = BuildAdvancedCard();
-            advancedCard.Location = new Point(LayoutConstants.SpaceMD, 293);
+            advancedCard.Location = new Point(LayoutConstants.SpaceMD, 263);
             advancedCard.Size = new Size(492, 130);
             root.Controls.Add(advancedCard);
 
             // === TELEPHONY MODE ===
             var telephonyCard = BuildConnectionModeCard();
-            telephonyCard.Location = new Point(LayoutConstants.SpaceMD, 430);
+            telephonyCard.Location = new Point(LayoutConstants.SpaceMD, 400);
             telephonyCard.Size = new Size(492, 50);
             root.Controls.Add(telephonyCard);
 
@@ -352,8 +341,7 @@ namespace DatevConnector.UI
 
         private Panel BuildPopupCard()
         {
-            var card = new Panel { BackColor = UITheme.CardBackground };
-            card.Paint += CardBorder_Paint;
+            var card = CreateRoundedCard();
 
             // Column positions - evenly distributed across 492px width
             int col1 = LayoutConstants.SpaceMD;       // Left: Call-Pop-Up
@@ -405,8 +393,7 @@ namespace DatevConnector.UI
 
         private Panel BuildAdvancedCard()
         {
-            var card = new Panel { BackColor = UITheme.CardBackground };
-            card.Paint += CardBorder_Paint;
+            var card = CreateRoundedCard();
 
             // Column positions - aligned with popup card
             int col1 = LayoutConstants.SpaceMD;       // Left: Anrufer-ID
@@ -454,8 +441,7 @@ namespace DatevConnector.UI
 
         private Panel BuildConnectionModeCard()
         {
-            var card = new Panel { BackColor = UITheme.CardBackground };
-            card.Paint += CardBorder_Paint;
+            var card = CreateRoundedCard();
 
             int col1 = LayoutConstants.SpaceMD;
             int col2 = 180;
@@ -471,18 +457,10 @@ namespace DatevConnector.UI
                 Location = new Point(col1, row1)
             });
 
-            // Mode dropdown
-            card.Controls.Add(new Label
-            {
-                Text = UIStrings.SettingsLabels.ConnectionMode,
-                AutoSize = true,
-                ForeColor = UITheme.TextSecondary,
-                Location = new Point(col2, row1 + 2)
-            });
-
+            // Mode dropdown (directly after title — no duplicate label)
             _cboConnectionMode = new ComboBox
             {
-                Location = new Point(col2 + 100, row1 - 2),
+                Location = new Point(col2, row1 - 2),
                 Size = new Size(130, 22),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = UITheme.InputBackground,
@@ -537,15 +515,9 @@ namespace DatevConnector.UI
             };
         }
 
-        private void CardBorder_Paint(object sender, PaintEventArgs e)
+        private Panel CreateRoundedCard()
         {
-            var p = (Panel)sender;
-            using (var pen = new Pen(UITheme.CardBorder))
-            {
-                var r = p.ClientRectangle;
-                r.Width -= 1; r.Height -= 1;
-                e.Graphics.DrawRectangle(pen, r);
-            }
+            return new RoundedPanel { BackColor = UITheme.CardBackground };
         }
 
         // ========== STATUS REFRESH ==========
