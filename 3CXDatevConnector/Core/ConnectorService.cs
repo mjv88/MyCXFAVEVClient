@@ -162,7 +162,8 @@ namespace DatevConnector.Core
             bool histInbound = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
             bool histOutbound = AppConfig.GetBool(ConfigKeys.CallHistoryOutbound, false);
             int histMax = AppConfig.GetIntClamped(ConfigKeys.CallHistoryMaxEntries, 5, 1, 100);
-            _callHistory = new CallHistoryStore(histMax, histInbound, histOutbound);
+            int histRetention = AppConfig.GetIntClamped(ConfigKeys.CallHistoryRetentionDays, 7, 1, 90);
+            _callHistory = new CallHistoryStore(histMax, histInbound, histOutbound, histRetention);
 
             // Call event processing (handles all TAPI state transitions + DATEV notifications + UI popups)
             _callEventProcessor = new CallEventProcessor(
@@ -691,7 +692,8 @@ namespace DatevConnector.Core
             bool histIn = AppConfig.GetBool(ConfigKeys.CallHistoryInbound, true);
             bool histOut = AppConfig.GetBool(ConfigKeys.CallHistoryOutbound, false);
             int histMax = AppConfig.GetIntClamped(ConfigKeys.CallHistoryMaxEntries, 5, 1, 100);
-            _callHistory.UpdateConfig(histMax, histIn, histOut);
+            int histRetention = AppConfig.GetIntClamped(ConfigKeys.CallHistoryRetentionDays, 7, 1, 90);
+            _callHistory.UpdateConfig(histMax, histIn, histOut, histRetention);
 
             // DATEV Active contacts filter
             DatevContactRepository.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
@@ -734,6 +736,9 @@ namespace DatevConnector.Core
                 _cts.Cancel();
                 _cts.Dispose();
             }
+
+            // Safety-net flush of call history before shutdown
+            _callHistory?.Save();
 
             _tapiMonitor?.Dispose();
             _callTracker?.Dispose();

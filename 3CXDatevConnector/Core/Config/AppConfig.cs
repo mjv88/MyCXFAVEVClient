@@ -41,6 +41,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.CallHistoryInbound, "true" },
             { ConfigKeys.CallHistoryOutbound, "false" },
             { ConfigKeys.CallHistoryMaxEntries, "25" },
+            { ConfigKeys.CallHistoryRetentionDays, "7" },
 
             // Connection
             { ConfigKeys.ReconnectIntervalSeconds, "5" },
@@ -65,6 +66,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.LogMaxSizeMB, "10" },
             { ConfigKeys.LogMaxFiles, "5" },
             { ConfigKeys.LogAsync, "true" },
+            { ConfigKeys.LogRetentionDays, "7" },
 
             // DATEV
             { ConfigKeys.ActiveContactsOnly, "false" },
@@ -100,6 +102,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.CallHistoryInbound, SectionSettings },
             { ConfigKeys.CallHistoryOutbound, SectionSettings },
             { ConfigKeys.CallHistoryMaxEntries, SectionSettings },
+            { ConfigKeys.CallHistoryRetentionDays, SectionSettings },
             { ConfigKeys.ActiveContactsOnly, SectionSettings },
             { ConfigKeys.TapiLineFilter, SectionSettings },
             { ConfigKeys.TrayDoubleClickCallHistory, SectionSettings },
@@ -123,6 +126,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.LogMaxSizeMB, SectionLogging },
             { ConfigKeys.LogMaxFiles, SectionLogging },
             { ConfigKeys.LogAsync, SectionLogging },
+            { ConfigKeys.LogRetentionDays, SectionLogging },
 
             // Connection Mode
             { ConfigKeys.TelephonyMode, SectionConnection },
@@ -348,6 +352,8 @@ namespace DatevConnector.Core.Config
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryInbound));
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryOutbound));
                     writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryMaxEntries));
+                    writer.WriteLine("// Aufbewahrung in Tagen (1-90)");
+                    writer.WriteLine(DefaultLine(ConfigKeys.CallHistoryRetentionDays));
                     writer.WriteLine();
                     writer.WriteLine("// DATEV Contacts");
                     writer.WriteLine(DefaultLine(ConfigKeys.ActiveContactsOnly));
@@ -365,6 +371,11 @@ namespace DatevConnector.Core.Config
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientConnectTimeoutSec));
                     writer.WriteLine("// Enable Webclient mode (browser extension via WebSocket)");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientEnabled));
+                    writer.WriteLine();
+
+                    writer.WriteLine("[Logging]");
+                    writer.WriteLine("// Log-Aufbewahrung in Tagen (1-90)");
+                    writer.WriteLine(DefaultLine(ConfigKeys.LogRetentionDays));
                 }
             }
             catch

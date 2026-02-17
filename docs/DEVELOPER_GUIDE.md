@@ -197,8 +197,8 @@ Reply pattern: The softphone echoes the original `cmd` with `__answ#` prefix and
 Access is controlled via Windows DACL on the `NamedPipeServerStream`:
 
 - Current user's SID: `FullControl`
-- `ALL APPLICATION PACKAGES` (SID `S-1-15-2-1`): `FullControl` (for MSIX/AppContainer 3CX apps)
-- No other access
+- `ALL APPLICATION PACKAGES` (SID `S-1-15-2-1`): `ReadWrite` (for MSIX/AppContainer 3CX apps)
+- `Everyone` (`WorldSid`): `ReadWrite` (broad compatibility fallback)
 
 ---
 
@@ -369,7 +369,7 @@ The TAPI `lineMakeCall` function can initiate calls, but the 3CX TAPI driver use
 
 ### Why a Single ConnectorService Orchestrator?
 
-At ~1,300 lines, `ConnectorService.cs` is large but serves as the single orchestration point. It exposes `StatusChanged` and `ModeChanged` events so UI forms can react immediately to connection and telephony mode changes. The domain logic is delegated to focused managers:
+At ~750 lines, `ConnectorService.cs` is large but serves as the single orchestration point. It exposes `StatusChanged` and `ModeChanged` events so UI forms can react immediately to connection and telephony mode changes. The domain logic is delegated to focused managers:
 
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
@@ -383,9 +383,9 @@ Splitting ConnectorService would mainly shuffle code and add inter-class communi
 
 The DATEV Buddy interface is defined by DATEV as a COM/ROT-based interface. There is no alternative. Both DATEV and the connector register COM objects in the Running Object Table and discover each other via `GetActiveObject()`.
 
-### Why .NET Framework 4.8 Instead of .NET 8+?
+### Why .NET 9.0?
 
-The DATEV COM interop libraries (`DATEV.Interop.DatevCtiBuddy.dll`) target .NET Framework. The SDD client libraries (`Datev.Sdd.Data.ClientInterfaces.dll`) are also .NET Framework assemblies. Mixing .NET Framework COM interop with .NET 8+ would require complex bridging.
+3CX V20 migrated to .NET 9.0. The connector targets `net9.0-windows` to align with the 3CX runtime. DATEV COM interop and SDD assemblies (originally .NET Framework) are loaded from the GAC at runtime via a custom `GacAssemblyResolver`.
 
 ### Why x86?
 
@@ -399,18 +399,18 @@ The Windows ROT is already per-session on terminal servers. Each RDP session has
 
 DATEV may store numbers without country code (`089/12345678`) while TAPI reports them with country code (`+498912345678`). Comparing only the last N digits (default: 10) normalizes away these differences.
 
-### Why In-Memory Call History?
+### Why DPAPI-Encrypted Call History?
 
-The call history is a circular buffer in process memory (no file I/O):
+The call history is persisted to `%AppData%\3CXDATEVConnector\call_history.dat` with DPAPI encryption (`DataProtectionScope.CurrentUser`):
 
-- Terminal server safe — no shared state between sessions
-- No persistence needed — re-journaling is for recent calls only
-- No file locking issues
-- Configurable capacity (default: 5 per direction)
+- Terminal server safe — per-user `%AppData%` path and DPAPI current-user scope ensure session isolation
+- Survives application restarts — users can re-journal calls from previous sessions
+- Encrypted at rest — only the Windows user who created the file can decrypt it
+- Configurable capacity (default: 25 per direction) and retention (default: 7 days)
 
-### Why Size-Based Log Rotation Only?
+### Why Size-Based Rotation + Age-Based Purge?
 
-Time-based rotation adds complexity for minimal benefit. Size-based rotation (10 MB per file, 5 files max = 50 MB cap) is sufficient for diagnostics and prevents unbounded disk usage.
+Size-based rotation (10 MB per file, 5 files max = 50 MB cap) limits active disk usage. Age-based purge (`LogRetentionDays`, default 7, range 1–90) automatically deletes stale rotated log files at startup and after each rotation, ensuring old diagnostic data doesn't accumulate indefinitely.
 
 ---
 
@@ -420,7 +420,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
-│   ├── ConnectorService.cs                Central orchestrator (~1,300 lines, events: StatusChanged, ModeChanged)
+│   ├── ConnectorService.cs                Central orchestrator (~750 lines, events: StatusChanged, ModeChanged)
 │   ├── ConnectorStatus.cs                 Connection status enum
 │   ├── CallEventProcessor.cs           Call event processing logic
 │   ├── CallTracker.cs                  Active/pending call management
@@ -428,7 +428,7 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── CallRecord.cs                   Call data record model
 │   ├── CallIdGenerator.cs              {Ext}-{date}-{time}-{random} format
 │   ├── CallHistoryEntry.cs             History entry for re-journal
-│   ├── CallHistoryStore.cs             Circular buffer (in/out)
+│   ├── CallHistoryStore.cs             DPAPI-encrypted persistent store (in/out)
 │   ├── ConfigKeys.cs                   INI key constants
 │   ├── ContactRoutingCache.cs          Last-contact routing
 │   ├── DatevCommandHandler.cs          DATEV command handling (Dial/Drop)
@@ -440,16 +440,19 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── SessionManager.cs               Terminal server detection
 │   ├── ShortcutManager.cs              Keyboard shortcuts
 │   ├── AutoStartManager.cs             HKCU Run key management
-│   ├── TelephonyMode.cs               Telephony mode enum
-│   ├── TelephonyProviderSelector.cs   Auto-detection logic
+│   ├── ConnectionMode.cs              Connection mode enum
+│   ├── ConnectionMethodSelector.cs    Auto-detection logic
 │   ├── Config/
 │   │   ├── AppConfig.cs                Configuration defaults & typed access
 │   │   ├── ConfigParser.cs             Configuration parsing utilities
 │   │   └── IniConfig.cs                INI file reader (Windows API)
 ├── Tapi/
-│   ├── ITelephonyProvider.cs           Provider interface (3 implementations)
+│   ├── IConnectionMethod.cs            Connection method interface (3 implementations)
 │   ├── TapiLineMonitor.cs             TAPI 2.x implementation
-│   ├── PipeTelephonyProvider.cs        Named pipe implementation
+│   ├── TapiInitializer.cs             TAPI initialization logic
+│   ├── TapiOperations.cs              TAPI operation helpers
+│   ├── TapiLineManager.cs             TAPI line management
+│   ├── PipeConnectionMethod.cs         Named pipe connection method
 │   ├── TapiPipeServer.cs              Low-level pipe I/O
 │   ├── TapiConfigReader.cs            3CX TAPI INI auto-detection
 │   ├── TapiMessage.cs                 Message parsing/encoding
@@ -461,7 +464,8 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 │   ├── DatevConnectionChecker.cs       DATEV availability checks
 │   ├── COMs/
 │   │   ├── CallData.cs                 IDatevCtiData implementation
-│   │   └── DatevAdapter.cs             COM adapter (ROT registration)
+│   │   ├── DatevAdapter.cs             COM adapter (ROT registration)
+│   │   └── DatevCtiInterfaces.cs      DATEV CTI COM interface definitions
 │   ├── Constants/
 │   │   ├── CommonParameters.cs         DATEV COM GUID
 │   │   └── DatevDataSource.cs          DataSource string constants
@@ -477,9 +481,10 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 ├── Webclient/
 │   ├── Protocol.cs                    JSON protocol (v1) types & parser
 │   ├── WebSocketBridgeServer.cs       WebSocket server (port 19800)
-│   └── WebclientTelephonyProvider.cs  ITelephonyProvider for WebClient
+│   └── WebclientConnectionMethod.cs   IConnectionMethod for WebClient
 ├── Interop/
 │   ├── Rot.cs                          Running Object Table P/Invoke
+│   ├── DwmInterop.cs                  Dark title bar and Mica backdrop
 │   └── TapiInterop.cs                 TAPI 2.x P/Invoke
 ├── Extensions/
 │   └── PhoneNumberNormalizer.cs        Phone normalization (compiled Regex)
@@ -497,14 +502,14 @@ Time-based rotation adds complexity for minimal benefit. Size-based rotation (10
 
 ## Building
 
-1. Open `3CXDatevConnector.sln` in Visual Studio 2019 or later
+1. Open `3CXDatevConnector.sln` in Visual Studio 2022 or later
 2. Ensure DATEV DLLs are available in the GAC (install DATEV Simulator or DATEV Basis)
 3. Ensure 3CX Multi-Line TAPI driver is installed for testing
 4. Target: **x86** (required by DATEV SDK)
 5. Build → Release
-6. Output: `bin\Release\3cxDatevConnector.exe`
+6. Output: `bin\Release\net9.0-windows\win-x86\3cxDatevConnector.exe`
 
-The project uses old-style `.csproj` with explicit `<Compile Include>` entries. When adding or removing files, update the `.csproj` accordingly.
+The project uses SDK-style `.csproj` targeting `net9.0-windows` with `win-x86` RuntimeIdentifier.
 
 ---
 
@@ -536,7 +541,7 @@ background.js (MV3 service worker)
         v
 3CX - DATEV Connector (WebSocketBridgeServer)
         |
-        | ITelephonyProvider events (TapiCallEvent)
+        | IConnectionMethod events (TapiCallEvent)
         v
 ConnectorService -> DATEV (COM/ROT)
 ```
@@ -637,7 +642,7 @@ Sent for each call state change.
 |------|---------|
 | `Webclient/Protocol.cs` | Message types, constants, JSON parser |
 | `Webclient/WebSocketBridgeServer.cs` | WebSocket server (port 19800) |
-| `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider implementation |
+| `Webclient/WebclientConnectionMethod.cs` | IConnectionMethod implementation |
 
 ### Browser Extension
 
@@ -654,7 +659,7 @@ If 3CX changes protobuf field numbers in future builds, adjust parser mappings i
 
 ### Auto-Detection: TryAcceptAsync Loop
 
-During auto-detection (`TelephonyMode=Auto`), the WebSocket server's `TryAcceptAsync` method accepts connections in a loop within the configured timeout. This is necessary because the browser extension sends an HTTP probe (plain GET request) before the real WebSocket upgrade. The loop handles this by:
+During auto-detection (`ConnectionMode=Auto`), the WebSocket server's `TryAcceptAsync` method accepts connections in a loop within the configured timeout. This is necessary because the browser extension sends an HTTP probe (plain GET request) before the real WebSocket upgrade. The loop handles this by:
 
 1. Accepting a TCP connection
 2. Attempting the WebSocket handshake
@@ -665,7 +670,7 @@ This ensures auto-detection works reliably even when the browser extension probe
 
 ### Disconnect Propagation
 
-When the browser extension disconnects (e.g., tab closed, browser closed), the `WebclientTelephonyProvider` fires both `LineDisconnected` and the provider-level `Disconnected` event. This ensures:
+When the browser extension disconnects (e.g., tab closed, browser closed), the `WebclientConnectionMethod` fires both `LineDisconnected` and the provider-level `Disconnected` event. This ensures:
 
 - `ConnectorService.Status` transitions to `Disconnected`
 - `StatusChanged` event fires, updating all subscribed UI forms (StatusForm, SettingsForm, tray icon)
@@ -696,9 +701,9 @@ When `TelephonyMode = Auto` (default), the connector attempts to detect the best
 
 | Priority | Provider | Detection Method | Success Criteria |
 |----------|----------|-----------------|-----------------|
-| A | **WebClient** | Start pipe listener, wait for extension HELLO | Extension connects and sends HELLO within `Webclient.ConnectTimeoutSec` |
-| B | **Pipe** | Check `SessionManager.IsTerminalSession` and pipe availability | Running in a terminal server session |
-| C | **TAPI** | Default fallback for desktop environments | Desktop environment detected |
+| A | **TAPI** | Check for TAPI lines on desktop | TAPI lines available in desktop environment |
+| B | **Pipe** | Check `SessionManager.IsTerminalSession` | Running in a terminal server session |
+| C | **WebClient** | Start WebSocket listener, wait for extension HELLO | Extension connects and sends HELLO within timeout |
 | D | **None** | All detection methods failed | Setup Wizard is shown |
 
 ### Configuration Keys
@@ -720,13 +725,10 @@ When `TelephonyMode` is explicitly set to `Tapi`, `Pipe`, or `WebClient`, only t
 During auto-detection, the connector logs a diagnostic summary:
 
 ```
-TelephonyProviderSelector: Auto-detection starting (timeout=10s)
-TelephonyProviderSelector: [A] Trying WebClient (timeout=8s)
-TelephonyProviderSelector: [A] WebClient not detected
-TelephonyProviderSelector: [B] Trying Pipe
-TelephonyProviderSelector: [B] Pipe not applicable
-TelephonyProviderSelector: [C] Trying TAPI
-TelephonyProviderSelector: TAPI selected - Desktop environment
+ConnectionMethodSelector: Auto-detection starting (timeout=10s)
+ConnectionMethodSelector: [A] Trying TAPI
+ConnectionMethodSelector: [A] TAPI lines available
+ConnectionMethodSelector: TAPI selected - Desktop environment
 TelephonyMode chosen: Tapi (reason: Desktop environment - using TAPI)
 ```
 

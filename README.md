@@ -35,7 +35,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Extension Auto-Detection** | Auto-detects extension number from TAPI line name on connect |
 | **Connection Resilience** | Circuit breaker pattern prevents cascading DATEV failures |
 | **Retry Mechanism** | Automatic retry with exponential backoff for SDD operations |
-| **Call History** | In-memory circular buffer for re-journaling past calls (DATEV-matched only) |
+| **Call History** | DPAPI-encrypted persistent store for re-journaling past calls (DATEV-matched only) with configurable retention |
 | **System Tray UI** | Dark themed context menu with emoji prefixes, colored status dot (green/orange/red), autostart toggle, silent mode, restart, Help submenu |
 | **Multi-Line TAPI** | Support for multiple TAPI lines with per-line status and test buttons |
 | **German Localization** | Complete German UI for all forms, menus, buttons, and labels |
@@ -50,10 +50,10 @@ This broke existing DATEV integrations. This standalone proxy application restor
 ## Requirements
 
 - Windows 10/11 (x86 or x64)
-- .NET Framework 4.8
+- .NET 9.0 Desktop Runtime (x86)
 - DATEV Arbeitsplatz with Telefonie component
 - **Desktop mode:** 3CX Windows Softphone App (V20) or later + 3CX Multi-Line TAPI driver
-- **WebClient mode:** Chrome or Edge browser with 3CX DATEV Connector extension
+- **WebClient mode:** Chrome or Edge browser with 3CX DATEV Connector Browser extension
 - DATEV DLLs found in GAC:
   - `DATEV.Interop.DatevCtiBuddy.dll`
   - `Datev.Sdd.Data.ClientInterfaces.dll`
@@ -113,62 +113,67 @@ The file is **hot-reloaded** — changes to `3CXDATEVConnector.ini` take effect 
 
 ### INI Structure
 
-The default INI file generated on first run contains the `[Settings]` and `[Connection]` sections. The `[Logging]` and `[Debug]` sections are not included by default — admins and resellers can add them manually when needed.
+The default INI file generated on first run contains the `[Settings]`, `[Connection]`, and `[Logging]` sections. The `[Debug]` section is not included by default — admins and resellers can add it manually when needed.
 
 **Default INI (generated on first run):**
 
 ```ini
-; 3CX - DATEV Connector Configuration
-; Edit values below. Delete a line to restore its default.
+// 3CX - DATEV Connector Configuration
+// Edit values below. Delete a line to restore its default.
 
 [Settings]
-; Extension number (auto-detected from TAPI if empty)
+// Extension number (auto-detected from TAPI if empty)
 ExtensionNumber=
 
-; Journaling
+// Journaling
 EnableJournaling=true
-EnableJournalPopup=true
+EnableJournalPopup=false
 EnableJournalPopupOutbound=false
 
-; Call Pop-Up
+// Call Pop-Up
 EnableCallerPopup=true
 EnableCallerPopupOutbound=false
-; CallerPopupMode: Both, Form, Balloon
+// CallerPopupMode: Both, Form, Balloon
 CallerPopupMode=Form
 
-; Contact matching
+// Contact matching
 MinCallerIdLength=2
 MaxCompareLength=10
 ContactReshowDelaySeconds=3
 LastContactRoutingMinutes=60
 
-; Call History
+// Call History
 CallHistoryInbound=true
 CallHistoryOutbound=false
-CallHistoryMaxEntries=5
+CallHistoryMaxEntries=25
+// Aufbewahrung in Tagen (1-90)
+CallHistoryRetentionDays=7
 
-; DATEV Contacts
+// DATEV Contacts
 ActiveContactsOnly=false
 
 [Connection]
-; TelephonyMode: Auto, Tapi, Pipe, WebClient
-; Auto = detect best provider at startup (WebClient -> Pipe -> TAPI)
+// TelephonyMode: Auto, Tapi, TerminalServer, Webclient
+// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)
 TelephonyMode=Auto
-; Auto-detection timeout in seconds
+// Reconnect interval in seconds when connection is lost
+ReconnectIntervalSeconds=5
+// Auto-detection timeout in seconds
 AutoDetectionTimeoutSec=10
-; Webclient extension connect timeout in seconds
+// Webclient extension connect timeout in seconds
 WebclientConnectTimeoutSec=8
-; Enable WebClient mode (browser extension via WebSocket)
+// Enable Webclient mode (browser extension via WebSocket)
 WebclientEnabled=true
-; WebSocket port for browser extension connection
-WebclientWebSocketPort=19800
+
+[Logging]
+// Log-Aufbewahrung in Tagen (1-90)
+LogRetentionDays=7
 ```
 
 **Additional sections (admin/reseller — add manually when needed):**
 
 ```ini
-; Extra [Connection] settings (not included in default INI)
-ReconnectIntervalSeconds=5
+// Extra [Connection] settings (not included in default INI)
 ConnectionTimeoutSeconds=30
 ReadTimeoutSeconds=60
 WriteTimeoutSeconds=30
@@ -180,17 +185,17 @@ StaleCallTimeoutMinutes=240
 StalePendingTimeoutSeconds=300
 
 [Logging]
-; LogLevel: Debug, Info, Warning, Error, Critical
+// LogLevel: Debug, Info, Warning, Error, Critical
 LogLevel=Info
 LogMaxSizeMB=10
 LogMaxFiles=5
 LogAsync=true
 
 [Debug]
-; VerboseLogging=true
-; TAPIDebug=0|1|2|3
-; DATEVDebug=0|1|2|3
-; Contacts=true       (dump contacts to contacts.txt)
+// VerboseLogging=true
+// TAPIDebug=0|1|2|3
+// DATEVDebug=0|1|2|3
+// Contacts=true       (dump contacts to contacts.txt)
 ```
 
 ### Configuration Options
@@ -199,7 +204,7 @@ LogAsync=true
 |---------|---------|---------|-------------|
 | `ExtensionNumber` | (auto) | [Settings] | Auto-detected from TAPI line name on connect |
 | `EnableJournaling` | true | [Settings] | Enable call journaling to DATEV |
-| `EnableJournalPopup` | true | [Settings] | Show journal note popup after call ends |
+| `EnableJournalPopup` | false | [Settings] | Show journal note popup after call ends |
 | `EnableJournalPopupOutbound` | false | [Settings] | Show journal note popup for outgoing calls |
 | `EnableCallerPopup` | true | [Settings] | Show popup notification for incoming calls |
 | `EnableCallerPopupOutbound` | false | [Settings] | Show popup notification for outgoing calls |
@@ -211,7 +216,8 @@ LogAsync=true
 | `LastContactRoutingMinutes` | 60 | [Settings] | Minutes to remember last-used contact per number (0 = disabled) |
 | `CallHistoryInbound` | true | [Settings] | Track inbound calls for re-journaling |
 | `CallHistoryOutbound` | false | [Settings] | Track outbound calls for re-journaling |
-| `CallHistoryMaxEntries` | 5 | [Settings] | Maximum entries per direction (circular buffer) |
+| `CallHistoryMaxEntries` | 25 | [Settings] | Maximum entries per direction |
+| `CallHistoryRetentionDays` | 7 | [Settings] | Days to keep call history entries (1–90) |
 | `ActiveContactsOnly` | false | [Settings] | Only load contacts with Status ≠ 0 (inactive contacts excluded) |
 | `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Tapi`, `Pipe`, or `WebClient` |
 | `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
@@ -233,6 +239,7 @@ LogAsync=true
 | `LogMaxSizeMB` | 10 | [Logging] | Maximum log file size in MB |
 | `LogMaxFiles` | 5 | [Logging] | Number of log files to keep |
 | `LogAsync` | true | [Logging] | Enable async logging |
+| `LogRetentionDays` | 7 | [Logging] | Days to keep rotated log files (1–90) |
 | `LogMaskDigits` | 5 | [Logging] | Number of trailing digits visible in masked phone numbers (0 = disable masking) |
 | `DebugLogging` | false | [Logging] | Enable persistent debug-level logging |
 | `VerboseLogging` | false | [Debug] | Enable debug-level logging at runtime (hot-reloadable) |
@@ -419,12 +426,14 @@ When `EnableJournalPopup` is enabled and a matched DATEV contact (recipient or i
 
 ### Call History
 
-When enabled, the bridge keeps an in-memory circular buffer of recent DATEV-matched calls for re-journaling:
+When enabled, the bridge persists recent DATEV-matched calls for re-journaling:
 
 - **Separate buffers** for inbound and outbound calls (configurable per direction; outbound tracking disabled by default)
 - **Only DATEV-matched calls** are stored (entries with a resolved AdressatenId)
-- **Configurable capacity** via `CallHistoryMaxEntries` (default: 5 per direction)
-- **Terminal server safe** — per-process memory, no file I/O or shared state
+- **Configurable capacity** via `CallHistoryMaxEntries` (default: 25 per direction)
+- **Configurable retention** via `CallHistoryRetentionDays` (default: 7 days, range 1–90)
+- **DPAPI-encrypted** — persisted to `%AppData%\3CXDATEVConnector\call_history.dat`, encrypted with `DataProtectionScope.CurrentUser` so only the Windows user who created it can read it
+- **Terminal server safe** — per-user `%AppData%` path and DPAPI current-user scope ensure session isolation
 
 Access via tray menu -> Anrufliste:
 - Two list views (Eingehend / Ausgehend) showing Zeit, Nummer, Kontakt, Dauer, Journal status
@@ -493,24 +502,31 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 +----------------------------------------------------------------------+
 |  UI/                                                                 |
 |    TrayApplication.cs            - System tray, menu, status icons   |
+|    TrayContextMenuBuilder.cs     - Dark-themed tray context menu     |
 |    FormNavigator.cs              - Form navigation/lifecycle mgmt    |
 |    FormDisplayHelper.cs          - UI thread marshaling for non-modal|
-|    TrayContextMenuBuilder.cs     - Dark-themed tray context menu     |
 |    UITheme.cs                    - Dark theme, icon generation       |
+|    SingleLineStatusPanel.cs      - Single TAPI line status panel     |
+|    MultiLineStatusPanel.cs       - Multi TAPI line status panel      |
 |    SettingsForm.cs               - Single-page settings dashboard    |
+|    StatusForm.cs                 - Quick status overview (tray dblclick)|
 |    CallerPopupForm.cs            - Caller notification popup         |
 |    ContactSelectionForm.cs       - Multi-contact selection dropdown  |
 |    JournalForm.cs                - Call note entry before DATEV submit|
 |    CallHistoryForm.cs            - Re-journal past calls (dual list) |
-|    StatusForm.cs                 - Quick status overview (tray dblclick)|
 |    SetupWizardForm.cs            - First-run configuration wizard    |
 |    TroubleshootingForm.cs        - Built-in help with common solutions|
 |    AboutForm.cs                  - About dialog with shortcuts       |
 |    Strings/                                                          |
 |      UIStrings.cs                - Centralized German UI text        |
 |    Theme/                                                            |
+|      ThemedForm.cs               - Base form with DWM dark title bar |
+|      RoundedPanel.cs             - Panel with rounded corners        |
+|      RoundedButton.cs            - Button with rounded corners       |
+|      AsyncButtonAction.cs        - Async button click helper         |
 |      Layout.cs                   - Layout constants                  |
 |      DarkMenuRenderer.cs         - Dark theme for context menus      |
+|      DarkContextMenuStrip.cs     - Dark-themed context menu strip    |
 +----------------------------------------------------------------------+
 |  Core/                                                               |
 |    ConnectorService.cs          - Main orchestrator (events: StatusChanged, ModeChanged) |
@@ -521,29 +537,33 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    CallRecord.cs                 - Call data record model            |
 |    CallIdGenerator.cs            - Unique CallID (Extension-date-random)|
 |    CallHistoryEntry.cs           - History entry model for re-journal|
-|    CallHistoryStore.cs           - Circular buffer store (in/out)    |
+|    CallHistoryStore.cs           - DPAPI-encrypted persistent store  |
 |    ConfigKeys.cs                 - Centralized INI key constants     |
+|    ConnectionMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/WebClient) |
+|    ConnectionMethodSelector.cs   - Auto-detection logic              |
 |    ContactRoutingCache.cs        - Last-contact routing memory       |
 |    DatevCommandHandler.cs        - DATEV command handling (Dial/Drop)|
-|    DebugConfigWatcher.cs         - 3CXDATEVConnector.ini hot-reload     |
+|    DebugConfigWatcher.cs         - 3CXDATEVConnector.ini hot-reload  |
 |    EventHelper.cs                - Event helper utilities            |
 |    CircuitBreaker.cs             - Circuit breaker pattern           |
+|    GacAssemblyResolver.cs        - GAC assembly resolution           |
 |    MemoryOptimizer.cs            - GC and working set management     |
 |    RetryHelper.cs                - Retry with exponential backoff    |
 |    SessionManager.cs             - Terminal server session detection  |
 |    ShortcutManager.cs            - Keyboard shortcut definitions     |
 |    AutoStartManager.cs           - Windows autostart (HKCU Run)     |
-|    TelephonyMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/WebClient) |
-|    TelephonyProviderSelector.cs - Auto-detection logic              |
 |    Config/                                                           |
 |      AppConfig.cs                - Configuration defaults & access   |
 |      ConfigParser.cs             - Configuration parsing utilities   |
 |      IniConfig.cs                - INI file reader (Windows API)     |
 +----------------------------------------------------------------------+
 |  Tapi/                                                               |
-|    ITelephonyProvider.cs         - Telephony provider interface       |
+|    IConnectionMethod.cs          - Connection method interface        |
 |    TapiLineMonitor.cs            - TAPI 2.x call event monitoring    |
-|    PipeTelephonyProvider.cs      - Named pipe server for 3CX         |
+|    TapiInitializer.cs            - TAPI initialization logic         |
+|    TapiOperations.cs             - TAPI operation helpers            |
+|    TapiLineManager.cs            - TAPI line management              |
+|    PipeConnectionMethod.cs       - Named pipe server for 3CX         |
 |    TapiPipeServer.cs             - Low-level pipe I/O (server)       |
 |    TapiConfigReader.cs           - 3CX TAPI INI auto-detection       |
 |    TapiMessage.cs                - Message parsing/encoding          |
@@ -553,11 +573,12 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |  Webclient/                                                          |
 |    Protocol.cs                   - JSON protocol (v1) types & parser |
 |    WebSocketBridgeServer.cs      - WebSocket server (port 19800)     |
-|    WebclientTelephonyProvider.cs - ITelephonyProvider for WebClient   |
+|    WebclientConnectionMethod.cs  - IConnectionMethod for WebClient   |
 +----------------------------------------------------------------------+
 |  Interop/                                                            |
 |    Rot.cs                        - Running Object Table interop      |
 |    TapiInterop.cs                - TAPI P/Invoke and error handling  |
+|    DwmInterop.cs                 - Dark title bar and Mica backdrop  |
 +----------------------------------------------------------------------+
 |  Datev/                                                              |
 |    DatevContactRepository.cs     - Unified contact repo with lookup  |
@@ -566,6 +587,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    COMs/                                                             |
 |      CallData.cs                 - IDatevCtiData implementation      |
 |      DatevAdapter.cs             - DATEV COM adapter (IDatevCtiControl)|
+|      DatevCtiInterfaces.cs       - DATEV CTI COM interface definitions|
 |    Constants/                                                        |
 |      CommonParameters.cs         - DATEV COM GUID                    |
 |      DatevDataSource.cs          - Data source identifiers           |
@@ -650,7 +672,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
    └─> ConnectorService.OnDatevDial()
        ├─> CallIdGenerator.Next() - generate unique ID
        ├─> Store pending call with SyncID and contact info
-       └─> PipeTelephonyProvider.MakeCall(number)
+       └─> PipeConnectionMethod.MakeCall(number)
 
 2. TAPI Event (LINECALLSTATE_RINGBACK)
    └─> ConnectorService.OnCallStateChanged()
@@ -951,15 +973,17 @@ Post-cache GC logs working set before/after and managed heap size (Debug level):
 
 Log file location: `%AppData%\3CXDATEVConnector\3CXDatevConnector.log`
 
-### Log Rotation
+### Log Rotation & Retention
 
 - **Size-based rotation**: When a log file reaches `LogMaxSizeMB` (default: 10 MB), it is rotated. Up to `LogMaxFiles` (default: 5) rotated files are kept. Oldest rotated files are deleted when the limit is exceeded.
+- **Age-based retention**: Rotated log files older than `LogRetentionDays` (default: 7, range 1–90) are automatically deleted at startup and after each rotation.
 
 Configure via `[Logging]` section in `3CXDATEVConnector.ini`:
 ```ini
 [Logging]
 LogMaxSizeMB=10
 LogMaxFiles=5
+LogRetentionDays=7
 ```
 
 Enable verbose logging at runtime by setting in `3CXDATEVConnector.ini`:
@@ -1047,11 +1071,11 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 
 ## Building
 
-1. Open `3CXDatevConnector.sln` in Visual Studio 2019+
+1. Open `3CXDatevConnector.sln` in Visual Studio 2022 or later
 2. Ensure DATEV DLLs are available (GAC or local `Lib/` folder)
 3. Ensure 3CX Multi-Line TAPI driver is installed
-4. Build -> Release
-5. Output: `bin\Release\3cxDatevConnector.exe`
+4. Build → Release (x86)
+5. Output: `bin\Release\net9.0-windows\win-x86\3cxDatevConnector.exe`
 
 ## Troubleshooting
 
@@ -1094,7 +1118,7 @@ MIT — see [LICENSE](LICENSE)
 | **Routing** | Extension number in pipe name | Identifies the correct channel without serving as a security boundary |
 | **Configuration** | Single INI file (`3CXDATEVConnector.ini`) in `%AppData%\3CXDATEVConnector\` | Simpler deployment, hot-reloadable, admin-friendly for enterprise rollout |
 | **Deployment** | Per-user MSI via Intune/SCCM/GPO + HKCU Run autostart | Tray app requires per-user context; HKCU Run is simplest reliable autostart |
-| **Log Retention** | Size-based rotation (10 MB per file, 5 files max) | Prevents unbounded disk usage while keeping recent diagnostic data |
+| **Log Retention** | Size-based rotation (10 MB, 5 files) + age-based purge (`LogRetentionDays`, default 7) | Prevents unbounded disk usage; age-based purge removes stale rotated files |
 | **Naming** | `3CXDATEVConnector` (install/log folder), `3CXDatevConnector` (exe, log), `3CXDATEVConnector` (INI) | Consistent naming across all artifacts |
 | **Contact Routing** | `LastContactRoutingMinutes` in `[Settings]` | Configurable window for remembering last-used contact per phone number |
 | **Config Portability** | Distribute INI file directly (no import/export features) | INI is the single portable artifact; enterprise tools handle distribution |
@@ -1103,6 +1127,7 @@ MIT — see [LICENSE](LICENSE)
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2.1 | 2026-02 | **Persistent Call History**: Call history is now DPAPI-encrypted and persisted to `%AppData%\3CXDATEVConnector\call_history.dat` (`DataProtectionScope.CurrentUser`). Survives application restarts. **Call History Retention**: New `CallHistoryRetentionDays` setting (default 7, range 1–90) automatically prunes entries older than the configured age. **Log Age-Based Retention**: New `LogRetentionDays` setting (default 7, range 1–90) purges rotated log files older than the configured age at startup and after each rotation. **UI Modernization**: `ThemedForm` base class with DWM dark title bars and Mica backdrop, `RoundedPanel`/`RoundedButton` controls with rounded corners. |
 | 1.2.0 | 2026-02 | **Non-Modal Dialog Conversion**: Converted all 5 modal dialogs (AboutForm, TroubleshootingForm, SetupWizardForm, JournalForm, ContactSelectionForm) from blocking `ShowDialog()` to non-modal `Show()`. Read-only forms (About, Troubleshooting, SetupWizard) use singleton activate-or-focus pattern. Interactive forms (Journal, ContactSelection) use close-and-replace pattern with callback-based result delivery (`Action<T>` callbacks replace synchronous `DialogResult`). All windows can now be closed/interacted with independently. **Telephony Mode Live Update**: `ModeChanged` event on `ConnectorService` for immediate UI feedback when telephony mode is changed in Settings (no restart required). SettingsForm and StatusForm track mode labels via stored fields and subscribe to the event. `ApplySettings()` now handles telephony mode changes immediately. **WebClient Auto-Detection Fix**: `TryAcceptAsync` changed from single-attempt to loop to handle browser extension HTTP probes before WebSocket upgrade. **WebClient Disconnect Propagation**: `OnTransportDisconnected` now fires provider-level `Disconnected` event, ensuring tray icon, StatusForm, SettingsForm, and balloon notifications all update when the browser extension disconnects. **Dead Code Removal (Phase 1)**: Removed `CommandLineOptions`, `LogPrefixes`, `IntegrationConstants`, `TapiException`, `DatevException` (unused infrastructure classes and constants). Previously removed `DatevCache` and `DatevContactManager` were unified into `DatevContactRepository`. **Dead Code Removal (Phase 2)**: Removed ~150 lines of unused members across 11 files: 4 unused constants from `CommonParameters` (only DATEV COM GUID remains), `CircuitBreaker.State`/`Reset()`/`Execute()` overloads (circuit breaker now used via `IsOperationAllowed`/`RecordSuccess`/`RecordFailure` only), `NotificationManager.IsDatevAvailable`/`ResetCircuitBreaker()`, `DatevConnectionChecker.ClearCache()`, write-only properties `CallRecord.RemoteName`/`LocalNumber` and `CallHistoryEntry.CallID`/`SyncID`, unused getters `MaxEntries`/`MinCallerIdLength`/`RoutingWindowMinutes`, stray `Console.WriteLine` debug leftovers in log rotation, and 3 unused framework references (`Microsoft.CSharp`, `System.Data`, `System.Net.Http`). |
 | 1.1.9 | 2026-01 | **Memory Optimization**: Filter Communications to phone-only (`Medium == Phone`), reducing objects from ~68K to ~17K. Cached `EffectiveNormalizedNumber` property to eliminate ~68K repeated Regex allocations. Compiled `PhoneNumberNormalizer` Regex. Replaced LINQ `GroupBy`/`ToDictionary` with direct `SortedDictionary` build loop. Pre-load GC releases old cache before XML deserialization. Post-load forced double-collect GC with LOH compaction and `SetProcessWorkingSetSize` P/Invoke to trim OS working set. Added `UITheme.Cleanup()` in shutdown path, `TrayApplication._currentMainForm` disposal, `Array.Empty<T>()` replacements. Post-cache GC diagnostics log (working set before/after, managed heap). |
 | 1.1.8 | 2026-01 | **Core Infrastructure**: Added `IniConfig` (typed config access). Originally added `IntegrationConstants`, `TapiException`, `DatevException` — later removed in v1.2.0 as dead code |

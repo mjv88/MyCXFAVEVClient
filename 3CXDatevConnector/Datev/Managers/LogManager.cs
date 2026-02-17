@@ -37,6 +37,7 @@ namespace DatevConnector.Datev.Managers
         private static readonly CancellationTokenSource _cts;
         private static readonly Task _logWriterTask;
 
+        private static readonly int _logRetentionDays;
         private static string _currentLogFilePath;
         private static long _currentLogSize;
 
@@ -71,6 +72,11 @@ namespace DatevConnector.Datev.Managers
             // Max number of log files to keep (default 5)
             _maxLogFiles = AppConfig.GetInt(ConfigKeys.LogMaxFiles, 5);
 
+            // Log retention in days (default 7)
+            _logRetentionDays = AppConfig.GetInt(ConfigKeys.LogRetentionDays, 7);
+            if (_logRetentionDays < 1) _logRetentionDays = 1;
+            if (_logRetentionDays > 90) _logRetentionDays = 90;
+
             // Async logging (default true for better performance)
             bool asyncEnabled = AppConfig.GetBool(ConfigKeys.LogAsync, true);
 
@@ -98,6 +104,9 @@ namespace DatevConnector.Datev.Managers
                 _cts = new CancellationTokenSource();
                 _logWriterTask = Task.Run(() => LogWriterLoop(_cts.Token));
             }
+
+            // Purge rotated log files older than retention period
+            PurgeOldLogs();
         }
 
         /// <summary>
@@ -338,9 +347,34 @@ namespace DatevConnector.Datev.Managers
 
                 // Reset size counter
                 _currentLogSize = 0;
+
+                PurgeOldLogs();
             }
             catch (Exception)
             {
+            }
+        }
+
+        /// <summary>
+        /// Delete rotated log files older than the configured retention period.
+        /// </summary>
+        private static void PurgeOldLogs()
+        {
+            try
+            {
+                var cutoff = DateTime.Now.AddDays(-_logRetentionDays);
+                for (int i = 1; i <= _maxLogFiles; i++)
+                {
+                    string path = Path.Combine(_logFolder, $"{_logFileBaseName}.{i}.log");
+                    if (File.Exists(path) && File.GetLastWriteTime(path) < cutoff)
+                    {
+                        File.Delete(path);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Best-effort cleanup
             }
         }
 

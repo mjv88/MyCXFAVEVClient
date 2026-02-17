@@ -798,7 +798,6 @@ namespace DatevConnector.UI
             AppConfig.SetBool(ConfigKeys.CallHistoryInbound, _chkHistoryInbound.Checked);
             AppConfig.SetBool(ConfigKeys.CallHistoryOutbound, _chkHistoryOutbound.Checked);
             AppConfig.SetInt(ConfigKeys.CallHistoryMaxEntries, (int)_numHistoryCount.Value);
-
             // DATEV Filter
             AppConfig.SetBool(ConfigKeys.ActiveContactsOnly, _chkActiveContactsOnly.Checked);
             DatevContactRepository.FilterActiveContactsOnly = _chkActiveContactsOnly.Checked;

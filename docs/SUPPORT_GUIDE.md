@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-The connector is a .NET Framework 4.8 WinForms system tray application (x86) that acts as a proxy between the 3CX Softphone and DATEV Arbeitsplatz.
+The connector is a .NET 9.0 WinForms system tray application (x86) that acts as a proxy between the 3CX Softphone and DATEV Arbeitsplatz.
 
 ```
 +------------------+     Named Pipe      +-------------------+
@@ -39,15 +39,15 @@ The connector is a .NET Framework 4.8 WinForms system tray application (x86) tha
 |-----------|------|----------------|
 | **ConnectorService** | `Core/ConnectorService.cs` | Central orchestrator — wires TAPI, DATEV, and UI; events: `StatusChanged`, `ModeChanged` |
 | **TapiLineMonitor** | `Tapi/TapiLineMonitor.cs` | TAPI 2.x call event monitoring |
-| **PipeTelephonyProvider** | `Tapi/PipeTelephonyProvider.cs` | Named pipe server for 3CX commands |
+| **PipeConnectionMethod** | `Tapi/PipeConnectionMethod.cs` | Named pipe server for 3CX commands |
 | **TapiPipeServer** | `Tapi/TapiPipeServer.cs` | Low-level pipe I/O |
 | **DatevAdapter** | `Datev/COMs/DatevAdapter.cs` | COM adapter registered in ROT |
 | **NotificationManager** | `Datev/Managers/NotificationManager.cs` | Connector → DATEV notifications (with circuit breaker) |
 | **CallDataManager** | `Datev/Managers/CallDataManager.cs` | Call data handling and SyncID management |
 | **DatevContactRepository** | `Datev/DatevContactRepository.cs` | Unified contact repository with phone lookup |
-| **WebclientTelephonyProvider** | `Webclient/WebclientTelephonyProvider.cs` | ITelephonyProvider for browser extension |
+| **WebclientConnectionMethod** | `Webclient/WebclientConnectionMethod.cs` | IConnectionMethod for browser extension |
 | **WebSocketBridgeServer** | `Webclient/WebSocketBridgeServer.cs` | WebSocket server for extension (port 19800) |
-| **TelephonyProviderSelector** | `Core/TelephonyProviderSelector.cs` | Auto-detection of telephony mode |
+| **ConnectionMethodSelector** | `Core/ConnectionMethodSelector.cs` | Auto-detection of telephony mode |
 | **CallTracker** | `Core/CallTracker.cs` | Active and pending call tracking |
 | **LogManager** | `Datev/Managers/LogManager.cs` | Structured logging with rotation |
 
@@ -60,8 +60,8 @@ The bridge performs these steps on startup in order:
 ```
 1. Detect environment and select telephony mode
    ├── Log session info (Session ID, IsTerminalSession, SessionName)
-   └── TelephonyProviderSelector: Auto, Tapi, Pipe, or Webclient
-       ├── Auto: WebClient → Pipe → TAPI (priority order)
+   └── ConnectionMethodSelector: Auto, Tapi, Pipe, or Webclient
+       ├── Auto: TAPI → Pipe → WebClient (priority order)
        ├── Explicit mode: use configured provider only
        └── Log selected mode and reason
 
@@ -147,6 +147,7 @@ Each line follows this format:
 - **Retention:** Keeps `LogMaxFiles` (default: 5) rotated files
 - **Naming:** `3CXDatevConnector.log` → `3CXDatevConnector.1.log` → `3CXDatevConnector.2.log` → ...
 - **Oldest deleted:** When file count exceeds `LogMaxFiles`
+- **Age-based purge:** Rotated files older than `LogRetentionDays` (default: 7 days, range 1–90) are deleted at startup and after each rotation
 
 ### Enabling Debug Logging
 

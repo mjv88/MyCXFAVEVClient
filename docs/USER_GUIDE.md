@@ -19,7 +19,7 @@ The 3CX - DATEV Connector connects **3CX** (Desktop App or WebClient) with **DAT
 | Component | Requirement |
 |-----------|-------------|
 | Operating System | Windows 10 or Windows 11 (x86 or x64) |
-| Runtime | .NET Framework 4.8 (included in Windows 10 1903+) |
+| Runtime | .NET 9.0 Desktop Runtime (x86) |
 | 3CX (Desktop mode) | 3CX Windows Softphone App V20 or later + 3CX Multi-Line TAPI driver |
 | 3CX (WebClient mode) | Chrome or Edge with 3CX DATEV Connector browser extension |
 | DATEV | DATEV Arbeitsplatz with Telefonie component |
@@ -63,7 +63,7 @@ Select the connection mode:
 
 | Mode | Description |
 |------|-------------|
-| **Auto** (recommended) | Detects best provider automatically (Webclient → Pipe → TAPI) |
+| **Auto** (recommended) | Detects best provider automatically (TAPI → Terminal Server → WebClient) |
 | **TAPI** | 3CX Windows App on Desktop |
 | **Pipe** | 3CX Windows App on Terminal Server |
 | **WebClient** | 3CX Webclient in Browser (Chrome/Edge) |
@@ -208,13 +208,14 @@ The journal entry is sent to DATEV via the `NewJournal` interface with:
 
 ### Call History (Re-Journaling)
 
-The bridge keeps recent DATEV-matched calls in memory for re-journaling:
+The bridge persists recent DATEV-matched calls (DPAPI-encrypted) for re-journaling:
 
 1. Open via tray menu → **Anrufliste** (or Strg+H)
 2. Two lists show recent **Eingehend** (inbound) and **Ausgehend** (outbound) calls
 3. Select an entry and click **"Journal senden"** or double-click to open the journal popup
 4. Journal status: **✓ Ja** (sent), **Offen** (pending), **—** (unmatched)
 5. Previously-journaled entries are dimmed and cannot be re-sent
+6. Entries older than `CallHistoryRetentionDays` (default: 7) are automatically removed
 
 > **Note:** Only calls with a resolved DATEV contact are stored. Outbound call tracking is disabled by default.
 
@@ -265,7 +266,7 @@ Open Settings via tray menu → **Einstellungen**.
 | Max. Vergleichslänge | 10 | Number of digits compared from end of phone number |
 | Anrufliste Eingehend | Enabled | Track inbound calls for re-journaling |
 | Anrufliste Ausgehend | Disabled | Track outbound calls for re-journaling |
-| Anrufliste Anzahl | 5 | Maximum entries per direction |
+| Anrufliste Anzahl | 25 | Maximum entries per direction |
 | Aktive Kontakte | Disabled | Only load active contacts (Status ≠ 0) from DATEV |
 
 ### Telephony Mode
@@ -296,13 +297,15 @@ For enterprise deployment, distribute a prepared INI file to each user's `%AppDa
 ### Default INI
 
 ```ini
-; 3CX - DATEV Connector Configuration
-; Edit values below. Delete a line to restore its default.
+// 3CX - DATEV Connector Configuration
+// Edit values below. Delete a line to restore its default.
+// TelephonyMode: Auto, Tapi, TerminalServer, Webclient
+// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)
 
 [Settings]
 ExtensionNumber=
 EnableJournaling=true
-EnableJournalPopup=true
+EnableJournalPopup=false
 EnableJournalPopupOutbound=false
 EnableCallerPopup=true
 EnableCallerPopupOutbound=false
@@ -313,7 +316,8 @@ ContactReshowDelaySeconds=3
 LastContactRoutingMinutes=60
 CallHistoryInbound=true
 CallHistoryOutbound=false
-CallHistoryMaxEntries=5
+CallHistoryMaxEntries=25
+CallHistoryRetentionDays=7
 ActiveContactsOnly=false
 
 [Connection]
@@ -322,6 +326,10 @@ AutoDetectionTimeoutSec=10
 WebclientConnectTimeoutSec=8
 WebclientEnabled=true
 WebclientWebSocketPort=19800
+ReconnectIntervalSeconds=5
+
+[Logging]
+LogRetentionDays=7
 ```
 
 ### Additional Sections (Optional)
@@ -329,7 +337,7 @@ WebclientWebSocketPort=19800
 Add these sections manually for advanced tuning:
 
 ```ini
-; Extra [Connection] settings (not included in default INI)
+// Extra [Connection] settings (not included in default INI)
 ReconnectIntervalSeconds=5
 ConnectionTimeoutSeconds=30
 DatevCircuitBreakerThreshold=3

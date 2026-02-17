@@ -354,14 +354,14 @@ WebClient Connector: Extension disconnected
 
 ---
 
-### TC-12b: Telephony Mode Change via Settings
+### TC-12b: Connection Mode Change via Settings
 
 **Preconditions:** Connector running. SettingsForm open.
 
 **Steps:**
 
-1. Note the current telephony mode displayed in SettingsForm (e.g., "TAPI" or "Auto")
-2. Change the telephony mode dropdown to a different value (e.g., "WebClient")
+1. Note the current connection mode displayed in SettingsForm (e.g., "Desktop (TAPI)" or "Automatisch")
+2. Change the connection mode dropdown to a different value (e.g., "Webclient (Browser)")
 3. Click Save
 4. Observe the mode label in SettingsForm immediately after save
 5. Open StatusForm and verify the mode label there
@@ -369,8 +369,8 @@ WebClient Connector: Extension disconnected
 **Expected behavior:**
 - Mode label in SettingsForm updates immediately after Save (no restart needed)
 - Mode label in StatusForm shows the new mode
-- Log shows: `Settings: TelephonyMode changed to WebClient`
-- Connector switches providers on next reconnect cycle
+- Log shows: `ConnectionMode Konfiguration zur Laufzeit geändert: Auto -> WebClient`
+- Connector switches connection methods on next reconnect cycle
 
 **Pass criteria:** Mode label updates instantly in both forms without application restart.
 

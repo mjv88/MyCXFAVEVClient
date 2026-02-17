@@ -28,6 +28,7 @@ namespace DatevConnector.Core
         public const string CallHistoryInbound = "CallHistoryInbound";
         public const string CallHistoryOutbound = "CallHistoryOutbound";
         public const string CallHistoryMaxEntries = "CallHistoryMaxEntries";
+        public const string CallHistoryRetentionDays = "CallHistoryRetentionDays";
 
         // ===== Contact Routing =====
         public const string LastContactRoutingMinutes = "LastContactRoutingMinutes";
@@ -58,6 +59,7 @@ namespace DatevConnector.Core
         public const string LogMaxFiles = "LogMaxFiles";
         public const string LogAsync = "LogAsync";
         public const string LogMaskDigits = "LogMaskDigits";
+        public const string LogRetentionDays = "LogRetentionDays";
 
         // ===== DATEV Cache =====
         public const string MaxCompareLength = "MaxCompareLength";

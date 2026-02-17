@@ -22,6 +22,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- DATEV SDD assemblies (loaded from GAC at runtime via GacAssemblyResolver) -->
     <Reference Include="Datev.Sdd.Data.ClientInterfaces">
       <HintPath>..\lib\Datev.Sdd.Data.ClientInterfaces.dll</HintPath>
