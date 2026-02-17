@@ -84,5 +84,5 @@ DATEVReq/
 lib/*.deps.json
 lib/*.pdb
 
-# Claude Code
+# Local settings
 .claude/
