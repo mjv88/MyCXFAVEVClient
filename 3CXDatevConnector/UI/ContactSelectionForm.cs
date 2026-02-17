@@ -14,7 +14,7 @@ namespace DatevConnector.UI
     /// Shows a dropdown of matching contacts for user selection.
     /// Uses callback pattern for non-modal operation.
     /// </summary>
-    public class ContactSelectionForm : Form
+    public class ContactSelectionForm : ThemedForm
     {
         private readonly ComboBox _cboContact;
         private readonly List<DatevContactInfo> _contacts;
@@ -54,6 +54,13 @@ namespace DatevConnector.UI
         /// </summary>
         public DatevContactInfo SelectedContact => _selectedContact;
 
+        protected override void ApplyTheme()
+        {
+            base.ApplyTheme();
+            TopMost = true;
+            ShowInTaskbar = true;
+        }
+
         public ContactSelectionForm(
             string phoneNumber,
             List<DatevContactInfo> contacts,
@@ -64,14 +71,10 @@ namespace DatevConnector.UI
             _selectedContact = contacts.Count > 0 ? contacts[0] : null;
             _onSelected = onSelected;
 
-            // Form settings
-            UITheme.ApplyFormDefaults(this);
+            // ThemedForm + ApplyTheme() handles: BackColor, ForeColor, FormBorderStyle,
+            // StartPosition, MaximizeBox, MinimizeBox, Font, Icon, TopMost
             Text = UIStrings.FormTitles.AppTitle;
             Size = new Size(380, 210);
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
 
             // Phone number header
             var lblPhone = new Label

@@ -64,6 +64,7 @@ namespace DatevConnector
                 string extension = ResolveExtension();
 
                 // Enable visual styles for modern look
+                Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 

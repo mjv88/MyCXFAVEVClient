@@ -26,11 +26,15 @@ namespace DatevConnector.UI
     /// Uses a proper Windows Form (dark themed, centered) plus a system tray balloon notification.
     /// Auto-closes after configured duration or when the call is answered.
     /// </summary>
-    public class CallerPopupForm : Form
+    public class CallerPopupForm : ThemedForm
     {
         // Track the current open popup for closing on connect
         private static CallerPopupForm _currentPopup;
         private static readonly object _popupLock = new object();
+
+        // Fade animation
+        private Timer _fadeTimer;
+        private bool _fadingOut;
 
         // System tray icon reference for balloon notifications
         private static NotifyIcon _notifyIcon;
@@ -44,6 +48,13 @@ namespace DatevConnector.UI
             _notifyIcon = notifyIcon;
         }
 
+        protected override void ApplyTheme()
+        {
+            base.ApplyTheme();
+            TopMost = true;
+            ShowInTaskbar = true;
+        }
+
         public CallerPopupForm(
             string callerNumber,
             string callerName,
@@ -55,8 +66,7 @@ namespace DatevConnector.UI
             string contactDesc = GetContactDescription(contactInfo);
             Color accentColor = UITheme.GetDirectionColor(isIncoming);
 
-            // Form settings
-            UITheme.ApplyFormDefaults(this);
+            // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, etc.
             Text = UIStrings.FormTitles.AppTitle;
             Size = new Size(380, 180);
 
@@ -110,6 +120,55 @@ namespace DatevConnector.UI
                 accentBar, lblDirection, lblName, lblNumber,
                 lblContact
             });
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            // Fade in: animate Opacity from 0 to 1
+            Opacity = 0;
+            _fadingOut = false;
+            _fadeTimer = new Timer { Interval = 15 };
+            _fadeTimer.Tick += (s, ev) =>
+            {
+                if (_fadingOut) return;
+                Opacity += 0.08;
+                if (Opacity >= 1.0)
+                {
+                    Opacity = 1.0;
+                    _fadeTimer.Stop();
+                }
+            };
+            _fadeTimer.Start();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (!_fadingOut && Opacity > 0)
+            {
+                // Start fade out
+                e.Cancel = true;
+                _fadingOut = true;
+                var fadeOutTimer = new Timer { Interval = 15 };
+                fadeOutTimer.Tick += (s, ev) =>
+                {
+                    Opacity -= 0.08;
+                    if (Opacity <= 0)
+                    {
+                        Opacity = 0;
+                        fadeOutTimer.Stop();
+                        fadeOutTimer.Dispose();
+                        _fadingOut = false;
+                        Close();
+                    }
+                };
+                fadeOutTimer.Start();
+                return;
+            }
+
+            _fadeTimer?.Stop();
+            _fadeTimer?.Dispose();
+            base.OnFormClosing(e);
         }
 
         private static string GetDisplayName(string callerName, DatevContactInfo contactInfo)

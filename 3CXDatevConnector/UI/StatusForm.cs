@@ -303,28 +303,10 @@ namespace DatevConnector.UI
 
         private Panel CreateSectionCard(string title, Color accentColor, int yPos, int width = 288, int height = 80)
         {
-            var card = new Panel
+            var card = new RoundedPanel(accentColor)
             {
                 Location = new Point(LayoutConstants.SpaceMD, yPos),
-                Size = new Size(width, height),
-                BackColor = UITheme.CardBackground
-            };
-
-            // Paint border
-            card.Paint += (s, e) =>
-            {
-                using (var pen = new Pen(UITheme.CardBorder))
-                {
-                    var r = card.ClientRectangle;
-                    r.Width -= 1;
-                    r.Height -= 1;
-                    e.Graphics.DrawRectangle(pen, r);
-                }
-                // Accent line at top
-                using (var brush = new SolidBrush(accentColor))
-                {
-                    e.Graphics.FillRectangle(brush, 0, 0, card.Width, 3);
-                }
+                Size = new Size(width, height)
             };
 
             var lblTitle = new Label
@@ -333,7 +315,8 @@ namespace DatevConnector.UI
                 Font = UITheme.FontLabel,
                 ForeColor = accentColor,
                 Location = new Point(12, 8),
-                AutoSize = true
+                AutoSize = true,
+                BackColor = Color.Transparent
             };
             card.Controls.Add(lblTitle);
 

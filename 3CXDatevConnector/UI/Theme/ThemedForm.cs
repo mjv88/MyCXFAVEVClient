@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using DatevConnector.Interop;
 
 namespace DatevConnector.UI.Theme
 {
@@ -42,6 +43,13 @@ namespace DatevConnector.UI.Theme
             {
                 ShowIcon = false;
             }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            DwmInterop.ApplyDarkTitleBar(Handle);
+            DwmInterop.ApplyMicaBackdrop(Handle);
         }
 
         /// <summary>

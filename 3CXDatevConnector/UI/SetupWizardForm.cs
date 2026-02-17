@@ -16,7 +16,7 @@ namespace DatevConnector.UI
     /// Auto-detects the connection method and guides user through
     /// connection verification, DATEV connection test, and autostart setup.
     /// </summary>
-    public class SetupWizardForm : Form
+    public class SetupWizardForm : ThemedForm
     {
         private const int TOTAL_STEPS = 4;
 
@@ -78,26 +78,10 @@ namespace DatevConnector.UI
 
         private void InitializeForm()
         {
+            // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, StartPosition,
+            // MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.Wizard.Title;
             ClientSize = new Size(480, 360);
-            BackColor = UITheme.FormBackground;
-            ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            Font = UITheme.FontBody;
-
-            var appIcon = UITheme.GetFormIcon();
-            if (appIcon != null)
-            {
-                Icon = appIcon;
-                ShowIcon = true;
-            }
-            else
-            {
-                ShowIcon = false;
-            }
 
             // Accent bar
             var accentBar = UITheme.CreateAccentBar(UITheme.AccentDatev);

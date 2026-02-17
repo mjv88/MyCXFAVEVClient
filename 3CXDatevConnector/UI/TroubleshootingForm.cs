@@ -15,7 +15,7 @@ namespace DatevConnector.UI
     /// Provides quick access to log files and troubleshooting guidance.
     /// Dynamically shows sections based on the active ConnectionMode.
     /// </summary>
-    public class TroubleshootingForm : Form
+    public class TroubleshootingForm : ThemedForm
     {
         private readonly Panel _contentPanel;
         private readonly ConnectionMode _selectedMode;
@@ -32,26 +32,10 @@ namespace DatevConnector.UI
 
         private void InitializeForm()
         {
+            // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, StartPosition,
+            // MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Troubleshooting;
             ClientSize = new Size(500, 620);
-            BackColor = UITheme.FormBackground;
-            ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            Font = UITheme.FontBody;
-
-            var appIcon = UITheme.GetFormIcon();
-            if (appIcon != null)
-            {
-                Icon = appIcon;
-                ShowIcon = true;
-            }
-            else
-            {
-                ShowIcon = false;
-            }
 
             // Blue accent bar for help/info
             var accentBar = UITheme.CreateAccentBar(UITheme.AccentIncoming);

@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using DatevConnector.UI.Theme;
 
 namespace DatevConnector.UI
 {
@@ -90,21 +91,19 @@ namespace DatevConnector.UI
         }
 
         /// <summary>
-        /// Create a standard primary action button
+        /// Create a standard primary action button (rounded, owner-drawn)
         /// </summary>
         public static Button CreatePrimaryButton(string text, int width = 120)
         {
-            var btn = new Button
+            var btn = new RoundedButton
             {
                 Text = text,
                 ForeColor = Color.White,
                 BackColor = ButtonPrimary,
-                FlatStyle = FlatStyle.Flat,
                 Size = new Size(width, 32),
                 Cursor = Cursors.Hand,
                 Font = FontBody
             };
-            btn.FlatAppearance.BorderSize = 0;
             // Ensure white text even when disabled
             btn.EnabledChanged += (s, e) =>
             {
@@ -115,21 +114,19 @@ namespace DatevConnector.UI
         }
 
         /// <summary>
-        /// Create a standard secondary action button
+        /// Create a standard secondary action button (rounded, owner-drawn)
         /// </summary>
         public static Button CreateSecondaryButton(string text, int width = 100)
         {
-            var btn = new Button
+            var btn = new RoundedButton
             {
                 Text = text,
                 ForeColor = TextPrimary,
                 BackColor = ButtonSecondary,
-                FlatStyle = FlatStyle.Flat,
                 Size = new Size(width, 32),
                 Cursor = Cursors.Hand,
                 Font = FontBody
             };
-            btn.FlatAppearance.BorderColor = ButtonBorder;
             return btn;
         }
 

@@ -13,7 +13,7 @@ namespace DatevConnector.UI
     /// Displays recent call history with ability to re-send journal entries.
     /// Modern dark theme with auto-refresh. Resizable form with hardcoded column widths.
     /// </summary>
-    public class CallHistoryForm : Form
+    public class CallHistoryForm : ThemedForm
     {
         /// <summary>
         /// Which action the user requested before closing.
@@ -47,6 +47,13 @@ namespace DatevConnector.UI
         /// </summary>
         public Action RequestedAction { get; private set; }
 
+        protected override void ApplyTheme()
+        {
+            base.ApplyTheme();
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+        }
+
         public CallHistoryForm(CallHistoryStore store, Action<CallHistoryEntry, string> onJournalSubmit)
         {
             _store = store;
@@ -75,17 +82,9 @@ namespace DatevConnector.UI
 
         private void InitializeComponent()
         {
+            // ThemedForm + ApplyTheme() handles: BackColor, ForeColor, FormBorderStyle (Sizable),
+            // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.AppTitle;
-            BackColor = UITheme.FormBackground;
-            ForeColor = UITheme.TextPrimary;
-            FormBorderStyle = FormBorderStyle.Sizable;
-            StartPosition = FormStartPosition.CenterScreen;
-            MaximizeBox = true;
-            MinimizeBox = false;
-            Font = UITheme.FontBody;
-            var appIcon = UITheme.GetFormIcon();
-            if (appIcon != null) { Icon = appIcon; ShowIcon = true; }
-            else ShowIcon = false;
 
             // Initial size and minimum
             ClientSize = new Size(468, 400);

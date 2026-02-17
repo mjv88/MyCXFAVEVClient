@@ -9,7 +9,7 @@ namespace DatevConnector.UI
     /// <summary>
     /// Dark-themed About dialog showing app info, version, and keyboard shortcuts.
     /// </summary>
-    internal sealed class AboutForm : Form
+    internal sealed class AboutForm : ThemedForm
     {
         private static AboutForm _current;
 
@@ -43,12 +43,12 @@ namespace DatevConnector.UI
 
         private void InitializeForm()
         {
+            // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, StartPosition,
+            // MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.About;
             ShowInTaskbar = false;
             Size = new Size(360, 380);
             KeyPreview = true;
-
-            UITheme.ApplyFormDefaults(this);
 
             KeyDown += (s, e) =>
             {

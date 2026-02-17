@@ -12,7 +12,7 @@ namespace DatevConnector.UI
     /// Journal popup form shown after call ends.
     /// Allows user to add notes before sending journal to DATEV.
     /// </summary>
-    public class JournalForm : Form
+    public class JournalForm : ThemedForm
     {
         private const int MAX_NOTE_LENGTH = 2000;
 
@@ -43,6 +43,13 @@ namespace DatevConnector.UI
             }
         }
 
+        protected override void ApplyTheme()
+        {
+            base.ApplyTheme();
+            TopMost = true;
+            ShowInTaskbar = true;
+        }
+
         public JournalForm(
             string contactName,
             string contactNumber,
@@ -54,8 +61,8 @@ namespace DatevConnector.UI
         {
             _onSubmit = onSubmit;
             _onClosed = onClosed;
-            // Form settings
-            UITheme.ApplyFormDefaults(this);
+            // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, StartPosition,
+            // MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.AppTitle;
             ClientSize = new Size(464, 350);
 
