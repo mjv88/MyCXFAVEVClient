@@ -686,6 +686,50 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (msg.type === "TEST_WEBCLIENT") {
+    injectExistingTabs().then(() => {
+      setTimeout(() => {
+        sendResponse({
+          found: !!(detectedExtension || configuredExtension),
+          wsState: ws ? ws.readyState : 3,
+          helloAcked,
+          extension: configuredExtension || detectedExtension || null
+        });
+      }, 1500);
+    });
+    return true;
+  }
+
+  if (msg.type === "RELOAD_EXTENSION") {
+    // Soft reload: disconnect WebSocket, reset state, reconnect
+    if (ws) {
+      // Detach handlers so the old onclose doesn't clobber the new connection
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      try { ws.close(); } catch {}
+      ws = null;
+    }
+    helloSent = false;
+    helloAcked = false;
+    clearHelloRetry();
+    coldRetryCount = 0;
+    reconnectDelay = RECONNECT_DELAY_MS;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    // Respond immediately, reconnect in the background
+    sendResponse({ success: true });
+    loadConfig()
+      .then(() => connectBridge())
+      .then(() => injectExistingTabs())
+      .catch((err) => logDebug("Reload reconnect failed", err));
+    return true;
+  }
 });
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
