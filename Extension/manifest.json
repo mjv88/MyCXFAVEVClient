@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "3CX - DATEV Connector",
-  "description": "Integration between the 3CX WebClient / PWA and DATEV.",
+  "description": "Connector between the 3CX WebClient / PWA and DATEV.",
   "version": "1.0.0.0",
   "minimum_chrome_version": "114",
   "permissions": [
@@ -41,7 +41,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "3CX DATEV Connector",
+    "default_title": "3CX - DATEV Connector",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
