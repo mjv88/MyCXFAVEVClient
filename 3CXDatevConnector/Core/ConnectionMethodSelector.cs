@@ -39,7 +39,7 @@ namespace DatevConnector.Core
             CancellationToken cancellationToken,
             Action<string> progressText = null)
         {
-            var mode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+            var mode = AppConfig.GetConnectionMode();
             int totalTimeoutSec = AppConfig.GetInt(ConfigKeys.AutoDetectionTimeoutSec, 10);
             string lineFilter = AppConfig.GetString(ConfigKeys.TapiLineFilter, "");
 
@@ -48,10 +48,10 @@ namespace DatevConnector.Core
 
             switch (mode)
             {
-                case ConnectionMode.Tapi:
+                case ConnectionMode.Desktop:
                     return SelectExplicit_Tapi(extension, lineFilter, progressText);
 
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     return SelectExplicit_Pipe(extension, progressText);
 
                 case ConnectionMode.WebClient:
@@ -74,13 +74,13 @@ namespace DatevConnector.Core
             return new ProviderSelectionResult
             {
                 Provider = provider,
-                SelectedMode = ConnectionMode.Tapi,
-                Reason = "ConnectionMode explicitly set to Tapi",
-                DiagnosticSummary = "Mode: Tapi (configured)"
+                SelectedMode = ConnectionMode.Desktop,
+                Reason = "ConnectionMode explicitly set to Desktop",
+                DiagnosticSummary = "Mode: Desktop (configured)"
             };
         }
 
-        // ===== Explicit Mode: Pipe =====
+        // ===== Explicit Mode: TerminalServer =====
 
         private static ProviderSelectionResult SelectExplicit_Pipe(string extension, Action<string> progressText)
         {
@@ -91,9 +91,9 @@ namespace DatevConnector.Core
             return new ProviderSelectionResult
             {
                 Provider = provider,
-                SelectedMode = ConnectionMode.Pipe,
-                Reason = "ConnectionMode explicitly set to Pipe",
-                DiagnosticSummary = "Mode: Pipe (configured)"
+                SelectedMode = ConnectionMode.TerminalServer,
+                Reason = "ConnectionMode explicitly set to TerminalServer",
+                DiagnosticSummary = "Mode: TerminalServer (configured)"
             };
         }
 
@@ -150,7 +150,7 @@ namespace DatevConnector.Core
                         return new ProviderSelectionResult
                         {
                             Provider = tapiProvider,
-                            SelectedMode = ConnectionMode.Tapi,
+                            SelectedMode = ConnectionMode.Desktop,
                             Reason = reason,
                             DiagnosticSummary = diagnostics.ToString()
                         };
@@ -189,7 +189,7 @@ namespace DatevConnector.Core
                         return new ProviderSelectionResult
                         {
                             Provider = new PipeConnectionMethod(extension),
-                            SelectedMode = ConnectionMode.Pipe,
+                            SelectedMode = ConnectionMode.TerminalServer,
                             Reason = reason,
                             DiagnosticSummary = diagnostics.ToString()
                         };
@@ -270,9 +270,9 @@ namespace DatevConnector.Core
         {
             switch (mode)
             {
-                case ConnectionMode.Tapi:
+                case ConnectionMode.Desktop:
                     return "Desktop (TAPI)";
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     return "Terminal Server (TAPI)";
                 case ConnectionMode.WebClient:
                     return "WebClient (Browser-Erweiterung)";
@@ -286,10 +286,10 @@ namespace DatevConnector.Core
         {
             switch (mode)
             {
-                case ConnectionMode.Tapi:
-                    return UIStrings.SettingsLabels.ConnectionModeTapi;
-                case ConnectionMode.Pipe:
-                    return UIStrings.SettingsLabels.ConnectionModePipe;
+                case ConnectionMode.Desktop:
+                    return UIStrings.SettingsLabels.ConnectionModeDesktop;
+                case ConnectionMode.TerminalServer:
+                    return UIStrings.SettingsLabels.ConnectionModeTerminalServer;
                 case ConnectionMode.WebClient:
                     return UIStrings.SettingsLabels.ConnectionModeWebclient;
                 case ConnectionMode.Auto:

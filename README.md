@@ -45,7 +45,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
 | **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
 | **Extension Popup** | Dark-themed browser extension popup with live WebSocket connection status (green/yellow/red dot), bold extension number, configurable DATEV Auto-DIAL delay |
-| **Auto-Detection** | Automatic telephony mode selection (TAPI, Pipe, or WebClient) based on environment |
+| **Auto-Detection** | Automatic telephony mode selection (Desktop, Terminal Server, or WebClient) based on environment |
 
 ## Requirements
 
@@ -153,8 +153,8 @@ CallHistoryRetentionDays=7
 ActiveContactsOnly=false
 
 [Connection]
-// TelephonyMode: Auto, Tapi, TerminalServer, Webclient
-// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)
+// TelephonyMode: Auto, Desktop, TerminalServer, WebClient
+// Auto = detect best provider at startup (Desktop -> Terminal Server -> WebClient)
 TelephonyMode=Auto
 // Reconnect interval in seconds when connection is lost
 ReconnectIntervalSeconds=5
@@ -219,7 +219,7 @@ LogAsync=true
 | `CallHistoryMaxEntries` | 25 | [Settings] | Maximum entries per direction |
 | `CallHistoryRetentionDays` | 7 | [Settings] | Days to keep call history entries (1–90) |
 | `ActiveContactsOnly` | false | [Settings] | Only load contacts with Status ≠ 0 (inactive contacts excluded) |
-| `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Tapi`, `Pipe`, or `WebClient` |
+| `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Desktop`, `TerminalServer`, or `WebClient` |
 | `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
 | `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
 | `WebclientEnabled` | true | [Connection] | Enable/disable WebClient detection in Auto mode |
@@ -377,7 +377,7 @@ The Settings dialog (right-click -> Einstellungen) is a single-page dashboard wi
 | **Status Row** | DATEV status + Testen/Laden buttons + sync timestamp, TAPI status + bold extension number, Connector combined status |
 | **Pop-Up-Verhalten** | Journaling toggle, Eingehende/Ausgehende Anrufe, Journal-Popup, Ausgehende Journal-Popup, Modus selector (Beide/Formular/Balloon), Kontakt erneut delay |
 | **Erweitert** | Anrufer-ID Mindestlänge/Max. Vergleich, Anrufliste (Eingehend/Ausgehend) + Anzahl, DATEV "Aktive Kontakte" filter |
-| **Telefonie-Modus** | Telephony mode selector (Auto/Tapi/Pipe/WebClient) — changes take effect via ModeChanged event |
+| **Telefonie-Modus** | Telephony mode selector (Auto/Desktop/TerminalServer/WebClient) — changes take effect via ModeChanged event |
 
 ### Caller Popup (Anrufer-Popup)
 
@@ -539,7 +539,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    CallHistoryEntry.cs           - History entry model for re-journal|
 |    CallHistoryStore.cs           - DPAPI-encrypted persistent store  |
 |    ConfigKeys.cs                 - Centralized INI key constants     |
-|    ConnectionMode.cs             - Telephony mode enum (Auto/Tapi/Pipe/WebClient) |
+|    ConnectionMode.cs             - Telephony mode enum (Auto/Desktop/TerminalServer/WebClient) |
 |    ConnectionMethodSelector.cs   - Auto-detection logic              |
 |    ContactRoutingCache.cs        - Last-contact routing memory       |
 |    DatevCommandHandler.cs        - DATEV command handling (Dial/Drop)|

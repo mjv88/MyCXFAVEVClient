@@ -228,6 +228,23 @@ namespace DatevConnector.Core.Config
             return Enum.TryParse<T>(value, ignoreCase: true, out var result) ? result : defaultValue;
         }
 
+        /// <summary>
+        /// Reads ConnectionMode with backward compatibility for renamed enum values.
+        /// Accepts legacy "Tapi" (now Desktop) and "Pipe" (now TerminalServer).
+        /// </summary>
+        public static ConnectionMode GetConnectionMode()
+        {
+            string raw = GetString(ConfigKeys.ConnectionMode, null);
+            if (string.IsNullOrEmpty(raw))
+                return ConnectionMode.Auto;
+            if (string.Equals(raw, "Tapi", StringComparison.OrdinalIgnoreCase))
+                return ConnectionMode.Desktop;
+            if (string.Equals(raw, "Pipe", StringComparison.OrdinalIgnoreCase))
+                return ConnectionMode.TerminalServer;
+            return Enum.TryParse<ConnectionMode>(raw, ignoreCase: true, out var result)
+                ? result : ConnectionMode.Auto;
+        }
+
         public static bool Set(string key, string value)
         {
             if (string.IsNullOrEmpty(_iniPath))
@@ -322,8 +339,8 @@ namespace DatevConnector.Core.Config
                     writer.WriteLine();
 
                     writer.WriteLine("[Connection]");
-                    writer.WriteLine("// TelephonyMode: Auto, Tapi, TerminalServer, Webclient");
-                    writer.WriteLine("// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)");
+                    writer.WriteLine("// TelephonyMode: Auto, Desktop, TerminalServer, WebClient");
+                    writer.WriteLine("// Auto = detect best provider at startup (Desktop -> Terminal Server -> WebClient)");
                     writer.WriteLine(DefaultLine(ConfigKeys.TelephonyMode));
                     writer.WriteLine("// Reconnect interval in seconds when connection is lost");
                     writer.WriteLine(DefaultLine(ConfigKeys.ReconnectIntervalSeconds));

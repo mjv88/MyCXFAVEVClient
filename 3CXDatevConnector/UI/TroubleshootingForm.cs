@@ -121,8 +121,8 @@ namespace DatevConnector.UI
         {
             var items = new System.Collections.Generic.List<(string problem, string solution)>();
 
-            bool showTapi = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.Tapi;
-            bool showPipe = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.Pipe;
+            bool showTapi = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.Desktop;
+            bool showPipe = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.TerminalServer;
             bool showWebClient = _selectedMode == ConnectionMode.Auto || _selectedMode == ConnectionMode.WebClient;
 
             if (showTapi)
@@ -151,8 +151,8 @@ namespace DatevConnector.UI
         {
             switch (_selectedMode)
             {
-                case ConnectionMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
-                case ConnectionMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case ConnectionMode.Desktop: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case ConnectionMode.TerminalServer: return UIStrings.Troubleshooting.EnvTerminalServer;
                 case ConnectionMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
                 default: return UIStrings.Troubleshooting.EnvAuto;
             }

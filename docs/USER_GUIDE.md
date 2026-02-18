@@ -63,27 +63,27 @@ Select the connection mode:
 
 | Mode | Description |
 |------|-------------|
-| **Auto** (recommended) | Detects best provider automatically (TAPI → Terminal Server → WebClient) |
-| **TAPI** | 3CX Windows App on Desktop |
-| **Pipe** | 3CX Windows App on Terminal Server |
+| **Auto** (recommended) | Detects best provider automatically (Desktop → Terminal Server → WebClient) |
+| **Desktop (TAPI)** | 3CX Windows App on Desktop |
+| **Terminal Server (TAPI)** | 3CX Windows App on Terminal Server |
 | **WebClient** | 3CX Webclient in Browser (Chrome/Edge) |
 
 ### Step 3 — Provider Configuration
 
 The wizard adapts to the selected telephony mode:
 
-**TAPI mode:**
+**Desktop (TAPI) mode:**
 The wizard detects all available 3CX TAPI lines and displays them in a dropdown.
 - Format: `122 - Max Mustermann (Verbunden)`
 - The extension number is auto-detected from the TAPI line name
 
-**Pipe mode (Terminal Server):**
+**Terminal Server (TAPI) mode:**
 The wizard shows the Named Pipe server status:
 - Extension number and pipe path (`\\.\pipe\3CX_tsp_server_{ext}`)
 - Whether the 3CX Softphone is connected via pipe
 - Whether the 3CX Softphone process is running in the current RDP session
 
-**Webclient mode:**
+**WebClient mode:**
 The wizard shows the browser extension connection status:
 - Whether the extension is connected via WebSocket (port 19800)
 - Installation instructions for Chrome/Edge
@@ -273,7 +273,7 @@ Open Settings via tray menu → **Einstellungen**.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Modus | Auto | Connection mode: Auto, TAPI, Pipe, or WebClient |
+| Modus | Auto | Connection mode: Auto, Desktop (TAPI), Terminal Server (TAPI), or WebClient |
 | Aktiver Modus | (read-only) | Shows currently active telephony provider |
 
 > **Note:** Changing the telephony mode takes effect immediately after clicking Save. The UI updates instantly and the connector switches providers on the next reconnect cycle.
@@ -299,8 +299,8 @@ For enterprise deployment, distribute a prepared INI file to each user's `%AppDa
 ```ini
 // 3CX - DATEV Connector Configuration
 // Edit values below. Delete a line to restore its default.
-// TelephonyMode: Auto, Tapi, TerminalServer, Webclient
-// Auto = detect best provider at startup (TAPI -> Terminal Server -> WebClient)
+// TelephonyMode: Auto, Desktop, TerminalServer, WebClient
+// Auto = detect best provider at startup (Desktop -> Terminal Server -> WebClient)
 
 [Settings]
 ExtensionNumber=

@@ -464,8 +464,8 @@ namespace DatevConnector.UI
             _cboConnectionMode.Items.AddRange(new object[]
             {
                 UIStrings.SettingsLabels.ConnectionModeAuto,
-                UIStrings.SettingsLabels.ConnectionModeTapi,
-                UIStrings.SettingsLabels.ConnectionModePipe,
+                UIStrings.SettingsLabels.ConnectionModeDesktop,
+                UIStrings.SettingsLabels.ConnectionModeTerminalServer,
                 UIStrings.SettingsLabels.ConnectionModeWebclient
             });
             card.Controls.Add(_cboConnectionMode);
@@ -710,11 +710,11 @@ namespace DatevConnector.UI
             _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
 
             // Telephony Mode
-            var telephonyMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+            var telephonyMode = AppConfig.GetConnectionMode();
             switch (telephonyMode)
             {
-                case ConnectionMode.Tapi: _cboConnectionMode.SelectedIndex = 1; break;
-                case ConnectionMode.Pipe: _cboConnectionMode.SelectedIndex = 2; break;
+                case ConnectionMode.Desktop: _cboConnectionMode.SelectedIndex = 1; break;
+                case ConnectionMode.TerminalServer: _cboConnectionMode.SelectedIndex = 2; break;
                 case ConnectionMode.WebClient: _cboConnectionMode.SelectedIndex = 3; break;
                 default: _cboConnectionMode.SelectedIndex = 0; break;
             }
@@ -800,7 +800,7 @@ namespace DatevConnector.UI
             AppConfig.SetBool(ConfigKeys.TrayDoubleClickCallHistory, _chkTrayDoubleClickCallHistory.Checked);
 
             // Telephony Mode (requires restart to take effect)
-            string[] modeValues = { "Auto", "Tapi", "Pipe", "WebClient" };
+            string[] modeValues = { "Auto", "Desktop", "TerminalServer", "WebClient" };
             int modeIndex = _cboConnectionMode.SelectedIndex;
             if (modeIndex >= 0 && modeIndex < modeValues.Length)
             {

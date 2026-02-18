@@ -15,12 +15,12 @@ namespace DatevConnector.Core
         /// <summary>
         /// TAPI 2.x via 3CX Multi-Line TAPI driver (desktop environments).
         /// </summary>
-        Tapi,
+        Desktop,
 
         /// <summary>
         /// Named Pipe protocol with 3CX Softphone (terminal server environments).
         /// </summary>
-        Pipe,
+        TerminalServer,
 
         /// <summary>
         /// Browser extension via Native Messaging (3CX Webclient / WebRTC only).

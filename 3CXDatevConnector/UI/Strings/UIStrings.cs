@@ -427,8 +427,8 @@ namespace DatevConnector.UI.Strings
             public const string TrayDoubleClickHistory = "Doppelklick: Anrufliste";
             public const string ConnectionMode = "Verbindungsmodus:";
             public const string ConnectionModeAuto = "Automatisch";
-            public const string ConnectionModeTapi = "Desktop (TAPI)";
-            public const string ConnectionModePipe = "Terminal Server (TAPI)";
+            public const string ConnectionModeDesktop = "Desktop (TAPI)";
+            public const string ConnectionModeTerminalServer = "Terminal Server (TAPI)";
             public const string ConnectionModeWebclient = "Webclient (Browser)";
             public const string WebclientTimeout = "Webclient Timeout:";
         }

@@ -151,7 +151,7 @@ namespace DatevConnector.UI
                 case ConnectionMode.WebClient:
                     providerFeature = UIStrings.Wizard.FeatureWebclient;
                     break;
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     providerFeature = UIStrings.Wizard.FeaturePipe;
                     break;
                 default:
@@ -205,10 +205,10 @@ namespace DatevConnector.UI
                 case ConnectionMode.WebClient:
                     ShowWebclientPage();
                     break;
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     ShowPipePage();
                     break;
-                case ConnectionMode.Tapi:
+                case ConnectionMode.Desktop:
                     ShowTapiPage();
                     break;
                 default:
@@ -609,7 +609,7 @@ namespace DatevConnector.UI
                 case ConnectionMode.WebClient:
                     lines.AppendLine(string.Format("WebClient: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
                     break;
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     lines.AppendLine(string.Format("3CX Pipe: {0}", connected ? UIStrings.Status.Connected : UIStrings.Status.NotConnected));
                     break;
                 default:
@@ -685,8 +685,8 @@ namespace DatevConnector.UI
         {
             switch (mode)
             {
-                case ConnectionMode.Tapi: return UIStrings.Troubleshooting.EnvDesktopTapi;
-                case ConnectionMode.Pipe: return UIStrings.Troubleshooting.EnvTerminalServer;
+                case ConnectionMode.Desktop: return UIStrings.Troubleshooting.EnvDesktopTapi;
+                case ConnectionMode.TerminalServer: return UIStrings.Troubleshooting.EnvTerminalServer;
                 case ConnectionMode.WebClient: return UIStrings.Troubleshooting.EnvWebClient;
                 default: return UIStrings.Troubleshooting.EnvAuto;
             }

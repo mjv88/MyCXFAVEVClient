@@ -60,8 +60,8 @@ The bridge performs these steps on startup in order:
 ```
 1. Detect environment and select telephony mode
    ├── Log session info (Session ID, IsTerminalSession, SessionName)
-   └── ConnectionMethodSelector: Auto, Tapi, Pipe, or Webclient
-       ├── Auto: TAPI → Pipe → WebClient (priority order)
+   └── ConnectionMethodSelector: Auto, Desktop, TerminalServer, or WebClient
+       ├── Auto: Desktop → TerminalServer → WebClient (priority order)
        ├── Explicit mode: use configured provider only
        └── Log selected mode and reason
 
@@ -347,7 +347,7 @@ File changed → Debounce (300ms) → Parse INI → Validate → Apply
 | Section | Settings | Effect |
 |---------|----------|--------|
 | `[Debug]` | `VerboseLogging`, `Contacts`, `TAPIDebug`, `DATEVDebug` | Immediate |
-| `[Connection]` | `TelephonyMode` | Immediate UI update via `ModeChanged` event; provider switch on next reconnect cycle |
+| `[Connection]` | `TelephonyMode` | Immediate UI update via `ModeChanged` event; provider switch on next reconnect |
 | `[Connection]` | All timeout/retry values | Next connection attempt |
 | `[Settings]` | `ContactReshowDelaySeconds`, `LastContactRoutingMinutes` | Next call event |
 

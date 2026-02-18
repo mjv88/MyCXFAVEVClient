@@ -142,7 +142,7 @@ namespace DatevConnector.Core
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // ── Step 1: Mode header first, then environment info ─────────
-            _configuredConnectionMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+            _configuredConnectionMode = AppConfig.GetConnectionMode();
 
             LogManager.Log("3CX Telefonie Modus Initialisierung...");
             LogManager.Log("3CX Telefonie Modus: {0} (konfiguriert)",
@@ -159,9 +159,9 @@ namespace DatevConnector.Core
             LogManager.Log("Telefonie Modus: {0}", _selectedMode);
             LogManager.Debug("Telefonie Modus Grund: {0}", selectionResult.Reason);
 
-            // For Pipe mode on Terminal Server, start the pipe FIRST before DATEV init
+            // For Terminal Server mode, start the pipe FIRST before DATEV init
             // so the 3CX Softphone can find it while we load contacts
-            bool isPipeMode = _selectedMode == ConnectionMode.Pipe;
+            bool isPipeMode = _selectedMode == ConnectionMode.TerminalServer;
             if (isPipeMode && selectionResult.Success)
             {
                 LogManager.Log("========================================");
@@ -323,11 +323,11 @@ namespace DatevConnector.Core
                     LogManager.Log("WebClient-Modus ausgewählt");
                     return new WebclientConnectionMethod(_extension);
 
-                case ConnectionMode.Pipe:
+                case ConnectionMode.TerminalServer:
                     LogManager.Log("Terminal Server (TAPI)-Modus ausgewählt");
                     return new PipeConnectionMethod(_extension);
 
-                case ConnectionMode.Tapi:
+                case ConnectionMode.Desktop:
                 default:
                     LogManager.Log("Desktop (TAPI)-Modus ausgewählt");
                     return new TapiLineMonitor(lineFilter, _extension);
@@ -383,7 +383,7 @@ namespace DatevConnector.Core
                     }
                     else
                     {
-                        var configuredModeNow = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+                        var configuredModeNow = AppConfig.GetConnectionMode();
                         if (configuredModeNow != _configuredConnectionMode)
                         {
                             LogManager.Log("ConnectionMode Konfiguration zur Laufzeit geändert: {0} -> {1}",
@@ -599,7 +599,7 @@ namespace DatevConnector.Core
             DatevContactRepository.FilterActiveContactsOnly = AppConfig.GetBool(ConfigKeys.ActiveContactsOnly, false);
 
             // Telephony mode — update immediately for UI feedback
-            var newMode = AppConfig.GetEnum(ConfigKeys.ConnectionMode, ConnectionMode.Auto);
+            var newMode = AppConfig.GetConnectionMode();
             if (newMode != _configuredConnectionMode)
             {
                 _configuredConnectionMode = newMode;
