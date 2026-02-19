@@ -322,7 +322,7 @@ namespace DatevConnector.UI
 
         private RoundedPanel CreateStatusCard(Color accentColor)
         {
-            return new RoundedPanel(accentColor)
+            return new RoundedPanel()
             {
                 Dock = DockStyle.Fill,
                 BackColor = UITheme.CardBackground,
