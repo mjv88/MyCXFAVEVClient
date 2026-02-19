@@ -804,7 +804,7 @@ namespace DatevConnector.UI
             int modeIndex = _cboConnectionMode.SelectedIndex;
             if (modeIndex >= 0 && modeIndex < modeValues.Length)
             {
-                AppConfig.Set(ConfigKeys.ConnectionMode, modeValues[modeIndex]);
+                AppConfig.Set(ConfigKeys.TelephonyMode, modeValues[modeIndex]);
             }
 
             // Apply settings live to running service

@@ -234,7 +234,7 @@ namespace DatevConnector.Core.Config
         /// </summary>
         public static ConnectionMode GetConnectionMode()
         {
-            string raw = GetString(ConfigKeys.ConnectionMode, null);
+            string raw = GetString(ConfigKeys.TelephonyMode, null);
             if (string.IsNullOrEmpty(raw))
                 return ConnectionMode.Auto;
             if (string.Equals(raw, "Tapi", StringComparison.OrdinalIgnoreCase))

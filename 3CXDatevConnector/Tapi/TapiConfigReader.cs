@@ -26,11 +26,6 @@ namespace DatevConnector.Tapi
             return File.Exists(DefaultIniPath);
         }
 
-        internal static string GetIniPath()
-        {
-            return DefaultIniPath;
-        }
-
         internal static List<TapiLineConfig> ReadLines()
         {
             return ReadLines(DefaultIniPath);
@@ -104,12 +99,6 @@ namespace DatevConnector.Tapi
             }
 
             return lines;
-        }
-
-        internal static TapiLineConfig GetFirstLine()
-        {
-            var lines = ReadLines();
-            return lines.Count > 0 ? lines[0] : null;
         }
 
         internal static string DetectExtension()

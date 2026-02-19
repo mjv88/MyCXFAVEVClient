@@ -74,29 +74,6 @@ namespace DatevConnector.Core
         }
 
         /// <summary>
-        /// Executes an action with retry logic and exponential backoff.
-        /// Delegates to the generic overload internally.
-        /// </summary>
-        /// <param name="action">The action to execute</param>
-        /// <param name="operationName">Name for logging purposes</param>
-        /// <param name="maxRetries">Maximum number of retry attempts (default from config)</param>
-        /// <param name="initialDelaySeconds">Initial delay in seconds before first retry (default from config)</param>
-        /// <param name="shouldRetry">Optional predicate to determine if exception is retryable</param>
-        /// <returns>True if action succeeded, false if all retries failed</returns>
-        public static bool ExecuteWithRetry(
-            Action action,
-            string operationName,
-            int? maxRetries = null,
-            int? initialDelaySeconds = null,
-            Func<Exception, bool> shouldRetry = null)
-        {
-            var result = ExecuteWithRetry<bool>(
-                () => { action(); return true; },
-                operationName, maxRetries, initialDelaySeconds, shouldRetry);
-            return result;
-        }
-
-        /// <summary>
         /// Determines if an exception is likely a transient error that can be retried.
         /// </summary>
         /// <param name="ex">The exception to check</param>

@@ -668,7 +668,7 @@ namespace DatevConnector.UI
                 }
 
                 // Always use Auto mode (auto-detection)
-                AppConfig.Set(ConfigKeys.ConnectionMode, ConnectionMode.Auto.ToString());
+                AppConfig.Set(ConfigKeys.TelephonyMode, ConnectionMode.Auto.ToString());
                 LogManager.Log("SetupWizard: ConnectionMode auf Auto gesetzt");
 
                 LogManager.Log("SetupWizard: Konfiguration abgeschlossen");
