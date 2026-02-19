@@ -17,8 +17,8 @@ namespace DatevConnector.UI
     {
         public enum Action { None, Back, Settings }
 
-        private ListView _lstInbound;
-        private ListView _lstOutbound;
+        private DataGridView _gridInbound;
+        private DataGridView _gridOutbound;
         private Button _btnJournal;
         private Button _btnRefresh;
         private Button _btnBack;
@@ -98,8 +98,8 @@ namespace DatevConnector.UI
                 };
                 Controls.Add(_lblInbound);
 
-                _lstInbound = CreateListView();
-                Controls.Add(_lstInbound);
+                _gridInbound = CreateGrid();
+                Controls.Add(_gridInbound);
             }
 
             // Outbound section — only shown when tracking is enabled
@@ -114,8 +114,8 @@ namespace DatevConnector.UI
                 };
                 Controls.Add(_lblOutbound);
 
-                _lstOutbound = CreateListView();
-                Controls.Add(_lstOutbound);
+                _gridOutbound = CreateGrid();
+                Controls.Add(_gridOutbound);
             }
 
             // Buttons
@@ -145,20 +145,20 @@ namespace DatevConnector.UI
             Controls.Add(_btnJournal);
 
             // Selection events — only wire up for existing controls
-            if (_lstInbound != null)
+            if (_gridInbound != null)
             {
-                _lstInbound.SelectedIndexChanged += OnSelectionChanged;
-                _lstInbound.DoubleClick += OnEntryDoubleClick;
+                _gridInbound.SelectionChanged += OnSelectionChanged;
+                _gridInbound.CellDoubleClick += OnEntryDoubleClick;
             }
-            if (_lstOutbound != null)
+            if (_gridOutbound != null)
             {
-                _lstOutbound.SelectedIndexChanged += OnSelectionChanged;
-                _lstOutbound.DoubleClick += OnEntryDoubleClick;
+                _gridOutbound.SelectionChanged += OnSelectionChanged;
+                _gridOutbound.CellDoubleClick += OnEntryDoubleClick;
             }
-            if (_lstInbound != null && _lstOutbound != null)
+            if (_gridInbound != null && _gridOutbound != null)
             {
-                _lstInbound.Click += (s, e) => _lstOutbound.SelectedItems.Clear();
-                _lstOutbound.Click += (s, e) => _lstInbound.SelectedItems.Clear();
+                _gridInbound.CellClick += (s, e) => _gridOutbound.ClearSelection();
+                _gridOutbound.CellClick += (s, e) => _gridInbound.ClearSelection();
             }
 
             ResumeLayout(false);
@@ -203,8 +203,8 @@ namespace DatevConnector.UI
                 _lblInbound.Location = new Point(FormPadding, y);
                 y += LabelHeight;
 
-                _lstInbound.Location = new Point(FormPadding, y);
-                _lstInbound.Size = new Size(listWidth, listHeight);
+                _gridInbound.Location = new Point(FormPadding, y);
+                _gridInbound.Size = new Size(listWidth, listHeight);
                 y += listHeight;
 
                 if (_showOutbound)
@@ -217,8 +217,8 @@ namespace DatevConnector.UI
                 _lblOutbound.Location = new Point(FormPadding, y);
                 y += LabelHeight;
 
-                _lstOutbound.Location = new Point(FormPadding, y);
-                _lstOutbound.Size = new Size(listWidth, listHeight);
+                _gridOutbound.Location = new Point(FormPadding, y);
+                _gridOutbound.Size = new Size(listWidth, listHeight);
                 y += listHeight;
             }
 
@@ -231,72 +231,80 @@ namespace DatevConnector.UI
             _btnJournal.Location = new Point(cw - FormPadding - BtnWidth, y);
         }
 
-        private ListView CreateListView()
+        private DataGridView CreateGrid()
         {
-            var lv = new ListView
+            var grid = UITheme.CreateDataGridView();
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
             {
-                View = View.Details,
-                FullRowSelect = true,
-                MultiSelect = false,
-                HeaderStyle = ColumnHeaderStyle.Nonclickable,
-                BackColor = UITheme.CardBackground,
-                ForeColor = UITheme.TextPrimary,
-                Font = UITheme.FontBody,
-                GridLines = false,
-                BorderStyle = BorderStyle.None
-            };
+                HeaderText = UIStrings.CallHistory.Time,
+                Width = 70,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = UIStrings.CallHistory.Number,
+                Width = 130,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = UIStrings.CallHistory.Contact,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            });
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = UIStrings.CallHistory.Duration,
+                Width = 55,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = UIStrings.CallHistory.Journal,
+                Width = 55,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
 
-            lv.Columns.Add(UIStrings.CallHistory.Time, 70);
-            lv.Columns.Add(UIStrings.CallHistory.Number, 130);
-            lv.Columns.Add(UIStrings.CallHistory.Contact, 150);
-            lv.Columns.Add(UIStrings.CallHistory.Duration, 55);
-            lv.Columns.Add(UIStrings.CallHistory.Journal, 55); // Journal status column with header
-
-            return lv;
+            return grid;
         }
 
         private void LoadHistory()
         {
-            if (_lstInbound != null)
+            if (_gridInbound != null)
             {
-                _lstInbound.Items.Clear();
+                _gridInbound.Rows.Clear();
                 foreach (var entry in _store.GetInbound())
-                    _lstInbound.Items.Add(CreateListItem(entry));
+                    _gridInbound.Rows.Add(CreateRow(entry));
             }
 
-            if (_lstOutbound != null)
+            if (_gridOutbound != null)
             {
-                _lstOutbound.Items.Clear();
+                _gridOutbound.Rows.Clear();
                 foreach (var entry in _store.GetOutbound())
-                    _lstOutbound.Items.Add(CreateListItem(entry));
+                    _gridOutbound.Rows.Add(CreateRow(entry));
             }
         }
 
-        private ListViewItem CreateListItem(CallHistoryEntry entry)
+        private DataGridViewRow CreateRow(CallHistoryEntry entry)
         {
-            var item = new ListViewItem(entry.CallStart.ToString("HH:mm:ss"));
-            item.SubItems.Add(entry.RemoteNumber ?? UIStrings.CallHistory.JournalNone);
-            item.SubItems.Add(string.IsNullOrEmpty(entry.ContactName) ? UIStrings.CallHistory.Unknown : entry.ContactName);
-            item.SubItems.Add(entry.Duration.ToString(@"mm\:ss"));
+            var row = new DataGridViewRow();
+            row.CreateCells(
+                _gridInbound ?? _gridOutbound,
+                entry.CallStart.ToString("HH:mm:ss"),
+                entry.RemoteNumber ?? UIStrings.CallHistory.JournalNone,
+                string.IsNullOrEmpty(entry.ContactName) ? UIStrings.CallHistory.Unknown : entry.ContactName,
+                entry.Duration.ToString(@"mm\:ss"),
+                entry.JournalSent ? UIStrings.CallHistory.JournalSent
+                    : !string.IsNullOrEmpty(entry.AdressatenId) ? UIStrings.CallHistory.JournalPending
+                    : UIStrings.CallHistory.JournalNone
+            );
 
-            // Journal status with clearer text
-            if (entry.JournalSent)
-            {
-                item.SubItems.Add(UIStrings.CallHistory.JournalSent);
-                item.ForeColor = UITheme.TextMuted;
-            }
-            else if (!string.IsNullOrEmpty(entry.AdressatenId))
-            {
-                item.SubItems.Add(UIStrings.CallHistory.JournalPending);
-            }
-            else
-            {
-                item.SubItems.Add(UIStrings.CallHistory.JournalNone);
-                item.ForeColor = UITheme.TextMuted;
-            }
+            // Muted forecolor for sent or no-journal rows
+            if (entry.JournalSent || string.IsNullOrEmpty(entry.AdressatenId))
+                row.DefaultCellStyle.ForeColor = UITheme.TextMuted;
 
-            item.Tag = entry;
-            return item;
+            row.Tag = entry;
+            return row;
         }
 
         private void OnSelectionChanged(object sender, EventArgs e)
@@ -309,14 +317,14 @@ namespace DatevConnector.UI
 
         private CallHistoryEntry GetSelectedEntry()
         {
-            if (_lstInbound != null && _lstInbound.SelectedItems.Count > 0)
-                return _lstInbound.SelectedItems[0].Tag as CallHistoryEntry;
-            if (_lstOutbound != null && _lstOutbound.SelectedItems.Count > 0)
-                return _lstOutbound.SelectedItems[0].Tag as CallHistoryEntry;
+            if (_gridInbound != null && _gridInbound.SelectedRows.Count > 0)
+                return _gridInbound.SelectedRows[0].Tag as CallHistoryEntry;
+            if (_gridOutbound != null && _gridOutbound.SelectedRows.Count > 0)
+                return _gridOutbound.SelectedRows[0].Tag as CallHistoryEntry;
             return null;
         }
 
-        private void OnEntryDoubleClick(object sender, EventArgs e)
+        private void OnEntryDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             var entry = GetSelectedEntry();
             if (entry != null && entry.JournalSent)

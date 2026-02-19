@@ -118,6 +118,41 @@ namespace DatevConnector.UI
             return btn;
         }
 
+        public static DataGridView CreateDataGridView()
+        {
+            return new DataGridView
+            {
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                MultiSelect = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                RowHeadersVisible = false,
+                EnableHeadersVisualStyles = false,
+                CellBorderStyle = DataGridViewCellBorderStyle.None,
+                BorderStyle = BorderStyle.None,
+                BackgroundColor = CardBackground,
+                Font = FontBody,
+                ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = PanelBackground,
+                    ForeColor = TextSecondary,
+                    Font = FontLabel,
+                    SelectionBackColor = PanelBackground,
+                    SelectionForeColor = TextSecondary
+                },
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = CardBackground,
+                    ForeColor = TextPrimary,
+                    SelectionBackColor = ButtonPrimary,
+                    SelectionForeColor = TextPrimary
+                },
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
+            };
+        }
+
         public static Color GetDirectionColor(bool isIncoming)
         {
             return AccentIncoming;
