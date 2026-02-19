@@ -33,6 +33,7 @@ namespace DatevConnector.Core
         private volatile CancellationTokenSource _cts;
         private volatile bool _disposed;
         private Task _pipeServerTask;
+        private volatile Task _connectRetryTask;
 
         // Settings
         private int _minCallerIdLength;
@@ -82,6 +83,11 @@ namespace DatevConnector.Core
         public int ConnectedLineCount => _tapiMonitor?.ConnectedLineCount ?? 0;
 
         public bool DatevAvailable { get; private set; }
+
+        public void SetDatevAvailable(bool available)
+        {
+            DatevAvailable = available;
+        }
 
         public bool TapiConnected => Status == ConnectorStatus.Connected;
 
@@ -168,6 +174,7 @@ namespace DatevConnector.Core
                 LogManager.Log("  3CX Terminal Server (early start)");
                 LogManager.Log("========================================");
                 _pipeServerTask = ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
+                _connectRetryTask = _pipeServerTask;
                 await Task.Delay(100, cancellationToken);
             }
 
@@ -217,7 +224,8 @@ namespace DatevConnector.Core
                 LogManager.Log("========================================");
                 LogManager.Log("  3CX Telefonie Modus ({0})", _selectedMode);
                 LogManager.Log("========================================");
-                await ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
+                _connectRetryTask = ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
+                await _connectRetryTask;
             }
         }
 
@@ -505,15 +513,15 @@ namespace DatevConnector.Core
 
         public Task ReconnectTapiAsync(Action<string> progressText)
         {
-            LogManager.Log("Manuelle TAPI Neuverbindung angefordert");
+            LogManager.Log("Manuelle 3CX Neuverbindung angefordert");
 
             if (_tapiMonitor != null)
             {
-                string ext = Extension ?? "—";
-                progressText?.Invoke($"Trenne 3CX TAPI (Nst: {ext})...");
+                string ext = Extension ?? "\u2014";
+                progressText?.Invoke($"Trenne 3CX (Nst: {ext})...");
                 _tapiMonitor.Dispose();
                 _tapiMonitor = null;
-                progressText?.Invoke("3CX TAPI getrennt");
+                progressText?.Invoke("3CX getrennt");
             }
 
             // Immediately update status so UI reflects disconnected state
@@ -521,7 +529,14 @@ namespace DatevConnector.Core
 
             progressText?.Invoke("Warte auf Neuverbindung...");
 
-            // The ConnectWithRetryAsync loop will automatically reconnect
+            // Start retry loop if not already running (e.g. initial detection failed)
+            if (_cts != null && !_cts.Token.IsCancellationRequested &&
+                (_connectRetryTask == null || _connectRetryTask.IsCompleted))
+            {
+                LogManager.Log("3CX Verbindungsschleife wird gestartet");
+                _connectRetryTask = ConnectWithRetryAsync(_cts.Token);
+            }
+
             return Task.CompletedTask;
         }
 

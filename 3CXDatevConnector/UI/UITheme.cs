@@ -268,14 +268,8 @@ namespace DatevConnector.UI
                     g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     g.Clear(Color.Transparent);
 
-                    // Draw base icon scaled into center
-                    g.DrawImage(baseImg, 3, 3, 26, 26);
-
-                    // Draw green ring (operational state for form icon)
-                    using (var pen = new Pen(StatusOk, 2f))
-                    {
-                        g.DrawEllipse(pen, 1f, 1f, 29.5f, 29.5f);
-                    }
+                    // Draw base icon scaled to fill
+                    g.DrawImage(baseImg, 0, 0, 32, 32);
                 }
 
                 IntPtr hIcon = bmp.GetHicon();

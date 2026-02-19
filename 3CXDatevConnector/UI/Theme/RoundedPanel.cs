@@ -13,7 +13,7 @@ namespace DatevConnector.UI.Theme
     {
         private int _cornerRadius = 8;
         private Color _accentColor = Color.Empty;
-        private const int AccentStripeHeight = 3;
+        private const int AccentStripeHeight = 5;
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int CornerRadius

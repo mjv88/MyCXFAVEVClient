@@ -198,7 +198,7 @@ namespace DatevConnector.UI
 
         private Panel BuildDatevStatusCard()
         {
-            var card = CreateStatusCard();
+            var card = CreateStatusCard(UITheme.AccentDatev);
             var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
@@ -251,7 +251,7 @@ namespace DatevConnector.UI
 
         private Panel BuildTapiStatusCard()
         {
-            var card = CreateStatusCard();
+            var card = CreateStatusCard(UITheme.AccentIncoming);
             var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
@@ -297,7 +297,7 @@ namespace DatevConnector.UI
 
         private Panel BuildBridgeStatusCard()
         {
-            var card = CreateStatusCard();
+            var card = CreateStatusCard(UITheme.AccentBridge);
             var y = LayoutConstants.SpaceSM;
             const int btnWidth = 60;
             const int btnHeight = 24;
@@ -320,9 +320,9 @@ namespace DatevConnector.UI
             return card;
         }
 
-        private Panel CreateStatusCard()
+        private RoundedPanel CreateStatusCard(Color accentColor)
         {
-            return new Panel
+            return new RoundedPanel(accentColor)
             {
                 Dock = DockStyle.Fill,
                 BackColor = UITheme.CardBackground,
@@ -547,22 +547,41 @@ namespace DatevConnector.UI
                 : "";
         }
 
-        private void BtnTestDatev_Click(object sender, EventArgs e)
+        private async void BtnTestDatev_Click(object sender, EventArgs e)
         {
             SetBadge(_lblDatevBadge, UIStrings.Status.Checking, UITheme.StatusWarn);
             _btnTestDatev.Enabled = false;
+            _btnReloadContacts.Enabled = false;
 
-            Task.Run(() =>
+            bool connected = await Task.Run(() => DatevConnectionChecker.CheckAndLogDatevStatus());
+
+            if (IsDisposed) return;
+
+            SetBadge(_lblDatevBadge, connected ? UIStrings.Status.Available : UIStrings.Status.Unavailable,
+                connected ? UITheme.StatusOk : UITheme.StatusBad);
+
+            // On success: update service state, reload contacts, and update UI
+            if (connected && _bridgeService != null)
             {
-                bool connected = DatevConnectionChecker.CheckAndLogDatevStatus();
-                BeginInvoke(new System.Action(() =>
-                {
-                    SetBadge(_lblDatevBadge, connected ? UIStrings.Status.Available : UIStrings.Status.Unavailable,
-                        connected ? UITheme.StatusOk : UITheme.StatusBad);
-                    _btnTestDatev.Enabled = true;
-                    _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
-                }));
-            });
+                _bridgeService.SetDatevAvailable(true);
+                await _bridgeService.ReloadContactsAsync();
+
+                if (IsDisposed) return;
+
+                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
+                string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
+                    ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
+                    : "\u2014";
+                _lblLastSync.Text = string.Format(UIStrings.SettingsLabels.Sync, syncText);
+            }
+            else
+            {
+                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
+            }
+
+            _btnTestDatev.Enabled = true;
+            _btnReloadContacts.Enabled = true;
+            RefreshOverviewStatus();
         }
 
         private async void BtnReloadContacts_Click(object sender, EventArgs e)

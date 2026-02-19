@@ -143,19 +143,18 @@ namespace DatevConnector.UI
 
             int y = LayoutConstants.SpaceMD;
             int cardWidth = 388;
-            int cardHeight = 100;
-            int datevCardHeight = 116;
+            int cardHeight = 118;
             int btnWidth = 75;
             int btnSpacing = 8;
 
             // Calculate extra height for multi-line TAPI display
             var tapiLines = _bridgeService?.TapiLines ?? new List<TapiLineInfo>();
             int lineCount = tapiLines.Count;
-            int extraTapiHeight = lineCount > 1 ? (lineCount - 1) * 24 : 0;
-            ClientSize = new Size(420, 434 + extraTapiHeight);
+            int extraTapiHeight = lineCount > 1 ? (88 + lineCount * 24 - cardHeight) : 0;
+            ClientSize = new Size(420, 454 + extraTapiHeight);
 
             // ==================== DATEV Section ====================
-            var datevCard = CreateSectionCard(UIStrings.Sections.Datev, UITheme.AccentDatev, y, cardWidth, datevCardHeight);
+            var datevCard = CreateSectionCard(UIStrings.Sections.Datev, UITheme.AccentDatev, y, cardWidth, cardHeight);
             Controls.Add(datevCard);
 
             bool datevOk = _bridgeService?.DatevAvailable ?? false;
@@ -213,10 +212,10 @@ namespace DatevConnector.UI
             _btnTestDatev.Click += BtnTestDatev_Click;
             datevCard.Controls.Add(_btnTestDatev);
 
-            y += datevCardHeight + LayoutConstants.CardPadding;
+            y += cardHeight + LayoutConstants.CardPadding;
 
             // ==================== 3CX Section (delegated to panels) ====================
-            int tapiCardHeight = lineCount > 1 ? 88 + (lineCount * 24) : cardHeight + 18;
+            int tapiCardHeight = lineCount > 1 ? 88 + (lineCount * 24) : cardHeight;
 
             var tapiCard = CreateSectionCard(UIStrings.Sections.Tapi, UITheme.AccentIncoming, y, cardWidth, tapiCardHeight);
             Controls.Add(tapiCard);
@@ -348,6 +347,27 @@ namespace DatevConnector.UI
             if (!IsAlive) return;
             _lblDatevStatus.Text = available ? UIStrings.Status.Connected : UIStrings.Status.Unavailable;
             _lblDatevStatus.ForeColor = available ? UITheme.StatusOk : UITheme.StatusBad;
+
+            // On success: update service state, reload contacts, and update UI
+            if (available && _bridgeService != null)
+            {
+                _bridgeService.SetDatevAvailable(true);
+                _btnTestDatev.Enabled = false;
+                _btnReloadContacts.Enabled = false;
+                _lblDatevProgress.Visible = true;
+
+                await _bridgeService.ReloadContactsAsync(msg => UpdateProgressLabel(_lblDatevProgress, msg));
+
+                if (!IsAlive) return;
+                int contacts = _bridgeService.ContactCount;
+                _lblContacts.Text = string.Format(UIStrings.Messages.ContactsFormat, contacts);
+                UpdateSyncTime();
+
+                _btnTestDatev.Enabled = true;
+                _btnReloadContacts.Enabled = true;
+                HideProgressLabel(_lblDatevProgress);
+            }
+
             UpdateConnectorStatus();
         }
 
