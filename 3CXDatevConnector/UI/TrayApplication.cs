@@ -76,8 +76,7 @@ namespace DatevConnector.UI
             FormBorderStyle = FormBorderStyle.None;
             Opacity = 0;
 
-            // Start the bridge service (fire-and-forget with proper exception handling)
-            _ = StartConnectorServiceAsync();
+            // Startup is triggered from SetVisibleCore after handle creation
         }
 
         private void WireMenuEvents()
@@ -113,13 +112,13 @@ namespace DatevConnector.UI
         {
             try
             {
-                await _bridgeService.StartAsync(_cts.Token);
-
                 if (AppConfig.IsFirstRun)
                 {
                     LogManager.Log("Erststart erkannt - Einrichtungsassistent wird angeboten");
-                    BeginInvoke(new Action(PromptFirstRunWizard));
+                    PromptFirstRunWizard();
                 }
+
+                await _bridgeService.StartAsync(_cts.Token);
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
@@ -131,14 +130,54 @@ namespace DatevConnector.UI
 
         private void PromptFirstRunWizard()
         {
-            var result = MessageBox.Show(
-                UIStrings.Wizard.FirstRunPrompt,
-                UIStrings.Wizard.FirstRunTitle,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+            using (var dlg = new Form())
+            {
+                UITheme.ApplyFormDefaults(dlg);
+                dlg.Text = UIStrings.Wizard.FirstRunTitle;
+                dlg.ClientSize = new Size(420, 200);
+                dlg.StartPosition = FormStartPosition.CenterScreen;
+                dlg.TopMost = true;
 
-            if (result == DialogResult.Yes)
-                SetupWizardForm.ShowWizard(_bridgeService);
+                var logo = UITheme.GetBaseIcon();
+                if (logo != null)
+                {
+                    var pic = new PictureBox
+                    {
+                        Image = logo,
+                        SizeMode = PictureBoxSizeMode.Zoom,
+                        Location = new Point(24, 24),
+                        Size = new Size(48, 48)
+                    };
+                    dlg.Controls.Add(pic);
+                }
+
+                var lbl = new Label
+                {
+                    Text = UIStrings.Wizard.FirstRunPrompt,
+                    ForeColor = UITheme.TextSecondary,
+                    Font = UITheme.FontBody,
+                    Location = new Point(88, 24),
+                    Size = new Size(308, 100),
+                    AutoEllipsis = true
+                };
+                dlg.Controls.Add(lbl);
+
+                var btnYes = UITheme.CreatePrimaryButton(UIStrings.Wizard.Next, 100);
+                btnYes.Location = new Point(dlg.ClientSize.Width - 24 - 100, dlg.ClientSize.Height - 24 - LayoutConstants.ButtonHeight);
+                btnYes.DialogResult = DialogResult.Yes;
+                dlg.Controls.Add(btnYes);
+
+                var btnNo = UITheme.CreateSecondaryButton(UIStrings.Labels.Cancel, 100);
+                btnNo.Location = new Point(btnYes.Left - 8 - 100, btnYes.Top);
+                btnNo.DialogResult = DialogResult.No;
+                dlg.Controls.Add(btnNo);
+
+                dlg.AcceptButton = btnYes;
+                dlg.CancelButton = btnNo;
+
+                if (dlg.ShowDialog() == DialogResult.Yes)
+                    SetupWizardForm.ShowWizard(_bridgeService);
+            }
         }
 
         private void OnDatevUnavailable(object sender, EventArgs e)
@@ -347,7 +386,11 @@ namespace DatevConnector.UI
         protected override void SetVisibleCore(bool value)
         {
             if (!IsHandleCreated)
+            {
                 CreateHandle();
+                // Post startup to run once the message loop is active
+                BeginInvoke(new Action(() => _ = StartConnectorServiceAsync()));
+            }
             base.SetVisibleCore(false);
         }
     }

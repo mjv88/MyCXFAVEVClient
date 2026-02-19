@@ -617,7 +617,7 @@ namespace DatevConnector.UI
                     if (tapiLines != null && tapiLines.Count > 0)
                         lines.AppendLine(string.Format(UIStrings.Wizard.SummaryTapiConnected, tapiLines.Count));
                     else
-                        lines.AppendLine(string.Format("3CX TAPI: {0}", UIStrings.Status.NotConnected));
+                        lines.AppendLine(string.Format("3CX: {0}", UIStrings.Status.NotConnected));
                     break;
             }
 

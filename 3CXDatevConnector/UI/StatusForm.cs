@@ -53,6 +53,8 @@ namespace DatevConnector.UI
             {
                 _bridgeService.StatusChanged += OnConnectorStatusChanged;
                 _bridgeService.ModeChanged += OnModeChanged;
+                _bridgeService.DatevBecameAvailable += OnDatevAvailabilityChanged;
+                _bridgeService.DatevUnavailableNotified += OnDatevAvailabilityChanged;
             }
 
             Disposed += (s, e) =>
@@ -61,6 +63,8 @@ namespace DatevConnector.UI
                 {
                     _bridgeService.StatusChanged -= OnConnectorStatusChanged;
                     _bridgeService.ModeChanged -= OnModeChanged;
+                    _bridgeService.DatevBecameAvailable -= OnDatevAvailabilityChanged;
+                    _bridgeService.DatevUnavailableNotified -= OnDatevAvailabilityChanged;
                 }
             };
         }
@@ -131,6 +135,21 @@ namespace DatevConnector.UI
                 string modeName = ConnectionMethodSelector.GetModeShortName(mode);
                 _singleLinePanel?.UpdateMode(modeName);
                 _multiLinePanel?.UpdateMode(modeName);
+            });
+        }
+
+        private void OnDatevAvailabilityChanged(object sender, EventArgs e)
+        {
+            SafeInvoke(() =>
+            {
+                bool available = _bridgeService?.DatevAvailable ?? false;
+                _lblDatevStatus.Text = available ? UIStrings.Status.Connected : UIStrings.Status.Unavailable;
+                _lblDatevStatus.ForeColor = available ? UITheme.StatusOk : UITheme.StatusBad;
+
+                int contacts = _bridgeService?.ContactCount ?? 0;
+                _lblContacts.Text = string.Format(UIStrings.Messages.ContactsFormat, contacts);
+
+                UpdateConnectorStatusCore();
             });
         }
 

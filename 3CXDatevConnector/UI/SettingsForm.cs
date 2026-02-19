@@ -83,6 +83,8 @@ namespace DatevConnector.UI
             {
                 _bridgeService.ModeChanged += OnModeChanged;
                 _bridgeService.StatusChanged += OnStatusChanged;
+                _bridgeService.DatevBecameAvailable += OnDatevAvailabilityChanged;
+                _bridgeService.DatevUnavailableNotified += OnDatevAvailabilityChanged;
             }
 
             Disposed += (s, e) =>
@@ -91,6 +93,8 @@ namespace DatevConnector.UI
                 {
                     _bridgeService.ModeChanged -= OnModeChanged;
                     _bridgeService.StatusChanged -= OnStatusChanged;
+                    _bridgeService.DatevBecameAvailable -= OnDatevAvailabilityChanged;
+                    _bridgeService.DatevUnavailableNotified -= OnDatevAvailabilityChanged;
                 }
             };
         }
@@ -101,6 +105,11 @@ namespace DatevConnector.UI
         }
 
         private void OnStatusChanged(ConnectorStatus status)
+        {
+            SafeInvoke(() => RefreshOverviewStatus());
+        }
+
+        private void OnDatevAvailabilityChanged(object sender, EventArgs e)
         {
             SafeInvoke(() => RefreshOverviewStatus());
         }

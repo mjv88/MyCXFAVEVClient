@@ -123,7 +123,7 @@ namespace DatevConnector.Core
         {
             LogManager.Debug("ConnectionMethodSelector: Auto-Erkennung wird gestartet (Timeout={0}s)", totalTimeoutSec);
             var diagnostics = new StringBuilder();
-            diagnostics.AppendLine("Auto-Detection Results:");
+            diagnostics.AppendLine("Auto-Erkennung:");
 
             int webclientTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
             bool webclientEnabled = AppConfig.GetBool(ConfigKeys.WebclientEnabled, true);
@@ -145,7 +145,7 @@ namespace DatevConnector.Core
                     {
                         string reason = "Desktop environment - TAPI lines available";
                         LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
-                        diagnostics.AppendLine("  [A] TAPI: SELECTED (lines available)");
+                        diagnostics.AppendLine("Desktop (TAPI): Ausgewählt (Leitungen verfügbar)");
 
                         return new ProviderSelectionResult
                         {
@@ -157,12 +157,12 @@ namespace DatevConnector.Core
                     }
 
                     tapiProvider.Dispose();
-                    diagnostics.AppendLine("  [A] TAPI: No lines available - skipping");
+                    diagnostics.AppendLine("Desktop (TAPI): Keine Leitungen verfügbar");
                     LogManager.Debug("ConnectionMethodSelector: [A] TAPI hat keine Leitungen - überspringe");
                 }
                 catch (Exception ex)
                 {
-                    diagnostics.AppendLine("  [A] TAPI: Error - " + ex.Message);
+                    diagnostics.AppendLine("Desktop (TAPI): Fehler - " + ex.Message);
                     LogManager.Debug("ConnectionMethodSelector: [A] TAPI-Fehler - {0}", ex.Message);
                 }
 
@@ -176,15 +176,15 @@ namespace DatevConnector.Core
 
                 if (isTerminalSession || pipeAvailable)
                 {
-                    diagnostics.AppendFormat("  [B] Terminal Server: session={0}, available={1}, 3CX running={2}",
-                        isTerminalSession, pipeAvailable, softphoneRunning);
+                    diagnostics.AppendFormat("Terminal Server: Sitzung={0}, Pipe={1}, 3CX={2}",
+                        isTerminalSession ? "Ja" : "Nein", pipeAvailable ? "Ja" : "Nein", softphoneRunning ? "Ja" : "Nein");
                     diagnostics.AppendLine();
 
                     if (isTerminalSession)
                     {
                         string reason = "Terminal server session detected";
                         LogManager.Debug("ConnectionMethodSelector: Terminal Server ausgewählt - {0}", reason);
-                        diagnostics.AppendLine("  [B] Terminal Server: SELECTED");
+                        diagnostics.AppendLine("Terminal Server: Ausgewählt");
 
                         return new ProviderSelectionResult
                         {
@@ -197,15 +197,14 @@ namespace DatevConnector.Core
                 }
                 else
                 {
-                    diagnostics.AppendLine("  [B] Terminal Server: Not applicable (not terminal server)");
+                    diagnostics.AppendLine("Terminal Server: Nicht zutreffend (keine Terminal-Server-Sitzung)");
                     LogManager.Debug("ConnectionMethodSelector: [B] Terminal Server nicht anwendbar");
                 }
             }
             else
             {
                 LogManager.Log("3CX TAPI Treiber: Nicht installiert");
-                diagnostics.AppendLine("  [A] TAPI: Skipped (TAPI not installed)");
-                diagnostics.AppendLine("  [B] Terminal Server: Skipped (TAPI not installed)");
+                diagnostics.AppendLine("TAPI & Terminal Server: Übersprungen (3CX TAPI nicht installiert)");
             }
 
             // ── (C) Try Webclient ──
@@ -225,7 +224,7 @@ namespace DatevConnector.Core
                     {
                         string reason = "Extension connected via WebClient (browser extension)";
                         LogManager.Debug("ConnectionMethodSelector: WebClient erkannt - {0}", reason);
-                        diagnostics.AppendLine("  [C] WebClient: DETECTED (extension connected)");
+                        diagnostics.AppendLine("WebClient: Erkannt (Erweiterung verbunden)");
 
                         return new ProviderSelectionResult
                         {
@@ -237,25 +236,25 @@ namespace DatevConnector.Core
                     }
 
                     webclientProvider.Dispose();
-                    diagnostics.AppendLine("  [C] WebClient: Not detected (no extension connected within timeout)");
+                    diagnostics.AppendLine("WebClient: Nicht gefunden (Keine Antwort erhalten)");
                     LogManager.Debug("ConnectionMethodSelector: [C] WebClient nicht erkannt");
                     LogManager.Debug("ConnectionMethodSelector: [C] Hinweis: WebClient-Erkennung erfordert Browser-Erweiterung verbunden via WebSocket (Port {0})", AppConfig.GetInt(ConfigKeys.WebclientWebSocketPort, 19800));
                 }
                 catch (Exception ex)
                 {
-                    diagnostics.AppendLine("  [C] WebClient: Error - " + ex.Message);
+                    diagnostics.AppendLine("WebClient: Fehler - " + ex.Message);
                     LogManager.Debug("ConnectionMethodSelector: [C] WebClient-Fehler - {0}", ex.Message);
                 }
             }
             else
             {
-                diagnostics.AppendLine("  [C] WebClient: Disabled (Webclient.Enabled=false)");
+                diagnostics.AppendLine("WebClient: Deaktiviert (Webclient.Enabled=false)");
                 LogManager.Debug("ConnectionMethodSelector: [C] WebClient deaktiviert");
             }
 
             // ── (D) None detected ──
             LogManager.Debug("ConnectionMethodSelector: Kein Provider erkannt");
-            diagnostics.AppendLine("  Result: No provider available");
+            diagnostics.AppendLine("Ergebnis: Kein Dienst verfügbar");
 
             return new ProviderSelectionResult
             {
@@ -278,7 +277,7 @@ namespace DatevConnector.Core
                     return "WebClient (Browser-Erweiterung)";
                 case ConnectionMode.Auto:
                 default:
-                    return "Automatisch (Desktop / Terminal Server -> WebClient)";
+                    return "Automatisch";
             }
         }
 
