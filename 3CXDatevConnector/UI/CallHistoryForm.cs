@@ -36,9 +36,8 @@ namespace DatevConnector.UI
         private const int FormPadding = 24; // LayoutConstants.SpaceLG
         private const int LabelHeight = 22;
         private const int SectionSpacing = 16; // LayoutConstants.SpaceMD
-        private const int BtnWidth = 95;
+        private const int BtnWidth = 90;
         private const int BtnSpacing = 8; // LayoutConstants.SpaceSM
-        private const int JournalBtnWidth = 120;
 
         public Action RequestedAction { get; private set; }
 
@@ -140,7 +139,7 @@ namespace DatevConnector.UI
             };
             Controls.Add(_btnSettings);
 
-            _btnJournal = UITheme.CreatePrimaryButton(UIStrings.CallHistory.Journal, JournalBtnWidth);
+            _btnJournal = UITheme.CreatePrimaryButton(UIStrings.CallHistory.Journal, BtnWidth);
             _btnJournal.Enabled = false;
             _btnJournal.Click += BtnJournal_Click;
             Controls.Add(_btnJournal);
@@ -225,11 +224,11 @@ namespace DatevConnector.UI
 
             y += FormPadding;
 
-            // Buttons
-            _btnRefresh.Location = new Point(FormPadding, y);
-            _btnBack.Location = new Point(FormPadding + BtnWidth + BtnSpacing, y);
-            _btnSettings.Location = new Point(FormPadding + (BtnWidth + BtnSpacing) * 2, y);
-            _btnJournal.Location = new Point(cw - FormPadding - JournalBtnWidth, y);
+            // Buttons — navigation left, actions right
+            _btnBack.Location = new Point(FormPadding, y);
+            _btnSettings.Location = new Point(FormPadding + BtnWidth + BtnSpacing, y);
+            _btnRefresh.Location = new Point(cw - FormPadding - BtnWidth - BtnSpacing - BtnWidth, y);
+            _btnJournal.Location = new Point(cw - FormPadding - BtnWidth, y);
         }
 
         private ListView CreateListView()
