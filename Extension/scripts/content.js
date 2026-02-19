@@ -173,6 +173,7 @@
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type === "REFRESH_WEBCLIENT_DETECTION") {
+      provisionSent = false; // Allow re-send so background re-triggers connectBridge
       refreshWebClientDetection("runtime-message");
     }
 

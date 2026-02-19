@@ -15,9 +15,7 @@ let helloRetryTimer = null;
 let helloRetryCount = 0;
 let reconnectTimer = null;
 let reconnectDelay = RECONNECT_DELAY_MS;
-const MAX_COLD_RETRIES = 3;     // Max reconnect attempts when never connected
 let hasEverConnected = false;    // Set true on first successful ws.onopen
-let coldRetryCount = 0;          // Tracks failed attempts before first success
 let configuredExtension = "";
 let detectedExtension = "";
 let detectedDomain = "";
@@ -105,7 +103,6 @@ async function connectBridge() {
   ws.onopen = () => {
     logDebug("WebSocket connected");
     hasEverConnected = true;
-    coldRetryCount = 0;
     reconnectDelay = RECONNECT_DELAY_MS; // reset backoff on success
     helloSent = false;
     helloAcked = false;
@@ -121,6 +118,7 @@ async function connectBridge() {
       if (msg && msg.type === "HELLO_ACK") {
         helloAcked = true;
         clearHelloRetry();
+        clearBridgeRetryAlarm();
         logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
       }
 
@@ -138,6 +136,7 @@ async function connectBridge() {
     helloSent = false;
     helloAcked = false;
     clearHelloRetry();
+    ensureBridgeRetryAlarm();
     scheduleReconnect();
   };
 
@@ -167,14 +166,7 @@ function sendBridge(message) {
 function scheduleReconnect() {
   if (reconnectTimer) return;
 
-  if (!hasEverConnected) {
-    coldRetryCount++;
-    if (coldRetryCount > MAX_COLD_RETRIES) {
-      logDebug("Cold reconnect limit reached — waiting for new webclient activity");
-      return;
-    }
-  }
-
+  ensureBridgeRetryAlarm(); // Ensure alarm is active as fallback for service worker shutdown
   logDebug("Scheduling reconnect", { delay: reconnectDelay });
 
   reconnectTimer = setTimeout(() => {
@@ -715,7 +707,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     helloSent = false;
     helloAcked = false;
     clearHelloRetry();
-    coldRetryCount = 0;
     reconnectDelay = RECONNECT_DELAY_MS;
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
@@ -735,7 +726,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((msg, sender) => {
   // Handle provision data from content script (localStorage auto-detect)
   if (msg?.type === "3CX_PROVISION" && msg.provision) {
-    coldRetryCount = 0;
     const prov = msg.provision;
     const extensionChanged = prov.extension && !configuredExtension && prov.extension !== detectedExtension;
 
@@ -774,7 +764,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
   if (!msg || msg.type !== "3CX_RAW_SIGNAL") return;
 
-  coldRetryCount = 0;
   const sourceTabId = sender?.tab?.id ?? "";
   if (sourceTabId) webclientTabId = sourceTabId; // track active 3CX tab
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
@@ -823,13 +812,11 @@ async function injectExistingTabs() {
 chrome.runtime.onInstalled.addListener(async () => {
   await loadConfig();
   await injectExistingTabs();
-  // Bridge connection is lazy: starts when a 3CX webclient tab sends provision/signal data
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await loadConfig();
   await injectExistingTabs();
-  // Bridge connection is lazy: starts when a 3CX webclient tab sends provision/signal data
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -840,7 +827,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
     });
     if (changes.extensionNumber || portChanged) {
-      coldRetryCount = 0;
       // Close existing connection so it reconnects with new settings
       if (ws) {
         try { ws.close(); } catch {}
@@ -853,7 +839,27 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-loadConfig().catch((err) => {
+// Alarm-based reconnect — survives service worker shutdown
+const BRIDGE_RETRY_ALARM = "bridge-retry";
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== BRIDGE_RETRY_ALARM) return;
+  if (ws && ws.readyState === WebSocket.OPEN && helloAcked) return;
+  logDebug("Alarm-triggered bridge reconnect");
+  connectBridge();
+});
+
+function ensureBridgeRetryAlarm() {
+  chrome.alarms.create(BRIDGE_RETRY_ALARM, { periodInMinutes: 0.5 }); // 30s = MV3 minimum
+}
+
+function clearBridgeRetryAlarm() {
+  chrome.alarms.clear(BRIDGE_RETRY_ALARM);
+}
+
+loadConfig().then(() => {
+  connectBridge();
+  ensureBridgeRetryAlarm();
+}).catch((err) => {
   console.warn("[3CX-DATEV-C][bg] Initial config load failed", err);
 });
-// No eager WebSocket connect — connection starts lazily when a 3CX webclient tab is detected
