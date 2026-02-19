@@ -51,26 +51,15 @@ Deploy via GPO, SCCM, or Microsoft Intune as a **per-user installation**:
 
 ## First-Run Setup Wizard
 
-On first launch (when no INI file exists), the application creates a default configuration and asks if you would like to run the Setup Wizard. The wizard has 5 steps:
+On first launch (when no INI file exists), the application creates a default configuration and asks if you would like to run the Setup Wizard. The wizard has 4 steps:
 
 ### Step 1 — Welcome
 
 Overview of the bridge features: TAPI monitoring, DATEV integration, and autostart configuration.
 
-### Step 2 — Telephony Mode
+### Step 2 — Provider Configuration
 
-Select the connection mode:
-
-| Mode | Description |
-|------|-------------|
-| **Auto** (recommended) | Detects best provider automatically (Desktop → Terminal Server → WebClient) |
-| **Desktop (TAPI)** | 3CX Windows App on Desktop |
-| **Terminal Server (TAPI)** | 3CX Windows App on Terminal Server |
-| **WebClient** | 3CX Webclient in Browser (Chrome/Edge) |
-
-### Step 3 — Provider Configuration
-
-The wizard adapts to the selected telephony mode:
+The wizard adapts to the configured telephony mode:
 
 **Desktop (TAPI) mode:**
 The wizard detects all available 3CX TAPI lines and displays them in a dropdown.
@@ -90,7 +79,7 @@ The wizard shows the browser extension connection status:
 
 > **Extension Popup:** Click the extension icon in the browser toolbar to see a dark-themed popup showing live WebSocket connection status (green/yellow/red dot), the bold extension number, and a configurable DATEV Auto-DIAL delay (default: 750 ms).
 
-### Step 4 — DATEV Connection Test
+### Step 3 — DATEV Connection Test
 
 The wizard tests connectivity to DATEV:
 
@@ -98,7 +87,7 @@ The wizard tests connectivity to DATEV:
 - Displays contact count on success (if contacts were already loaded)
 - Shows troubleshooting hints on failure
 
-### Step 5 — Finish
+### Step 4 — Finish
 
 Summary of detected configuration and an option to enable Windows autostart.
 
@@ -200,7 +189,7 @@ When a call ends and a DATEV contact was matched:
 
 1. A **Journal Popup** appears showing the contact name and call duration
 2. Enter a note in the text area (max 2,000 characters)
-3. Click **"Daten weitergeben"** to send the journal entry to DATEV
+3. Click **"An DATEV senden"** to send the journal entry to DATEV
 4. Click **"Abbrechen"** or leave the note empty to skip
 
 The journal entry is sent to DATEV via the `NewJournal` interface with:
@@ -211,8 +200,8 @@ The journal entry is sent to DATEV via the `NewJournal` interface with:
 The bridge persists recent DATEV-matched calls (DPAPI-encrypted) for re-journaling:
 
 1. Open via tray menu → **Anrufliste** (or Strg+H)
-2. Two lists show recent **Eingehend** (inbound) and **Ausgehend** (outbound) calls
-3. Select an entry and click **"Journal senden"** or double-click to open the journal popup
+2. Two grids show recent **Eingehend** (inbound) and **Ausgehend** (outbound) calls
+3. Select an entry and click **"Journal"** or double-click to open the journal popup
 4. Journal status: **✓ Ja** (sent), **Offen** (pending), **—** (unmatched)
 5. Previously-journaled entries are dimmed and cannot be re-sent
 6. Entries older than `CallHistoryRetentionDays` (default: 7) are automatically removed
@@ -253,7 +242,7 @@ Open Settings via tray menu → **Einstellungen**.
 |---------|---------|-------------|
 | Eingehende Anrufe | Enabled | Show popup for incoming calls |
 | Ausgehende Anrufe | Disabled | Show popup for outgoing calls |
-| Journal-Popup | Enabled | Show journal note popup after call |
+| Journal-Popup | Disabled | Show journal note popup after call |
 | Ausgehende Journal-Popup | Disabled | Show journal popup for outgoing calls |
 | Modus | Formular | Popup type: Beide / Formular / Balloon |
 | Kontakt erneut (Sek.) | 3 | Delay before showing contact re-selection after connect |
@@ -325,7 +314,6 @@ TelephonyMode=Auto
 AutoDetectionTimeoutSec=10
 WebclientConnectTimeoutSec=8
 WebclientEnabled=true
-WebclientWebSocketPort=19800
 ReconnectIntervalSeconds=5
 
 [Logging]
@@ -338,7 +326,6 @@ Add these sections manually for advanced tuning:
 
 ```ini
 // Extra [Connection] settings (not included in default INI)
-ReconnectIntervalSeconds=5
 ConnectionTimeoutSeconds=30
 DatevCircuitBreakerThreshold=3
 DatevCircuitBreakerTimeoutSeconds=30

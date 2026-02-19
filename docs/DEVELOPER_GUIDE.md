@@ -66,7 +66,7 @@ Finished                            (direct, for NewJournal)
 Absence                             (direct, for NewJournal)
 ```
 
-All other transitions are forbidden. The connector enforces this in `ConnectorService.cs` by mapping TAPI states to DATEV states:
+All other transitions are forbidden. The connector enforces this in `CallEventProcessor.cs` by mapping TAPI states to DATEV states:
 
 | TAPI State | DATEV CallState | Notification |
 |------------|----------------|--------------|
@@ -86,7 +86,7 @@ The SyncID is critical for DATEV's internal call tracking:
 4. **Never stored in journal** — explicitly cleared (`SyncID = string.Empty`) before NewJournal
 5. **Only valid during a call** — not persisted across calls
 
-Implementation: `NotificationManager.cs:55` has an explicit comment: "Note: SyncID is NOT set by the bridge — only DATEV Telefonie sets this."
+Implementation: `NotificationManager.cs:34` has an explicit comment: "Note: SyncID is NOT set by the bridge — only DATEV Telefonie sets this."
 
 ### DataSource Values
 
@@ -369,7 +369,7 @@ The TAPI `lineMakeCall` function can initiate calls, but the 3CX TAPI driver use
 
 ### Why a Single ConnectorService Orchestrator?
 
-At ~750 lines, `ConnectorService.cs` is large but serves as the single orchestration point. It exposes `StatusChanged` and `ModeChanged` events so UI forms can react immediately to connection and telephony mode changes. The domain logic is delegated to focused managers:
+At ~660 lines, `ConnectorService.cs` is large but serves as the single orchestration point. It exposes `StatusChanged` and `ModeChanged` events so UI forms can react immediately to connection and telephony mode changes. The domain logic is delegated to focused managers:
 
 - `CallTracker` — call lifecycle
 - `NotificationManager` — DATEV COM calls
@@ -420,7 +420,7 @@ Size-based rotation (10 MB per file, 5 files max = 50 MB cap) limits active disk
 3CXDatevConnector/
 ├── Program.cs                          Entry point, single instance mutex
 ├── Core/
-│   ├── ConnectorService.cs                Central orchestrator (~750 lines, events: StatusChanged, ModeChanged)
+│   ├── ConnectorService.cs                Central orchestrator (~660 lines, events: StatusChanged, ModeChanged)
 │   ├── ConnectorStatus.cs                 Connection status enum
 │   ├── CallEventProcessor.cs           Call event processing logic
 │   ├── CallTracker.cs                  Active/pending call management
@@ -494,6 +494,11 @@ Size-based rotation (10 MB per file, 5 files max = 50 MB cap) limits active disk
     ├── [9 form files]                  WinForms UI
     ├── Strings/UIStrings.cs            German UI text
     └── Theme/
+        ├── ThemedForm.cs               Base form with dark theme + Mica
+        ├── RoundedPanel.cs             Rounded-corner panel control
+        ├── RoundedButton.cs            Rounded-corner button control
+        ├── AsyncButtonAction.cs        Async button helper
+        ├── DarkContextMenuStrip.cs     Dark context menu strip
         ├── Layout.cs                   Layout constants
         └── DarkMenuRenderer.cs         Dark context menu renderer
 ```
@@ -701,8 +706,8 @@ When `TelephonyMode = Auto` (default), the connector attempts to detect the best
 
 | Priority | Provider | Detection Method | Success Criteria |
 |----------|----------|-----------------|-----------------|
-| A | **TAPI** | Check for TAPI lines on desktop | TAPI lines available in desktop environment |
-| B | **Pipe** | Check `SessionManager.IsTerminalSession` | Running in a terminal server session |
+| A | **Desktop (TAPI)** | Check for TAPI lines on desktop | TAPI lines available in desktop environment |
+| B | **Terminal Server (TAPI)** | Check `SessionManager.IsTerminalSession` | Running in a terminal server session |
 | C | **WebClient** | Start WebSocket listener, wait for extension HELLO | Extension connects and sends HELLO within timeout |
 | D | **None** | All detection methods failed | Setup Wizard is shown |
 
@@ -710,7 +715,7 @@ When `TelephonyMode = Auto` (default), the connector attempts to detect the best
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `TelephonyMode` | `Auto` | `Auto`, `Tapi`, `Pipe`, or `WebClient` |
+| `TelephonyMode` | `Auto` | `Auto`, `Desktop`, `TerminalServer`, or `WebClient` |
 | `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
 | `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
 | `Webclient.Enabled` | `true` | Enable/disable Webclient detection in Auto mode |
@@ -718,18 +723,18 @@ When `TelephonyMode = Auto` (default), the connector attempts to detect the best
 
 ### Explicit Mode
 
-When `TelephonyMode` is explicitly set to `Tapi`, `Pipe`, or `WebClient`, only that provider is used. If it fails to start, the connector logs a guided error.
+When `TelephonyMode` is explicitly set to `Desktop`, `TerminalServer`, or `WebClient`, only that provider is used. If it fails to start, the connector logs a guided error.
 
 ### Diagnostic Logs
 
 During auto-detection, the connector logs a diagnostic summary:
 
 ```
-ConnectionMethodSelector: Auto-detection starting (timeout=10s)
-ConnectionMethodSelector: [A] Trying TAPI
-ConnectionMethodSelector: [A] TAPI lines available
-ConnectionMethodSelector: TAPI selected - Desktop environment
-TelephonyMode chosen: Tapi (reason: Desktop environment - using TAPI)
+ConnectionMethodSelector: Auto-Erkennung wird gestartet (Timeout=10s)
+ConnectionMethodSelector: [A] Versuche TAPI
+ConnectionMethodSelector: TAPI ausgewählt - Desktop environment - TAPI lines available
+Telefonie Modus: Desktop
+Desktop (TAPI)-Modus ausgewählt
 ```
 
 ### Console Test Mode

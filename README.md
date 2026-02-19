@@ -219,6 +219,8 @@ LogAsync=true
 | `CallHistoryMaxEntries` | 25 | [Settings] | Maximum entries per direction |
 | `CallHistoryRetentionDays` | 7 | [Settings] | Days to keep call history entries (1–90) |
 | `ActiveContactsOnly` | false | [Settings] | Only load contacts with Status ≠ 0 (inactive contacts excluded) |
+| `TrayDoubleClickCallHistory` | true | [Settings] | Tray double-click opens Call History (false = Status Overview) |
+| `MuteNotifications` | true | [Settings] | Mute status balloon notifications (tray "Stummschalten" toggle) |
 | `TelephonyMode` | Auto | [Connection] | Telephony provider: `Auto`, `Desktop`, `TerminalServer`, or `WebClient` |
 | `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
 | `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
@@ -436,14 +438,14 @@ When enabled, the bridge persists recent DATEV-matched calls for re-journaling:
 - **Terminal server safe** — per-user `%AppData%` path and DPAPI current-user scope ensure session isolation
 
 Access via tray menu -> Anrufliste:
-- Two list views (Eingehend / Ausgehend) showing Zeit, Nummer, Kontakt, Dauer, Journal status
+- Two data grids (Eingehend / Ausgehend) showing Zeit, Nummer, Kontakt, Dauer, Journal status
 - Clean borderless layout without gridlines
 - **Auto-refresh every 5 seconds** for live updates
 - Select an entry and click "Journal senden" or double-click to open the journal popup
 - Journal status shows "✓ Ja" for sent, "Offen" for pending, "—" for unmatched
 - Previously-journaled entries are dimmed and cannot be re-sent
 - Journal popup displays connected duration (not total ring-to-end time)
-- Buttons: Journal senden, Aktualisieren, Zurück (to StatusForm), Schließen
+- Buttons: Status (to StatusForm), Einstellungen, Aktualisieren, Journal
 
 ## Security
 
@@ -513,7 +515,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 |    CallerPopupForm.cs            - Caller notification popup         |
 |    ContactSelectionForm.cs       - Multi-contact selection dropdown  |
 |    JournalForm.cs                - Call note entry before DATEV submit|
-|    CallHistoryForm.cs            - Re-journal past calls (dual list) |
+|    CallHistoryForm.cs            - Re-journal past calls (dual grid) |
 |    SetupWizardForm.cs            - First-run configuration wizard    |
 |    TroubleshootingForm.cs        - Built-in help with common solutions|
 |    AboutForm.cs                  - About dialog with shortcuts       |

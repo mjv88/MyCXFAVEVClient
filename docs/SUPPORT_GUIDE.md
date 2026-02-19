@@ -89,21 +89,19 @@ The bridge performs these steps on startup in order:
 
 ```
 ========================================
-=== DATEV Connection Test ===
-  DATEV Telefonie (ROT): Available
-  DATEV SDD (Kontakte): Available
-  DATEV available - all components detected
-=============================
+DATEV Konnektivitätstest
 ========================================
+DATEV Telefonie (ROT): Verfügbar
+DATEV SDD (Kontakte): Verfügbar
+DATEV Alle Komponente Verfügbar
 ```
 
 If DATEV is not available:
 
 ```
-  DATEV Telefonie (ROT): NOT AVAILABLE
-  DATEV not found in ROT (result=0x800401E3)
-  DATEV SDD (Kontakte): Available
-  DATEV SDD available - contacts accessible (CTI not yet available)
+DATEV Telefonie (ROT): NICHT VERFÜGBAR
+DATEV SDD (Kontakte): Verfügbar
+DATEV SDD verfügbar - Kontakte erreichbar (CTI noch nicht verfügbar)
 ```
 
 ---
@@ -171,14 +169,12 @@ Messages are prefixed for structured filtering:
 
 | Prefix | Description | Example |
 |--------|-------------|---------|
-| `DATEV -> Bridge` | Commands from DATEV | `DATEV -> Bridge: Dial command received` |
-| `Connector -> DATEV` | Notifications to DATEV | `Connector -> DATEV: NewCall (Direction=eDirIncoming)` |
-| `TAPI` | TAPI call events | `TAPI: LINECALLSTATE_OFFERING on line 161` |
-| `Connector` | Internal connector operations | `Connector: Added call 161-04022026-1430-1234567` |
-| `Config` | Configuration changes | `Config: VerboseLogging changed to true` |
-| `Cache` | Contact cache operations | `Cache: 19421 contacts loaded` |
-| `CircuitBreaker` | Circuit breaker state | `CircuitBreaker: OPEN after 3 failures` |
-| `Session` | Session management | `Session: Id=2, IsTerminalSession=true` |
+| `DATEV -> Bridge` | Commands from DATEV | `DATEV -> Bridge: Wählen-Befehl empfangen (CallID=... zugewiesen)` |
+| `DATEV:` | Notifications to DATEV | `DATEV: NewCall (CallId=..., Direction=eDirIncoming)` |
+| `TAPI:` | TAPI call events | `TAPI: LINECALLSTATE_OFFERING on line 161` |
+| `Connector:` | Internal connector operations | `Connector: Added call 161-04022026-1430-1234567` |
+| `[DATEV] Circuit:` | Circuit breaker state | `[DATEV] Circuit: Closed -> Open (failures=3/3, retry in 30s)` |
+| `Terminal Server (TAPI):` | Session management | `Terminal Server (TAPI): Ja` |
 | `ERROR` | Error conditions | `ERROR: DATEV COM call failed: 0x80040154` |
 
 ---
@@ -196,21 +192,22 @@ Messages are prefixed for structured filtering:
 
 **Check DATEV:**
 
-1. Search log for `DATEV Connection Test`
-2. Expected: `DATEV available - all components detected`
-3. If `NOT AVAILABLE`: DATEV Arbeitsplatz not running or not reachable
+1. Search log for `DATEV Konnektivitätstest`
+2. Expected: `DATEV Alle Komponente Verfügbar`
+3. If `NICHT VERFÜGBAR`: DATEV Arbeitsplatz not running or not reachable
 
 **Check Named Pipe (Terminal Server):**
 
 1. Search for `PipeServer` messages
-2. Expected: `PipeServer: Listening on \\.\pipe\3CX_tsp_server_161`
-3. If `3CX Softphone not connected`: Pipe created but 3CX client hasn't connected
+2. Expected: `PipeServer: Starte auf \\.\pipe\3CX_tsp_server_161`
+3. Then: `PipeServer: 3CX Softphone verbunden`
+4. If only `Pipe erstellt, warte auf 3CX Softphone Verbindung...`: Pipe created but 3CX client hasn't connected
 
 ### Issue: No Contacts Loaded
 
 ```
-[WARNING] Loading contacts from DATEV SDD...
-[ERROR] SDD load failed: Could not load assembly
+[INFO] Kontakte werden von DATEV Stamm Daten Dienst (SDD) geladen...
+[ERROR] Kontakte konnten nicht von DATEV SDD geladen werden
 ```
 
 **Possible causes:**
@@ -221,28 +218,27 @@ Messages are prefixed for structured filtering:
 **Expected success log:**
 
 ```
-[INFO] Loading contacts from DATEV SDD...
-[INFO] Loaded 19421 contacts from DATEV SDD
-[INFO] 3CXDatevConnector: Contact lookup dictionary built with 24251 unique phone number keys
+[INFO] Kontakte werden von DATEV SDD geladen...
+[INFO] Kontakte geladen: 19421 Kontakte, 24251 Telefonnummern-Schlüssel
 ```
 
 ### Issue: Calls Detected but No DATEV Notification
 
-1. Search log for `Connector -> DATEV: NewCall`
+1. Search log for `DATEV: NewCall`
 2. If present: DATEV notification was sent
-3. If missing, search for `CircuitBreaker`:
+3. If missing, search for `Circuit-Breaker`:
    ```
-   [WARNING] CircuitBreaker: OPEN - skipping DATEV notification
+   [INFO] Benachrichtigung 'NewCall' übersprungen - DATEV Circuit-Breaker offen
    ```
 4. The circuit breaker opens after 3 consecutive failures. Wait for timeout (default: 30s) or restart the bridge
 
 ### Issue: Contact Not Found for Known Number
 
 1. Enable debug logging (`VerboseLogging=true`)
-2. Search for `Contact lookup`:
+2. Search for `Kontaktsuche`:
    ```
-   [INFO] Bridge: Contact lookup - Input='********4567' Normalized='*****45678'
-   [INFO] Bridge: Contact lookup - No match found
+   [INFO] Connector: Kontaktsuche - Eingabe='********4567' Normalisiert='*****45678'
+   [INFO] Connector: Kontaktsuche - Keine Übereinstimmung gefunden
    ```
 3. Check normalization: Input is stripped to last `MaxCompareLength` digits
 4. Dump all contacts: Add `Contacts=true` to `[Debug]` section, then check `contacts.txt`
@@ -250,16 +246,15 @@ Messages are prefixed for structured filtering:
 
 ### Issue: SyncID Lost on DATEV-Initiated Calls
 
-1. Search log for `DATEV -> Bridge: Dial`:
+1. Search log for `DATEV -> Bridge: Wählen-Befehl`:
    ```
-   [INFO] DATEV -> Bridge: Dial command received
-   [DEBUG]   CalledNumber=********4567, Adressatenname=Mueller GmbH, SyncID=datev-456
+   [INFO] DATEV -> Bridge: Wählen-Befehl empfangen (CallID=... zugewiesen)
    ```
-2. Search for `DATEV-initiated`:
+2. Search for `DATEV-initiierter`:
    ```
-   [INFO] RINGBACK: Outgoing call ... to ********4567 (DATEV-initiated, SyncID=datev-456)
+   [INFO] Connector: DATEV-initiierter ausgehender Anruf ... an ********4567 (SyncID=datev-456, Kontakt=Mueller GmbH)
    ```
-3. If SyncID is missing in RINGBACK: The pending call wasn't matched by phone number. Check normalization.
+3. If SyncID is missing: The pending call wasn't matched by phone number. Check normalization.
 
 ### Issue: Journal Popup Not Appearing
 
@@ -275,7 +270,7 @@ Messages are prefixed for structured filtering:
 ### Desktop (Single User)
 
 ```
-Terminal Server = False
+Terminal Server (TAPI): Nein
 ```
 
 - TAPI line monitor connects directly
@@ -285,7 +280,7 @@ Terminal Server = False
 ### Terminal Server / RDS (Multi-User)
 
 ```
-Terminal Server = True
+Terminal Server (TAPI): Ja
 ```
 
 - Named Pipe server is created first (3CX polls every 2 seconds)
@@ -300,10 +295,9 @@ Terminal Server = True
 The `SessionManager` logs session details at startup:
 
 ```
-[INFO] Terminal Server = True
+[INFO] Terminal Server (TAPI): Ja
 [INFO] ========================================
 [INFO] 3CX - DATEV Connector starting (Extension=161)
-[INFO] Mode: Terminal Server (Named Pipe)
 ```
 
 ---
@@ -322,8 +316,8 @@ CLOSED  ──failure──>  OPEN  ──timeout──>  HALF-OPEN
 | State | Behavior | Log Message |
 |-------|----------|-------------|
 | **Closed** | All DATEV notifications pass through | (normal operation) |
-| **Open** | Notifications fail fast without calling DATEV | `CircuitBreaker: OPEN - skipping notification` |
-| **Half-Open** | One test notification allowed through | `CircuitBreaker: HALF-OPEN - testing` |
+| **Open** | Notifications fail fast without calling DATEV | `Benachrichtigung '...' übersprungen - DATEV Circuit-Breaker offen` |
+| **Half-Open** | One test notification allowed through | `[DATEV] Circuit: Open -> HalfOpen` |
 
 **Configuration:**
 
@@ -358,7 +352,6 @@ All numeric settings are clamped to safe ranges on reload:
 | Setting | Range |
 |---------|-------|
 | `ReconnectIntervalSeconds` | 1–300 |
-| `ConnectionTimeoutSeconds` | 5–300 |
 | `DatevCircuitBreakerThreshold` | 1–10 |
 | `StaleCallTimeoutMinutes` | 30–1440 |
 | `ContactReshowDelaySeconds` | 0–30 |
@@ -391,64 +384,60 @@ Files are written to `%AppData%\3CXDATEVConnector\`:
 ### Healthy Startup
 
 ```
-[INFO] Terminal Server = False
+[INFO] Terminal Server (TAPI): Nein
 [INFO] ========================================
 [INFO] 3CX - DATEV Connector starting (Extension=161)
-[INFO] === DATEV Connection Test ===
-[INFO]   DATEV Telefonie (ROT): Available
-[INFO]   DATEV SDD (Kontakte): Available
-[INFO]   DATEV available - all components detected
-[INFO] =============================
+[INFO] ========================================
+[INFO] DATEV Konnektivitätstest
+[INFO] ========================================
+[INFO] DATEV Telefonie (ROT): Verfügbar
+[INFO] DATEV SDD (Kontakte): Verfügbar
+[INFO] DATEV Alle Komponente Verfügbar
 [INFO] TAPI line monitor connected: 161 : Max Mustermann
 [INFO] Extension auto-detected from 3CX TAPI: 161
-[INFO] Loading contacts from DATEV SDD...
-[INFO] Loaded 19421 contacts from DATEV SDD
-[INFO] 3CXDatevConnector: Contact lookup dictionary built with 24251 unique phone number keys
+[INFO] Kontakte werden von DATEV SDD geladen...
+[INFO] Kontakte geladen: 19421 Kontakte, 24251 Telefonnummern-Schlüssel
 ```
 
 ### Incoming Call (Full Lifecycle)
 
 ```
-[INFO] RINGING: Incoming call 161-04022026-1430-0912387 from ********4567 (contact=Mueller GmbH)
-[INFO] Connector -> DATEV: NewCall (Direction=eDirIncoming, Contact=Mueller GmbH)
-[INFO] CONNECTED: Call 161-04022026-1430-0912387
-[INFO] Connector -> DATEV: CallStateChanged (State=eCSConnected)
-[INFO] Contact reshow: Contact changed - new=Mueller Hans (SyncID=datev-123)
-[INFO] Connector -> DATEV: CallAdressatChanged (Contact=Mueller Hans, DataSource=DATEV_Adressaten)
-[INFO] DISCONNECTED: Call 161-04022026-1430-0912387
-[INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
-[INFO] Connector -> DATEV: NewJournal (Duration=00:05:23, Contact=Mueller Hans)
+[INFO] Connector: Eingehender Anruf 161-04022026-1430-0912387 von ********4567 (Kontakt=Mueller GmbH)
+[INFO] DATEV: NewCall (CallId=161-04022026-1430-0912387, Direction=eDirIncoming, Number=********4567, Contact=Mueller GmbH, DataSource=DATEV_Adressaten)
+[INFO] Connector: Call 161-04022026-1430-0912387
+[INFO] DATEV: CallStateChanged (CallId=161-04022026-1430-0912387, State=eCSConnected)
+[INFO] Kontaktauswahl: Kontakt geändert für Anruf 161-04022026-1430-0912387 - neu=Mueller Hans (SyncID=datev-123)
+[INFO] DATEV: CallAdressatChanged (CallId=161-04022026-1430-0912387, Contact=Mueller Hans, DataSource=DATEV_Adressaten)
+[INFO] Connector: Call 161-04022026-1430-0912387 (wasConnected=True, duration=00:05:23)
+[INFO] DATEV: CallStateChanged (CallId=161-04022026-1430-0912387, State=eCSFinished)
+[INFO] DATEV: NewJournal (CallId=161-04022026-1430-0912387, Duration=00:05:23, Contact=Mueller Hans, DataSource=DATEV_Adressaten, Number=********4567)
 ```
 
 ### Click-to-Dial from DATEV
 
 ```
-[INFO] DATEV -> Bridge: Dial command received
-[DEBUG]   CalledNumber=********4567, Adressatenname=Mueller GmbH, SyncID=datev-456
-[INFO] DATEV Dial: Pending call stored for ********4567 (SyncID=datev-456)
-[INFO] DATEV Dial: MAKE-CALL sent for ********4567
-[INFO] RINGBACK: Outgoing call 161-04022026-1435-4829173 to ********4567 (DATEV-initiated, SyncID=datev-456)
-[INFO] Connector -> DATEV: NewCall (Direction=eDirOutgoing, SyncID=datev-456)
-[INFO] CONNECTED: Call 161-04022026-1435-4829173
-[INFO] Connector -> DATEV: CallStateChanged (State=eCSConnected)
-[INFO] DISCONNECTED: Call 161-04022026-1435-4829173
-[INFO] Connector -> DATEV: CallStateChanged (State=eCSFinished)
+[INFO] DATEV -> Bridge: Wählen-Befehl empfangen (CallID=161-04022026-1435-4829173 zugewiesen)
+[INFO] Connector: Ausstehender Anruf hinzugefügt 161-04022026-1435-4829173
+[INFO] PipeConnectionMethod: MAKE-CALL gesendet OK - ********4567 (reqId=1)
+[INFO] Connector: DATEV-initiierter ausgehender Anruf 161-04022026-1435-4829173 an ********4567 (SyncID=datev-456, Kontakt=Mueller GmbH)
+[INFO] DATEV: NewCall (CallId=161-04022026-1435-4829173, Direction=eDirOutgoing, Number=********4567, Contact=Mueller GmbH, DataSource=DATEV_Adressaten)
+[INFO] Connector: Call 161-04022026-1435-4829173
+[INFO] DATEV: CallStateChanged (CallId=161-04022026-1435-4829173, State=eCSConnected)
+[INFO] Connector: Call 161-04022026-1435-4829173 (wasConnected=True, duration=00:03:12)
+[INFO] DATEV: CallStateChanged (CallId=161-04022026-1435-4829173, State=eCSFinished)
 ```
 
 ### WebClient Extension Disconnect
 
 ```
-[INFO] WebClient Connector: Close frame received from extension
-[INFO] WebClient Connector: Extension disconnected
-[INFO] Connector status: Disconnected
+[INFO] WebClient Connector: Close-Frame empfangen
+[INFO] WebClient Connector: Erweiterung getrennt
 ```
 
 After disconnect, the connector enters a reconnect loop, waiting for the extension to reconnect:
 
 ```
-[INFO] WebClient: Warte auf Erweiterung (WebSocket)...
-[INFO] WebClient Connector: Handshake complete (extension=101)
-[INFO] Connector status: Connected
+[DEBUG] WebClient Connector: Handshake complete (extension=101)
 ```
 
 All UI forms (StatusForm, SettingsForm, tray icon) update automatically via the `StatusChanged` event. Tray balloon notifications are shown for both connect and disconnect transitions (if notifications are enabled).
@@ -457,13 +446,9 @@ All UI forms (StatusForm, SettingsForm, tray icon) update automatically via the 
 
 ```
 [ERROR] DATEV COM call failed: 0x80040154
-[WARNING] CircuitBreaker: Failure 1/3
-[ERROR] DATEV COM call failed: 0x80040154
-[WARNING] CircuitBreaker: Failure 2/3
-[ERROR] DATEV COM call failed: 0x80040154
-[WARNING] CircuitBreaker: OPEN after 3 failures (timeout=30s)
-[WARNING] CircuitBreaker: OPEN - skipping DATEV notification
+[INFO] [DATEV] Circuit: Closed -> Open (failures=3/3, retry in 30s)
+[INFO] Benachrichtigung 'NewCall' übersprungen - DATEV Circuit-Breaker offen
 ...
-[INFO] CircuitBreaker: HALF-OPEN - testing
-[INFO] CircuitBreaker: CLOSED - test successful
+[INFO] [DATEV] Circuit: Open -> HalfOpen
+[INFO] [DATEV] Circuit: HalfOpen -> Closed
 ```
