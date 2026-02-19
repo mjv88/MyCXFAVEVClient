@@ -167,43 +167,36 @@ namespace DatevConnector.Tapi
 
                 if (_lines.Count == 0)
                 {
-                    progressText?.Invoke("Keine 3CX TAPI Leitung gefunden");
-                    LogManager.Log("Keine passende TAPI Leitung gefunden");
-                    return;
+                    LogManager.Log("Keine 3CX TAPI Leitung gefunden - warte auf LINE_CREATE...");
+                    progressText?.Invoke("Warte auf 3CX Verbindung...");
+                    // Fall through to message loop — LINE_CREATE will notify us
                 }
             }
 
-            _lineManager.OpenAllLines(progressText);
-
-            int connectedCount = _lines.Values.Count(l => l.IsConnected);
-            if (connectedCount == 0)
+            if (_lines.Count > 0)
             {
-                bool is3CXRunning = SessionManager.Is3CXProcessRunning();
-                if (!is3CXRunning)
+                _lineManager.OpenAllLines(progressText);
+
+                int connectedCount = _lines.Values.Count(l => l.IsConnected);
+                if (connectedCount == 0)
                 {
+                    LogManager.Log("TAPI Leitungen gefunden aber nicht registriert - warte auf 3CX...");
                     progressText?.Invoke("Warte auf 3CX Desktop App...");
-                    LogManager.Log("TAPI Leitungen gefunden aber nicht registriert - 3CX Desktop App läuft nicht");
+                    // Fall through to message loop — LINE_CREATE will notify us
+                }
+                else if (connectedCount == 1)
+                {
+                    var line = _lines.Values.First(l => l.IsConnected);
+                    progressText?.Invoke($"3CX TAPI verbunden (Nst: {line.Extension})");
+                    SafeInvokeEvent(Connected);
                 }
                 else
                 {
-                    progressText?.Invoke("Keine Leitung konnte geöffnet werden");
-                    LogManager.Log("Keine TAPI Leitung konnte geöffnet werden");
+                    var extensions = string.Join(", ", _lines.Values.Where(l => l.IsConnected).Select(l => l.Extension));
+                    progressText?.Invoke($"{connectedCount} Leitungen verbunden (Nst: {extensions})");
+                    SafeInvokeEvent(Connected);
                 }
-                return;
             }
-
-            if (connectedCount == 1)
-            {
-                var line = _lines.Values.First(l => l.IsConnected);
-                progressText?.Invoke($"3CX TAPI verbunden (Nst: {line.Extension})");
-            }
-            else
-            {
-                var extensions = string.Join(", ", _lines.Values.Where(l => l.IsConnected).Select(l => l.Extension));
-                progressText?.Invoke($"{connectedCount} Leitungen verbunden (Nst: {extensions})");
-            }
-
-            SafeInvokeEvent(Connected);
 
             await Task.Run(() => MessageLoop(cancellationToken), cancellationToken);
         }
@@ -290,6 +283,10 @@ namespace DatevConnector.Tapi
                     HandleLineClose(msg.hDevice);
                     break;
 
+                case LINE_CREATE:
+                    HandleLineCreate((int)msg.dwParam1.ToInt64());
+                    break;
+
                 case LINE_REPLY:
                     HandleReply((int)msg.dwParam1, (int)msg.dwParam2);
                     break;
@@ -299,6 +296,31 @@ namespace DatevConnector.Tapi
                         msg.dwMessageID, msg.hDevice.ToInt64(),
                         msg.dwParam1.ToInt64(), msg.dwParam2.ToInt64());
                     break;
+            }
+        }
+
+        private void HandleLineCreate(int deviceId)
+        {
+            LogManager.Log("TAPI: LINE_CREATE empfangen für Gerät {0}", deviceId);
+
+            var lineInfo = _initializer.TryAddDevice(deviceId, _lines);
+            if (lineInfo == null)
+            {
+                LogManager.Debug("TAPI: Gerät {0} passt nicht zum Filter - ignoriert", deviceId);
+                return;
+            }
+
+            LogManager.Log("TAPI: Neue 3CX Leitung erkannt: {0} (Nst: {1})", lineInfo.LineName, lineInfo.Extension);
+
+            if (_lineManager.OpenSingleLine(lineInfo))
+            {
+                bool wasDisconnected = !_lines.Values.Any(l => l.IsConnected && l.DeviceId != deviceId);
+                if (wasDisconnected)
+                {
+                    LogManager.Log("TAPI: Erste Leitung verbunden - Connected");
+                    SafeInvokeEvent(Connected);
+                }
+                SafeInvokeEvent(LineConnected, lineInfo);
             }
         }
 

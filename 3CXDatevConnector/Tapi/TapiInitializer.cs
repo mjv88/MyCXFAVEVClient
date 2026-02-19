@@ -168,6 +168,43 @@ namespace DatevConnector.Tapi
             return null;
         }
 
+        /// <summary>
+        /// Probe a single device and add to lines if it matches the filter.
+        /// Returns the TapiLineInfo if matched, null otherwise.
+        /// Called by LINE_CREATE handler for dynamically appearing devices.
+        /// </summary>
+        public TapiLineInfo TryAddDevice(int deviceId, ConcurrentDictionary<int, TapiLineInfo> lines)
+        {
+            LINEEXTENSIONID extensionId;
+            int negotiatedVersion;
+            int result = lineNegotiateAPIVersion(
+                LineAppHandle, deviceId, TAPI_VERSION_1_0, TAPI_VERSION_2_2,
+                out negotiatedVersion, out extensionId);
+            if (result != LINEERR_OK) return null;
+
+            string lineName = GetLineName(deviceId, negotiatedVersion);
+            if (lineName == null) return null;
+
+            bool matches = string.IsNullOrEmpty(_lineNameFilter) ||
+                           lineName.IndexOf(_lineNameFilter, StringComparison.OrdinalIgnoreCase) >= 0;
+            string ext = TapiLineInfo.ParseExtension(lineName);
+
+            if (matches && !string.IsNullOrEmpty(_extensionFilter) && ext != _extensionFilter)
+                return null;
+
+            if (!matches) return null;
+
+            var info = new TapiLineInfo
+            {
+                DeviceId = deviceId,
+                LineName = lineName,
+                Extension = ext,
+                ApiVersion = negotiatedVersion
+            };
+            lines[deviceId] = info;
+            return info;
+        }
+
         public void Shutdown(ConcurrentDictionary<int, TapiLineInfo> lines, ConcurrentDictionary<IntPtr, TapiLineInfo> linesByHandle)
         {
             foreach (var line in lines.Values)

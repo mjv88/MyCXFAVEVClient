@@ -205,25 +205,31 @@ namespace DatevConnector.Core
             // ── Step 4: Telephony connection ─────────────────────────────
             if (!selectionResult.Success)
             {
-                // No provider detected — log diagnostics and wait for wizard
+                // No provider detected — log diagnostics line by line
                 LogManager.Warning("========================================");
                 LogManager.Warning("  Kein Connector erkannt!");
                 LogManager.Warning("========================================");
-                LogManager.Warning(selectionResult.DiagnosticSummary ?? "Keine Diagnoseinformationen verfügbar");
+                var summary = selectionResult.DiagnosticSummary ?? "Keine Diagnoseinformationen verfügbar";
+                foreach (var line in summary.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    LogManager.Warning(line);
                 Status = ConnectorStatus.Disconnected;
-                return;
+                // Fall through to retry loop — provider may become available later
             }
 
-            if (isPipeMode)
+            if (isPipeMode && selectionResult.Success)
             {
                 // Pipe server already running — await it
                 await _pipeServerTask;
             }
             else
             {
-                LogManager.Log("========================================");
-                LogManager.Log("  3CX Telefonie Modus ({0})", _selectedMode);
-                LogManager.Log("========================================");
+                if (selectionResult.Success)
+                {
+                    LogManager.Log("========================================");
+                    LogManager.Log("  3CX Telefonie Modus ({0})", _selectedMode);
+                    LogManager.Log("========================================");
+                }
+                // Start retry loop (with initial provider if available, or auto-detect from scratch)
                 _connectRetryTask = ConnectWithRetryAsync(_cts.Token, selectionResult.Provider);
                 await _connectRetryTask;
             }
@@ -401,25 +407,39 @@ namespace DatevConnector.Core
 
                         if (_configuredConnectionMode == ConnectionMode.Auto)
                         {
-                            var autoSelection = await ConnectionMethodSelector.SelectProviderAsync(_extension, cancellationToken);
-                            if (autoSelection.Success)
+                            bool tapiInstalled = TapiConfigReader.IsTapiInstalled();
+
+                            if (tapiInstalled && !SessionManager.IsTerminalSession)
                             {
-                                if (_selectedMode != autoSelection.SelectedMode)
-                                {
-                                    LogManager.Log("Auto-Modus Connector für Verbindungszyklus gewählt: {0} -> {1} (Grund: {2})",
-                                        _selectedMode, autoSelection.SelectedMode, autoSelection.Reason);
-                                }
-                                _selectedMode = autoSelection.SelectedMode;
-                                _detectionDiagnostics = autoSelection.DiagnosticSummary;
-                                providerToUse = autoSelection.Provider;
+                                // Desktop: TAPI listens passively (LINE_CREATE if no lines yet)
+                                providerToUse = new TapiLineMonitor(lineFilter, _extension);
+                                _selectedMode = ConnectionMode.Desktop;
+                                LogManager.Log("Auto-Erkennung: Desktop (TAPI) - passiver Listener");
                             }
-                            else
+                            else if (tapiInstalled && SessionManager.IsTerminalSession)
                             {
-                                LogManager.Log("Auto-Modus hat keinen verfügbaren Connector gefunden; erneuter Versuch in {0} Sekunden", reconnectInterval);
+                                // Terminal Server: Pipe waits for softphone
+                                providerToUse = new PipeConnectionMethod(_extension);
+                                _selectedMode = ConnectionMode.TerminalServer;
+                                LogManager.Log("Auto-Erkennung: Terminal Server - passiver Listener");
+                            }
+                            else if (AppConfig.GetBool(ConfigKeys.WebclientEnabled, true))
+                            {
+                                // No TAPI: WebClient waits for browser extension
+                                providerToUse = new WebclientConnectionMethod(_extension);
+                                _selectedMode = ConnectionMode.WebClient;
+                                LogManager.Log("Auto-Erkennung: WebClient - passiver Listener");
+                            }
+
+                            if (providerToUse == null)
+                            {
+                                LogManager.Log("Auto-Erkennung: Kein Connector verfügbar");
                                 Status = ConnectorStatus.Disconnected;
                                 await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
                                 continue;
                             }
+
+                            _detectionDiagnostics = string.Format("Auto-Erkennung: {0} (passiv)", _selectedMode);
                         }
                         else
                         {
