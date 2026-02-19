@@ -201,14 +201,14 @@ namespace DatevConnector.UI
             _lblDatevProgress.Visible = false;
             datevCard.Controls.Add(_lblDatevProgress);
 
-            // Buttons aligned to the right
+            // Buttons aligned to the bottom-right, Test rightmost
             _btnReloadContacts = UITheme.CreateSecondaryButton(UIStrings.Labels.Load, btnWidth);
-            _btnReloadContacts.Location = new Point(cardWidth - 12 - btnWidth, 40);
+            _btnReloadContacts.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 74);
             _btnReloadContacts.Click += BtnReloadContacts_Click;
             datevCard.Controls.Add(_btnReloadContacts);
 
             _btnTestDatev = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
-            _btnTestDatev.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 40);
+            _btnTestDatev.Location = new Point(cardWidth - 12 - btnWidth, 74);
             _btnTestDatev.Click += BtnTestDatev_Click;
             datevCard.Controls.Add(_btnTestDatev);
 
@@ -261,9 +261,9 @@ namespace DatevConnector.UI
             _lblBridgeProgress.Visible = false;
             bridgeCard.Controls.Add(_lblBridgeProgress);
 
-            // Button aligned to the right
+            // Button aligned to the bottom-right
             _btnReconnectAll = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
-            _btnReconnectAll.Location = new Point(cardWidth - 12 - btnWidth, 40);
+            _btnReconnectAll.Location = new Point(cardWidth - 12 - btnWidth, 74);
             _btnReconnectAll.Click += BtnReconnectAll_Click;
             bridgeCard.Controls.Add(_btnReconnectAll);
 

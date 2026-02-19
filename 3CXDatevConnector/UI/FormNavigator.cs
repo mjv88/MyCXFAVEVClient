@@ -69,6 +69,8 @@ namespace DatevConnector.UI
                 SaveLocationAndClear(f);
                 if (f?.RequestedAction == SettingsForm.Action.Status)
                     _owner.BeginInvoke(new Action(ShowStatus));
+                else if (f?.RequestedAction == SettingsForm.Action.CallHistory)
+                    _owner.BeginInvoke(new Action(ShowCallHistory));
             };
             form.FormClosed += handler;
             ShowMainForm(form);
@@ -94,6 +96,8 @@ namespace DatevConnector.UI
                 SaveLocationAndClear(f);
                 if (f?.RequestedAction == CallHistoryForm.Action.Back)
                     _owner.BeginInvoke(new Action(ShowStatus));
+                else if (f?.RequestedAction == CallHistoryForm.Action.Settings)
+                    _owner.BeginInvoke(new Action(ShowSettings));
             };
             form.FormClosed += handler;
             ShowMainForm(form);

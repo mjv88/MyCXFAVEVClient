@@ -303,7 +303,7 @@ namespace DatevConnector.UI.Strings
             public const string Number = "Nummer";
             public const string Contact = Labels.Contact;
             public const string Duration = "Dauer";
-            public const string Journal = "Notiz";
+            public const string Journal = "Journal";
             public const string JournalSent = "\u2713 Ja";
             public const string JournalPending = "Offen";
             public const string JournalNone = "\u2014";

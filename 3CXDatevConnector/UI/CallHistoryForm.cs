@@ -15,13 +15,14 @@ namespace DatevConnector.UI
     /// </summary>
     public class CallHistoryForm : ThemedForm
     {
-        public enum Action { None, Back }
+        public enum Action { None, Back, Settings }
 
         private ListView _lstInbound;
         private ListView _lstOutbound;
         private Button _btnJournal;
         private Button _btnRefresh;
         private Button _btnBack;
+        private Button _btnSettings;
         private Label _lblInbound;
         private Label _lblOutbound;
         private Timer _autoRefreshTimer;
@@ -131,6 +132,14 @@ namespace DatevConnector.UI
             };
             Controls.Add(_btnBack);
 
+            _btnSettings = UITheme.CreateSecondaryButton(UIStrings.Labels.Settings, BtnWidth);
+            _btnSettings.Click += (s, e) =>
+            {
+                RequestedAction = Action.Settings;
+                Close();
+            };
+            Controls.Add(_btnSettings);
+
             _btnJournal = UITheme.CreatePrimaryButton(UIStrings.CallHistory.Journal, JournalBtnWidth);
             _btnJournal.Enabled = false;
             _btnJournal.Click += BtnJournal_Click;
@@ -219,6 +228,7 @@ namespace DatevConnector.UI
             // Buttons
             _btnRefresh.Location = new Point(FormPadding, y);
             _btnBack.Location = new Point(FormPadding + BtnWidth + BtnSpacing, y);
+            _btnSettings.Location = new Point(FormPadding + (BtnWidth + BtnSpacing) * 2, y);
             _btnJournal.Location = new Point(cw - FormPadding - JournalBtnWidth, y);
         }
 

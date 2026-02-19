@@ -65,7 +65,7 @@ namespace DatevConnector.UI.Theme
             // Draw accent stripe at top (clipped to rounded corners)
             if (_accentColor != Color.Empty)
             {
-                var stripeRect = new Rectangle(1, 1, Width - 3, AccentStripeHeight);
+                var stripeRect = new Rectangle(1, 0, Width - 3, AccentStripeHeight);
                 using (var clipPath = CreateRoundedRect(bounds, _cornerRadius))
                 {
                     var oldClip = g.Clip;

@@ -81,13 +81,13 @@ namespace DatevConnector.UI
             card.Controls.Add(_lblMode);
 
             _btnReconnect = UITheme.CreateSecondaryButton(UIStrings.Labels.Connect, btnWidth);
-            _btnReconnect.Location = new Point(cardWidth - 12 - btnWidth, 58);
+            _btnReconnect.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 74);
             _btnReconnect.Click += BtnReconnect_Click;
             _btnReconnect.Enabled = !tapiOk;
             card.Controls.Add(_btnReconnect);
 
             _btnTest = UITheme.CreateSecondaryButton(UIStrings.Labels.Test, btnWidth);
-            _btnTest.Location = new Point(cardWidth - 12 - btnWidth - btnSpacing - btnWidth, 58);
+            _btnTest.Location = new Point(cardWidth - 12 - btnWidth, 74);
             _btnTest.Click += BtnTest_Click;
             card.Controls.Add(_btnTest);
 

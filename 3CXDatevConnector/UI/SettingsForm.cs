@@ -16,7 +16,7 @@ namespace DatevConnector.UI
     /// </summary>
     public class SettingsForm : ThemedForm
     {
-        public enum Action { None, Status }
+        public enum Action { None, Status, CallHistory }
 
         public Action RequestedAction { get; private set; }
 
@@ -175,6 +175,15 @@ namespace DatevConnector.UI
                 Close();
             };
 
+            // Call History button (next to Status)
+            var btnCallHistory = UITheme.CreateSecondaryButton(UIStrings.Labels.CallHistory, btnWidth);
+            btnCallHistory.Location = new Point(btnMargin + btnWidth + btnSpacing, 8);
+            btnCallHistory.Click += (s, e) =>
+            {
+                RequestedAction = Action.CallHistory;
+                Close();
+            };
+
             // Dialog buttons (right side, properly aligned)
             _btnSave = UITheme.CreatePrimaryButton(UIStrings.Labels.Save, btnWidth);
             _btnSave.Location = new Point(formWidth - btnMargin - btnWidth, 8);
@@ -185,7 +194,7 @@ namespace DatevConnector.UI
             _btnCancel.DialogResult = DialogResult.Cancel;
             _btnCancel.Click += (s, e) => Close();
 
-            buttonPanel.Controls.AddRange(new Control[] { _btnStatus, _btnCancel, _btnSave });
+            buttonPanel.Controls.AddRange(new Control[] { _btnStatus, btnCallHistory, _btnCancel, _btnSave });
 
             Controls.Add(root);
             Controls.Add(buttonPanel);
