@@ -73,6 +73,16 @@ namespace DatevConnector.UI
             _btnNext.Click += BtnNext_Click;
             Controls.Add(_btnNext);
 
+            // Subscribe to live status updates from the connector
+            if (_bridgeService != null)
+                _bridgeService.StatusChanged += OnConnectorStatusChanged;
+
+            FormClosed += (s, e) =>
+            {
+                if (_bridgeService != null)
+                    _bridgeService.StatusChanged -= OnConnectorStatusChanged;
+            };
+
             ShowStep(_currentStep);
         }
 
@@ -633,6 +643,49 @@ namespace DatevConnector.UI
             }
 
             return lines.ToString();
+        }
+
+        // ========== LIVE STATUS UPDATES ==========
+
+        private void OnConnectorStatusChanged(ConnectorStatus status)
+        {
+            if (_currentStep != 2 || _lblTapiStatus == null) return;
+
+            BeginInvoke(new Action(() =>
+            {
+                if (_lblTapiStatus == null || _lblTapiStatus.IsDisposed) return;
+
+                var mode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
+                bool connected = status == ConnectorStatus.Connected;
+                string ext = _bridgeService?.Extension;
+
+                if (connected && !string.IsNullOrEmpty(ext))
+                {
+                    _lblTapiStatus.Text = string.Format("Verbunden - Nebenstelle: {0}", ext);
+                    _lblTapiStatus.ForeColor = UITheme.StatusOk;
+                }
+                else if (connected)
+                {
+                    switch (mode)
+                    {
+                        case ConnectionMode.WebClient:
+                            _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
+                            break;
+                        case ConnectionMode.TerminalServer:
+                            _lblTapiStatus.Text = UIStrings.Wizard.PipeConnected;
+                            break;
+                        default:
+                            _lblTapiStatus.Text = UIStrings.Status.Connected;
+                            break;
+                    }
+                    _lblTapiStatus.ForeColor = UITheme.StatusOk;
+                }
+                else if (status == ConnectorStatus.Connecting)
+                {
+                    _lblTapiStatus.Text = UIStrings.Messages.ConnectingTapi;
+                    _lblTapiStatus.ForeColor = UITheme.StatusWarn;
+                }
+            }));
         }
 
         // ========== NAVIGATION ==========
