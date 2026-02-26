@@ -25,6 +25,7 @@ namespace DatevConnector.Tapi
         // Sentinel handle to mark the virtual line as "connected"
         // (TapiLineInfo.IsConnected checks Handle != IntPtr.Zero)
         private static readonly IntPtr PipeConnectedHandle = new IntPtr(-2);
+        private static int _numericCallIdCounter;
 
         private readonly string _extension;
         private TapiPipeServer _server;
@@ -118,7 +119,7 @@ namespace DatevConnector.Tapi
             {
                 _connected = false;
                 SetLineDisconnected();
-                Disconnected?.Invoke();
+                EventHelper.SafeInvoke(Disconnected, "PipeConnectionMethod.Disconnected");
             }
         }
 
@@ -129,8 +130,8 @@ namespace DatevConnector.Tapi
 
             LogManager.Log("PipeConnectionMethod: 3CX Softphone verbunden");
 
-            LineConnected?.Invoke(_virtualLine);
-            Connected?.Invoke();
+            EventHelper.SafeInvoke(LineConnected, _virtualLine, "PipeConnectionMethod.LineConnected");
+            EventHelper.SafeInvoke(Connected, "PipeConnectionMethod.Connected");
         }
 
         private void OnServerClientDisconnected()
@@ -141,7 +142,7 @@ namespace DatevConnector.Tapi
 
             LogManager.Log("PipeConnectionMethod: 3CX Softphone getrennt, warte auf Neuverbindung...");
 
-            LineDisconnected?.Invoke(_virtualLine);
+            EventHelper.SafeInvoke(LineDisconnected, _virtualLine, "PipeConnectionMethod.LineDisconnected");
             // Don't fire Disconnected — the server loop keeps running
             // and will accept the next connection automatically
         }
@@ -229,7 +230,7 @@ namespace DatevConnector.Tapi
             {
                 CallHandle = IntPtr.Zero,
                 LineHandle = IntPtr.Zero,
-                CallId = Math.Abs(pipeCallId.GetHashCode()),
+                CallId = Interlocked.Increment(ref _numericCallIdCounter),
                 Extension = _extension,
                 Origin = DetermineOrigin(msg, callState)
             });
@@ -410,7 +411,7 @@ namespace DatevConnector.Tapi
             if (_virtualLine != null && _virtualLine.IsConnected)
             {
                 _virtualLine.Handle = IntPtr.Zero;
-                LineDisconnected?.Invoke(_virtualLine);
+                EventHelper.SafeInvoke(LineDisconnected, _virtualLine, "PipeConnectionMethod.LineDisconnected");
             }
         }
 

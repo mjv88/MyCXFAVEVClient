@@ -22,12 +22,14 @@ namespace DatevConnector.Webclient
     {
         // Sentinel handle for the virtual line
         private static readonly IntPtr WebclientConnectedHandle = new IntPtr(-3);
+        private static int _numericCallIdCounter;
 
         private string _extension;
         private readonly int _connectTimeoutSec;
         private readonly int _wsPort;
         private volatile bool _disposed;
         private volatile bool _connected;
+        private volatile bool _disconnectedFired;
 
         // Virtual line representing the webclient connection
         private TapiLineInfo _virtualLine;
@@ -89,9 +91,13 @@ namespace DatevConnector.Webclient
             if (_virtualLine != null && _virtualLine.IsConnected)
             {
                 _virtualLine.Handle = IntPtr.Zero;
-                LineDisconnected?.Invoke(_virtualLine);
+                EventHelper.SafeInvoke(LineDisconnected, _virtualLine, "WebclientConnectionMethod.LineDisconnected");
             }
-            Disconnected?.Invoke();
+            if (!_disconnectedFired)
+            {
+                _disconnectedFired = true;
+                EventHelper.SafeInvoke(Disconnected, "WebclientConnectionMethod.Disconnected");
+            }
         }
 
         private async Task StartWebSocketAsync(CancellationToken cancellationToken, Action<string> progressText)
@@ -170,6 +176,7 @@ namespace DatevConnector.Webclient
         private void OnHelloReceived(string ext, Action<string> progressText)
         {
             _connected = true;
+            _disconnectedFired = false;
             _virtualLine.Handle = WebclientConnectedHandle;
 
             if (!string.IsNullOrEmpty(ext) && string.IsNullOrEmpty(_extension))
@@ -183,12 +190,15 @@ namespace DatevConnector.Webclient
             LogManager.Debug("WebClient Connector: Handshake complete (extension={0})", ext);
             progressText?.Invoke("WebClient: Verbunden (" + (ext ?? _extension) + ")");
 
-            LineConnected?.Invoke(_virtualLine);
-            Connected?.Invoke();
+            EventHelper.SafeInvoke(LineConnected, _virtualLine, "WebclientConnectionMethod.LineConnected");
+            EventHelper.SafeInvoke(Connected, "WebclientConnectionMethod.Connected");
         }
 
         private void OnTransportDisconnected(Action<string> progressText)
         {
+            if (_disconnectedFired) return;
+            _disconnectedFired = true;
+
             _connected = false;
             _virtualLine.Handle = IntPtr.Zero;
             _activeCalls.Clear();
@@ -197,8 +207,8 @@ namespace DatevConnector.Webclient
             LogManager.Log("WebClient Connector: Erweiterung getrennt");
             progressText?.Invoke("WebClient: Erweiterung getrennt");
 
-            LineDisconnected?.Invoke(_virtualLine);
-            Disconnected?.Invoke();
+            EventHelper.SafeInvoke(LineDisconnected, _virtualLine, "WebclientConnectionMethod.LineDisconnected");
+            EventHelper.SafeInvoke(Disconnected, "WebclientConnectionMethod.Disconnected");
         }
 
         /// <summary>
@@ -324,7 +334,7 @@ namespace DatevConnector.Webclient
             }
 
             // Get or create TapiCallEvent for this call
-            int numericCallId = Math.Abs(callId.GetHashCode());
+            int numericCallId = Interlocked.Increment(ref _numericCallIdCounter);
             var callEvent = _activeCalls.GetOrAdd(callId, _ => new TapiCallEvent
             {
                 CallHandle = IntPtr.Zero,

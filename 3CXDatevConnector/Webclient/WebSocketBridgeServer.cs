@@ -27,6 +27,7 @@ namespace DatevConnector.Webclient
         private TcpListener _listener;
         private readonly object _writeLock = new object();
         private volatile bool _disposed;
+        private volatile bool _disconnectedFired;
 
         /// <summary>
         /// Groups all per-connection mutable state into a single object.
@@ -329,8 +330,9 @@ namespace DatevConnector.Webclient
                 bool wasConnected = _conn.Connected;
                 _conn.Connected = false;
                 LogManager.Log("WebClient Connector Server: Leseschleife beendet");
-                if (wasConnected)
+                if (wasConnected && !_disconnectedFired)
                 {
+                    _disconnectedFired = true;
                     try { Disconnected?.Invoke(); } catch { }
                 }
             }
@@ -530,6 +532,7 @@ namespace DatevConnector.Webclient
             _conn.Client = client;
             _conn.Stream = stream;
             _conn.Connected = true;
+            _disconnectedFired = false;
             return true;
         }
 
@@ -550,8 +553,9 @@ namespace DatevConnector.Webclient
             bool wasConnected = _conn.Connected;
             _conn.Reset();
             if (client != null) try { client.Close(); } catch { }
-            if (wasConnected)
+            if (wasConnected && !_disconnectedFired)
             {
+                _disconnectedFired = true;
                 LogManager.Log("WebClient Connector: Client getrennt");
                 Disconnected?.Invoke();
             }
