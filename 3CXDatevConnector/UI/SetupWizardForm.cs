@@ -525,33 +525,40 @@ namespace DatevConnector.UI
                     _datevOk = DatevConnectionChecker.CheckDatevAvailability();
                 });
 
-                if (_datevOk)
+                SafeInvoke(() =>
                 {
-                    _lblDatevStatus.Text = $"{UIStrings.Status.Connected}\n\n{UIStrings.Status.Available}";
-                    _lblDatevStatus.ForeColor = UITheme.StatusOk;
-
-                    // Also show contact count if available
-                    int contactCount = _bridgeService?.ContactCount ?? 0;
-                    if (contactCount > 0)
+                    if (_datevOk)
                     {
-                        _lblDatevStatus.Text += $"\n{string.Format(UIStrings.Messages.ContactsFormat, contactCount)}";
+                        _lblDatevStatus.Text = $"{UIStrings.Status.Connected}\n\n{UIStrings.Status.Available}";
+                        _lblDatevStatus.ForeColor = UITheme.StatusOk;
+
+                        // Also show contact count if available
+                        int contactCount = _bridgeService?.ContactCount ?? 0;
+                        if (contactCount > 0)
+                        {
+                            _lblDatevStatus.Text += $"\n{string.Format(UIStrings.Messages.ContactsFormat, contactCount)}";
+                        }
                     }
-                }
-                else
-                {
-                    _lblDatevStatus.Text = $"{UIStrings.Status.Unavailable}\n\n{UIStrings.Troubleshooting.DatevNotReachableDesc}";
-                    _lblDatevStatus.ForeColor = UITheme.StatusWarn;
-                }
+                    else
+                    {
+                        _lblDatevStatus.Text = $"{UIStrings.Status.Unavailable}\n\n{UIStrings.Troubleshooting.DatevNotReachableDesc}";
+                        _lblDatevStatus.ForeColor = UITheme.StatusWarn;
+                    }
+
+                    _btnNext.Enabled = true;
+                });
             }
             catch (Exception ex)
             {
                 _datevOk = false;
-                _lblDatevStatus.Text = $"{UIStrings.Errors.GenericError}: {ex.Message}";
-                _lblDatevStatus.ForeColor = UITheme.StatusBad;
                 LogManager.Log("SetupWizard: DATEV Test fehlgeschlagen - {0}", ex.Message);
+                SafeInvoke(() =>
+                {
+                    _lblDatevStatus.Text = $"{UIStrings.Errors.GenericError}: {ex.Message}";
+                    _lblDatevStatus.ForeColor = UITheme.StatusBad;
+                    _btnNext.Enabled = true;
+                });
             }
-
-            _btnNext.Enabled = true;
         }
 
         // ========== STEP 4: FINISH ==========
