@@ -34,6 +34,7 @@ namespace DatevConnector.Core
         private volatile bool _disposed;
         private Task _pipeServerTask;
         private volatile Task _connectRetryTask;
+        private Task _datevAutoDetectTask;
 
         // Settings
         private int _minCallerIdLength;
@@ -82,7 +83,12 @@ namespace DatevConnector.Core
 
         public int ConnectedLineCount => _tapiMonitor?.ConnectedLineCount ?? 0;
 
-        public bool DatevAvailable { get; private set; }
+        private volatile bool _datevAvailable;
+        public bool DatevAvailable
+        {
+            get => _datevAvailable;
+            private set => _datevAvailable = value;
+        }
 
         public void SetDatevAvailable(bool available)
         {
@@ -281,7 +287,7 @@ namespace DatevConnector.Core
 
             LogManager.Log("Start des 3CX-DATEV-Erkennungsdienst...");
 
-            Task.Run(async () =>
+            _datevAutoDetectTask = Task.Run(async () =>
             {
                 int interval = ShortInterval;
 
@@ -564,12 +570,17 @@ namespace DatevConnector.Core
             progressText?.Invoke("Warte auf Neuverbindung...");
 
             // Start retry loop if not already running (e.g. initial detection failed)
-            if (_cts != null && !_cts.Token.IsCancellationRequested &&
-                (_connectRetryTask == null || _connectRetryTask.IsCompleted))
+            var cts = _cts;
+            try
             {
-                LogManager.Log("3CX Verbindungsschleife wird gestartet");
-                _connectRetryTask = ConnectWithRetryAsync(_cts.Token);
+                if (cts != null && !cts.Token.IsCancellationRequested &&
+                    (_connectRetryTask == null || _connectRetryTask.IsCompleted))
+                {
+                    LogManager.Log("3CX Verbindungsschleife wird gestartet");
+                    _connectRetryTask = ConnectWithRetryAsync(cts.Token);
+                }
             }
+            catch (ObjectDisposedException) { }
 
             return Task.CompletedTask;
         }
