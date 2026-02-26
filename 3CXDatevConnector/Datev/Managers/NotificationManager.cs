@@ -91,7 +91,8 @@ namespace DatevConnector.Datev.Managers
             {
                 uint i = 0;
 
-                Rot.GetActiveObject(ref _clsIdDatev, ref i, out datevObj);
+                uint hr = Rot.GetActiveObject(ref _clsIdDatev, ref i, out datevObj);
+                if (hr != 0) datevObj = null;
 
                 if (datevObj == null)
                 {

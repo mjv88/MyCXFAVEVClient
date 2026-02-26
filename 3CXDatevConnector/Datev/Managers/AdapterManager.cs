@@ -20,7 +20,11 @@ namespace DatevConnector.Datev.Managers
 
                 const uint flags = 0; //ACTIVEOBJECT_STRONG
 
-                Rot.RegisterActiveObject(adapter, ref adapterGuid, flags, out _registrationId);
+                uint hr = Rot.RegisterActiveObject(adapter, ref adapterGuid, flags, out _registrationId);
+                if (hr != 0)
+                {
+                    LogManager.Warning("ROT RegisterActiveObject fehlgeschlagen: HRESULT=0x{0:X8}", hr);
+                }
 
                 _adapter = adapter;
 
