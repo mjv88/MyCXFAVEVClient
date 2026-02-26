@@ -108,7 +108,6 @@ namespace DatevConnector.UI
             if (_currentMainForm != null && !_currentMainForm.IsDisposed)
             {
                 _currentMainForm.Close();
-                _currentMainForm.Dispose();
             }
             _currentMainForm = null;
         }
@@ -135,7 +134,6 @@ namespace DatevConnector.UI
             {
                 _lastFormLocation = _currentMainForm.Location;
                 _currentMainForm.Close();
-                _currentMainForm.Dispose();
             }
             _currentMainForm = null;
         }
