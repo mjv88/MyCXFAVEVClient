@@ -452,10 +452,11 @@ namespace DatevConnector.Tapi
                         callEvent.CallId = info.dwCallID;
                         callEvent.Origin = info.dwOrigin;
 
-                        callEvent.CallerNumber = ExtractField(pCallInfo, info.dwCallerIDOffset, info.dwCallerIDSize);
-                        callEvent.CallerName = ExtractField(pCallInfo, info.dwCallerIDNameOffset, info.dwCallerIDNameSize);
-                        callEvent.CalledNumber = ExtractField(pCallInfo, info.dwCalledIDOffset, info.dwCalledIDSize);
-                        callEvent.CalledName = ExtractField(pCallInfo, info.dwCalledIDNameOffset, info.dwCalledIDNameSize);
+                        int usedSize = info.dwUsedSize > 0 ? info.dwUsedSize : bufferSize;
+                        callEvent.CallerNumber = ExtractField(pCallInfo, info.dwCallerIDOffset, info.dwCallerIDSize, usedSize);
+                        callEvent.CallerName = ExtractField(pCallInfo, info.dwCallerIDNameOffset, info.dwCallerIDNameSize, usedSize);
+                        callEvent.CalledNumber = ExtractField(pCallInfo, info.dwCalledIDOffset, info.dwCalledIDSize, usedSize);
+                        callEvent.CalledName = ExtractField(pCallInfo, info.dwCalledIDNameOffset, info.dwCalledIDNameSize, usedSize);
 
                         return;
                     }
@@ -470,14 +471,17 @@ namespace DatevConnector.Tapi
             }
         }
 
-        private string ExtractField(IntPtr basePtr, int offset, int size)
+        private string ExtractField(IntPtr basePtr, int offset, int size, int bufferSize)
         {
             if (offset <= 0 || size <= 0) return null;
-            return ReadStringFromBuffer(basePtr, offset, size);
+            return ReadStringFromBuffer(basePtr, offset, size, bufferSize);
         }
 
-        private string ReadStringFromBuffer(IntPtr basePtr, int offset, int size)
+        private string ReadStringFromBuffer(IntPtr basePtr, int offset, int size, int bufferSize)
         {
+            if (offset < 0 || size < 0 || offset + size > bufferSize)
+                return null;
+
             if (offset <= 0 || size <= 0)
                 return null;
 

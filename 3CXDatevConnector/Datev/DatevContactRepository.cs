@@ -108,17 +108,25 @@ namespace DatevConnector.Datev
                 if ((result == null || result.Count == 0) && _datevContactsSDict != null &&
                     normalizedNumber.Length >= minSuffixMatchLength)
                 {
+                    int bestMatchLength = 0;
+
                     foreach (var kvp in _datevContactsSDict)
                     {
                         if (kvp.Key.Length < minSuffixMatchLength)
                             continue;
 
-                        if (normalizedNumber.EndsWith(kvp.Key) || kvp.Key.EndsWith(normalizedNumber))
+                        int matchLen = 0;
+                        if (normalizedNumber.EndsWith(kvp.Key))
+                            matchLen = kvp.Key.Length;
+                        else if (kvp.Key.EndsWith(normalizedNumber))
+                            matchLen = normalizedNumber.Length;
+
+                        if (matchLen > bestMatchLength)
                         {
+                            bestMatchLength = matchLen;
                             result = kvp.Value;
-                            LogManager.Debug("Connector: Kontaktsuche - Suffixübereinstimmung: '{0}' <-> '{1}'",
-                                LogManager.Mask(normalizedNumber), LogManager.Mask(kvp.Key));
-                            break;
+                            LogManager.Debug("Connector: Kontaktsuche - Suffixübereinstimmung: '{0}' <-> '{1}' (Länge={2})",
+                                LogManager.Mask(normalizedNumber), LogManager.Mask(kvp.Key), matchLen);
                         }
                     }
                 }
@@ -324,7 +332,7 @@ namespace DatevConnector.Datev
             progress?.Report(endProgress);
             LastSyncTimestamp = DateTime.Now;
 
-            var allContacts = recipients.Union(institutions).ToList();
+            var allContacts = recipients.Concat(institutions).ToList();
             int totalComms = allContacts.Sum(c => c.Communications?.Length ?? 0);
             LogManager.Log("SDD: {0} Kontakte mit {1} Rufnummnern synchronisiert.", allContacts.Count, totalComms);
             progressText?.Invoke($"{allContacts.Count} Kontakte geladen");
