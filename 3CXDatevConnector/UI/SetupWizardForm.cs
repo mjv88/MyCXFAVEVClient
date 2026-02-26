@@ -101,7 +101,12 @@ namespace DatevConnector.UI
         private void ShowStep(int step)
         {
             _currentStep = step;
-            _contentPanel.Controls.Clear();
+            while (_contentPanel.Controls.Count > 0)
+            {
+                var ctl = _contentPanel.Controls[0];
+                _contentPanel.Controls.Remove(ctl);
+                ctl.Dispose();
+            }
             _lblStepIndicator.Text = string.Format(UIStrings.Wizard.StepOf, step, TOTAL_STEPS);
 
             // Update button states
