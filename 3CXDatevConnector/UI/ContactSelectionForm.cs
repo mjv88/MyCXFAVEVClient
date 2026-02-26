@@ -24,12 +24,17 @@ namespace DatevConnector.UI
 
         // Track the current open dialog for closing on disconnect
         private static ContactSelectionForm _currentDialog;
+        private static readonly object _dialogLock = new object();
 
         public static void CloseCurrentDialog()
         {
             try
             {
-                var dialog = _currentDialog;
+                ContactSelectionForm dialog;
+                lock (_dialogLock)
+                {
+                    dialog = _currentDialog;
+                }
                 if (dialog != null && !dialog.IsDisposed)
                 {
                     FormDisplayHelper.PostToUIThread(() =>
@@ -196,19 +201,28 @@ namespace DatevConnector.UI
                 LogManager.Log("Connector: Kontaktauswahl - {0} Treffer für {1}",
                     contacts.Count, LogManager.Mask(phoneNumber));
 
-                if (_currentDialog != null && !_currentDialog.IsDisposed)
-                    _currentDialog.Close();
+                lock (_dialogLock)
+                {
+                    if (_currentDialog != null && !_currentDialog.IsDisposed)
+                        _currentDialog.Close();
+                }
 
                 var form = new ContactSelectionForm(phoneNumber, contacts, isIncoming, onSelected);
                 FormClosedEventHandler handler = null;
                 handler = (s, e) =>
                 {
                     ((Form)s).FormClosed -= handler;
-                    if (_currentDialog == form) _currentDialog = null;
+                    lock (_dialogLock)
+                    {
+                        if (_currentDialog == form) _currentDialog = null;
+                    }
                     ((Form)s).Dispose();
                 };
                 form.FormClosed += handler;
-                _currentDialog = form;
+                lock (_dialogLock)
+                {
+                    _currentDialog = form;
+                }
                 form.Show();
             });
         }

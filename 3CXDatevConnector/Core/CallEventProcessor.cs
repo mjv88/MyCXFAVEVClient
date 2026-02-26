@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev;
@@ -287,11 +288,11 @@ namespace DatevConnector.Core
         }
 
         private async Task ContactReshowAfterDelayAsync(string callId, string remoteNumber,
-            List<DatevContactInfo> contacts, bool isIncoming, int delayMs)
+            List<DatevContactInfo> contacts, bool isIncoming, int delayMs, CancellationToken ct = default)
         {
             try
             {
-                await Task.Delay(delayMs);
+                await Task.Delay(delayMs, ct);
 
                 var currentRecord = _callTracker.GetCall(callId);
                 if (currentRecord == null || currentRecord.TapiState != TapiCallState.Connected)

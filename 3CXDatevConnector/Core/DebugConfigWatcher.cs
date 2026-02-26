@@ -24,7 +24,7 @@ namespace DatevConnector.Core
     {
         private const int FILE_CHANGE_DEBOUNCE_MS = 300;
 
-        private static DebugConfigWatcher _instance;
+        private static volatile DebugConfigWatcher _instance;
         private static readonly object _instanceLock = new object();
 
         private readonly FileSystemWatcher _watcher;
