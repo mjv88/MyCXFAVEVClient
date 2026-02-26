@@ -183,8 +183,8 @@ namespace DatevConnector.Tapi
 
                     if (messageLength <= 0 || messageLength > MaxMessageLength)
                     {
-                        LogManager.Warning("PipeServer: Ungültige Nachrichtenlänge: {0}", messageLength);
-                        continue;
+                        LogManager.Warning("PipeServer: Ungültige Nachrichtenlänge: {0} - Verbindung wird getrennt", messageLength);
+                        break;
                     }
 
                     byte[] contentBuffer = new byte[messageLength];
