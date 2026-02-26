@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using DatevConnector.Datev.Managers;
@@ -79,6 +80,16 @@ namespace DatevConnector.Core
                         string dllPath = Path.Combine(versionDir, assemblyName.Name + ".dll");
                         if (File.Exists(dllPath))
                         {
+                            var candidateName = AssemblyName.GetAssemblyName(dllPath);
+                            var expectedToken = assemblyName.GetPublicKeyToken();
+                            var candidateToken = candidateName.GetPublicKeyToken();
+                            if (expectedToken != null && expectedToken.Length > 0 &&
+                                (candidateToken == null || !expectedToken.SequenceEqual(candidateToken)))
+                            {
+                                LogManager.Debug("GAC Resolver: Public key token mismatch for '{0}', skipping", dllPath);
+                                continue;
+                            }
+
                             LogManager.Debug("GAC Resolver: Erfolgreich '{0}'", assemblyName.Name);
                             return context.LoadFromAssemblyPath(dllPath);
                         }
