@@ -26,7 +26,7 @@ namespace DatevConnector.Datev.Managers
                 if (dataSource.StartsWith("DATEV_") && (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id)))
                 {
                     LogManager.Log("Incomplete DATEV contact data - falling back to 3CX: Name={0}, Id={1}",
-                        name ?? "null", id ?? "null");
+                        LogManager.MaskName(name ?? "null"), LogManager.Mask(id ?? "null"));
                     dataSource = DatevDataSource.ThirdParty;
                     name = string.Empty;
                     id = string.Empty;
@@ -34,7 +34,7 @@ namespace DatevConnector.Datev.Managers
                 else
                 {
                     LogManager.Debug("CallData filled from contact: Name={0}, Id={1}, DataSource={2}",
-                        name, id, dataSource);
+                        LogManager.MaskName(name), LogManager.Mask(id), dataSource);
                 }
             }
             else
@@ -89,7 +89,7 @@ namespace DatevConnector.Datev.Managers
             };
 
             LogManager.Debug("DATEV CallData erstellt: SyncID={0}, ContactId={1}, ContactName={2}, DataSource={3}",
-                callData.SyncID, callData.AdressatenId, callData.Adressatenname, callData.DataSource);
+                callData.SyncID, LogManager.Mask(callData.AdressatenId), LogManager.MaskName(callData.Adressatenname), callData.DataSource);
 
             if (string.IsNullOrEmpty(callData.SyncID))
             {

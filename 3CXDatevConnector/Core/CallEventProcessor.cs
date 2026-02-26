@@ -199,7 +199,7 @@ namespace DatevConnector.Core
                 record.CallData.End = record.StartTime;
 
                 LogManager.Log("Connector: DATEV-initiierter ausgehender Anruf {0} an {1} (SyncID={2}, Kontakt={3})",
-                    callId, LogManager.Mask(calledNumber), record.CallData.SyncID, record.CallData.Adressatenname);
+                    callId, LogManager.Mask(calledNumber), record.CallData.SyncID, LogManager.MaskName(record.CallData.Adressatenname));
                 _notificationManager.NewCall(record.CallData);
                 return;
             }
@@ -219,7 +219,7 @@ namespace DatevConnector.Core
             }
 
             LogManager.Log("Connector: Ausgehender Anruf {0} an {1} (Kontakt={2})",
-                callId, LogManager.Mask(calledNumber), contact?.DatevContact?.Name ?? "unbekannt");
+                callId, LogManager.Mask(calledNumber), LogManager.MaskName(contact?.DatevContact?.Name) ?? "unbekannt");
             _notificationManager.NewCall(callData);
         }
 

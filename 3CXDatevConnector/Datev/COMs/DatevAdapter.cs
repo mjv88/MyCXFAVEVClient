@@ -41,7 +41,7 @@ namespace DatevConnector.Datev.COMs
 
                     LogManager.Log("DATEV -> Bridge: Wählen-Befehl empfangen (CallID={0} zugewiesen)", callId);
                     LogManager.Debug("  CalledNumber={0}, Adressatenname={1}, AdressatenId={2}, DataSource={3}, SyncID={4}",
-                        LogManager.Mask(ctiData.CalledNumber), ctiData.Adressatenname, ctiData.AdressatenId, ctiData.DataSource, ctiData.SyncID);
+                        LogManager.Mask(ctiData.CalledNumber), LogManager.MaskName(ctiData.Adressatenname), LogManager.Mask(ctiData.AdressatenId), ctiData.DataSource, ctiData.SyncID);
 
                     _eventHandler(ctiData, DatevEventType.Dial);
                 }
@@ -71,7 +71,7 @@ namespace DatevConnector.Datev.COMs
                 {
                     LogManager.Log("DATEV -> Bridge: {0}-Befehl empfangen", eventName);
                     LogManager.Debug("  CalledNumber={0}, Adressatenname={1}, AdressatenId={2}, DataSource={3}",
-                        LogManager.Mask(ctiData.CalledNumber), ctiData.Adressatenname, ctiData.AdressatenId, ctiData.DataSource);
+                        LogManager.Mask(ctiData.CalledNumber), LogManager.MaskName(ctiData.Adressatenname), LogManager.Mask(ctiData.AdressatenId), ctiData.DataSource);
 
                     _eventHandler(ctiData, eventType);
                 }

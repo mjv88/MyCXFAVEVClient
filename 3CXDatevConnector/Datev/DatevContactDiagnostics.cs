@@ -19,8 +19,8 @@ namespace DatevConnector.Datev
             foreach (DatevContact contact in contacts)
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("ID=").Append(contact.Id);
-                sb.Append(" Name=").Append(contact.Name);
+                sb.Append("ID=").Append(LogManager.Mask(contact.Id));
+                sb.Append(" Name=").Append(LogManager.MaskName(contact.Name));
                 sb.Append(" IsRecipient=").Append(contact.IsRecipient);
                 sb.Append(" IsPrivate=").Append(contact.IsPrivatePerson);
 
@@ -29,12 +29,12 @@ namespace DatevConnector.Datev
                     foreach (Communication comm in contact.Communications)
                     {
                         sb.Append(" [").Append(comm.Medium);
-                        sb.Append(": ").Append(comm.Number);
+                        sb.Append(": ").Append(LogManager.Mask(comm.Number));
                         if (!string.IsNullOrWhiteSpace(comm.NormalizedNumber))
                         {
-                            sb.Append(" -> DATEV:").Append(comm.NormalizedNumber);
+                            sb.Append(" -> DATEV:").Append(LogManager.Mask(comm.NormalizedNumber));
                         }
-                        sb.Append(" -> Effective:").Append(comm.EffectiveNormalizedNumber);
+                        sb.Append(" -> Effective:").Append(LogManager.Mask(comm.EffectiveNormalizedNumber));
                         sb.Append("]");
                     }
                 }
@@ -54,11 +54,11 @@ namespace DatevConnector.Datev
                 foreach (DatevContactInfo info in kvp.Value)
                 {
                     StringBuilder sb = new StringBuilder();
-                    sb.Append("Key=").Append(kvp.Key);
-                    sb.Append(" -> ID=").Append(info.DatevContact.Id);
-                    sb.Append(" Name=").Append(info.DatevContact.Name);
-                    sb.Append(" Number=").Append(info.Communication.Number);
-                    sb.Append(" EffNorm=").Append(info.Communication.EffectiveNormalizedNumber);
+                    sb.Append("Key=").Append(LogManager.Mask(kvp.Key));
+                    sb.Append(" -> ID=").Append(LogManager.Mask(info.DatevContact.Id));
+                    sb.Append(" Name=").Append(LogManager.MaskName(info.DatevContact.Name));
+                    sb.Append(" Number=").Append(LogManager.Mask(info.Communication.Number));
+                    sb.Append(" EffNorm=").Append(LogManager.Mask(info.Communication.EffectiveNormalizedNumber));
 
                     LogManager.Log(sb.ToString());
                 }
