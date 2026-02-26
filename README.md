@@ -490,13 +490,14 @@ The implementation in `TapiPipeServer.CreatePipeSecurity()` grants these two tie
 
 The WebSocket server (`ws://127.0.0.1:19800`) authenticates browser extension connections using a shared secret token:
 
-1. On startup, the bridge generates a random 32-character hex token
-2. The token is written to `%AppData%\3CXDATEVConnector\ws_auth_token`
-3. The browser extension reads this token and sends it in the `HELLO` message (`"token"` field)
-4. The bridge validates the token on connection — invalid tokens are rejected, missing tokens trigger a warning log
-5. The token file is deleted on application shutdown
+1. On startup, the bridge generates a random 32-byte Base64 token
+2. The token is stored in the Windows Registry at `HKCU\Software\3CXDATEVConnector\WsAuthToken` — not visible as a file on disk
+3. The browser extension's Native Messaging Host reads the token from the registry and passes it to the extension
+4. The extension sends the token in the `HELLO` message (`"token"` field)
+5. The bridge validates the token on connection — invalid tokens are rejected, missing tokens trigger a warning log
+6. The registry value is deleted on application shutdown
 
-This prevents unauthorized local processes from injecting call events into the bridge via WebSocket.
+This prevents unauthorized local processes from injecting call events into the bridge via WebSocket. The registry-based approach avoids leaving discoverable files in the AppData folder.
 
 ### Terminal Server / RDS Environments
 
@@ -1131,7 +1132,7 @@ MIT — see [LICENSE](LICENSE)
 | Area | Decision | Rationale |
 |------|----------|-----------|
 | **Authorization** | Current user SID + AppContainer (DACL) on named pipe, no Everyone | Extension numbers are guessable; restrict to current user and AppContainer apps only |
-| **WebSocket Auth** | Shared-secret token file (`ws_auth_token`) | Prevents unauthorized local processes from injecting call events |
+| **WebSocket Auth** | Shared-secret token in registry (`HKCU\Software\3CXDATEVConnector`) | Hidden from file system; only current user can read; cleaned up on exit |
 | **Thread Safety** | Lock per CallRecord, volatile on all cross-thread fields, atomic counters | Lightweight approach; avoids ReaderWriterLockSlim per YAGNI |
 | **GAC Security** | Public key token validation before assembly load | Prevents DLL substitution attacks on DATEV assemblies |
 | **Routing** | Extension number in pipe name | Identifies the correct channel without serving as a security boundary |

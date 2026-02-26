@@ -10,6 +10,7 @@ using DatevConnector.Core;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Tapi;
+using Microsoft.Win32;
 using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Webclient
@@ -50,7 +51,8 @@ namespace DatevConnector.Webclient
 
         // Auth token for WebSocket connections
         private readonly string _authToken;
-        private readonly string _tokenFilePath;
+        private const string RegistryKeyPath = @"Software\3CXDATEVConnector";
+        private const string RegistryTokenValue = "WsAuthToken";
 
         // ===== IConnectionMethod Events =====
         public event Action<TapiCallEvent> CallStateChanged;
@@ -74,10 +76,7 @@ namespace DatevConnector.Webclient
 
             // Generate a random auth token for WebSocket connections
             _authToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-            _tokenFilePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "3CXDATEVConnector", "ws_token");
-            WriteTokenFile();
+            WriteTokenToRegistry();
         }
 
         /// <summary>
@@ -475,35 +474,35 @@ namespace DatevConnector.Webclient
 
         // ===== Helpers =====
 
-        private void WriteTokenFile()
+        private void WriteTokenToRegistry()
         {
             try
             {
-                string dir = Path.GetDirectoryName(_tokenFilePath);
-                if (!Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-                File.WriteAllText(_tokenFilePath, _authToken);
-                LogManager.Debug("WebClient: Auth-Token geschrieben nach {0}", _tokenFilePath);
+                using (var key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath))
+                {
+                    key?.SetValue(RegistryTokenValue, _authToken);
+                }
+                LogManager.Debug("WebClient: Auth-Token in Registry geschrieben");
             }
             catch (Exception ex)
             {
-                LogManager.Warning("WebClient: Token-Datei konnte nicht geschrieben werden - {0}", ex.Message);
+                LogManager.Warning("WebClient: Auth-Token konnte nicht in Registry geschrieben werden - {0}", ex.Message);
             }
         }
 
-        private void DeleteTokenFile()
+        private void DeleteTokenFromRegistry()
         {
             try
             {
-                if (File.Exists(_tokenFilePath))
+                using (var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, true))
                 {
-                    File.Delete(_tokenFilePath);
-                    LogManager.Debug("WebClient: Token-Datei gelöscht");
+                    key?.DeleteValue(RegistryTokenValue, false);
                 }
+                LogManager.Debug("WebClient: Auth-Token aus Registry gelöscht");
             }
             catch (Exception ex)
             {
-                LogManager.Debug("WebClient: Token-Datei konnte nicht gelöscht werden - {0}", ex.Message);
+                LogManager.Debug("WebClient: Auth-Token konnte nicht aus Registry gelöscht werden - {0}", ex.Message);
             }
         }
 
@@ -539,7 +538,7 @@ namespace DatevConnector.Webclient
             _disposed = true;
 
             CleanupConnection();
-            DeleteTokenFile();
+            DeleteTokenFromRegistry();
 
             if (_virtualLine != null)
                 _virtualLine.Handle = IntPtr.Zero;
