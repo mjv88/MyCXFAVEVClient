@@ -32,6 +32,7 @@ namespace DatevConnector.UI
         // Fade animation
         private Timer _fadeTimer;
         private bool _fadingOut;
+        private bool _closingForReal;
 
         // System tray icon reference for balloon notifications
         private static NotifyIcon _notifyIcon;
@@ -137,6 +138,14 @@ namespace DatevConnector.UI
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (_closingForReal)
+            {
+                _fadeTimer?.Stop();
+                _fadeTimer?.Dispose();
+                base.OnFormClosing(e);
+                return;
+            }
+
             if (!_fadingOut && Opacity > 0)
             {
                 // Start fade out
@@ -151,7 +160,7 @@ namespace DatevConnector.UI
                         Opacity = 0;
                         fadeOutTimer.Stop();
                         fadeOutTimer.Dispose();
-                        _fadingOut = false;
+                        _closingForReal = true;
                         Close();
                     }
                 };
@@ -159,6 +168,7 @@ namespace DatevConnector.UI
                 return;
             }
 
+            _closingForReal = true;
             _fadeTimer?.Stop();
             _fadeTimer?.Dispose();
             base.OnFormClosing(e);
