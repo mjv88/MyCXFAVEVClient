@@ -127,7 +127,7 @@ namespace DatevConnector.UI
             // Version
             var versionLabel = new Label
             {
-                Text = "Version 1.0",
+                Text = $"Version {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}",
                 Font = UITheme.FontBody,
                 ForeColor = UITheme.TextMuted,
                 AutoSize = true,

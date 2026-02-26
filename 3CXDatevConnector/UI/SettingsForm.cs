@@ -665,36 +665,42 @@ namespace DatevConnector.UI
             _btnReconnectAll.Enabled = false;
             _btnReconnectAll.Text = UIStrings.Status.TestPending;
 
-            // Test DATEV
-            SetBadge(_lblDatevBadge, UIStrings.Status.Checking, UITheme.StatusWarn);
-            bool datevOk = await Task.Run(() => DatevConnectionChecker.CheckAndLogDatevStatus());
-            SetBadge(_lblDatevBadge, datevOk ? UIStrings.Status.Available : UIStrings.Status.Unavailable,
-                datevOk ? UITheme.StatusOk : UITheme.StatusBad);
-
-            // Reload contacts if DATEV available
-            if (datevOk)
+            try
             {
-                await _bridgeService.ReloadContactsAsync();
-                _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
-                string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
-                    ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
-                    : "\u2014";
-                _lblLastSync.Text = string.Format(UIStrings.SettingsLabels.Sync, syncText);
+                // Test DATEV
+                SetBadge(_lblDatevBadge, UIStrings.Status.Checking, UITheme.StatusWarn);
+                bool datevOk = await Task.Run(() => DatevConnectionChecker.CheckAndLogDatevStatus());
+                SetBadge(_lblDatevBadge, datevOk ? UIStrings.Status.Available : UIStrings.Status.Unavailable,
+                    datevOk ? UITheme.StatusOk : UITheme.StatusBad);
+
+                // Reload contacts if DATEV available
+                if (datevOk)
+                {
+                    await _bridgeService.ReloadContactsAsync();
+                    _lblContactCount.Text = string.Format(UIStrings.SettingsLabels.Contacts, DatevContactRepository.ContactCount);
+                    string syncText = DatevContactRepository.LastSyncTimestamp.HasValue
+                        ? DatevContactRepository.LastSyncTimestamp.Value.ToString("HH:mm")
+                        : "\u2014";
+                    _lblLastSync.Text = string.Format(UIStrings.SettingsLabels.Sync, syncText);
+                }
+
+                // Reconnect TAPI
+                SetBadge(_lblTapiBadge, UIStrings.Status.Connecting, UITheme.StatusWarn);
+                await _bridgeService.ReconnectTapiAsync();
+                await Task.Delay(2000);
+
+                bool tapiOk = _bridgeService.TapiConnected;
+                SetBadge(_lblTapiBadge, tapiOk ? UIStrings.Status.Connected : UIStrings.Status.Disconnected,
+                    tapiOk ? UITheme.StatusOk : UITheme.StatusBad);
+                _lblExtension.Text = string.Format(UIStrings.SettingsLabels.Extension, _bridgeService.Extension ?? "\u2014");
+
+                RefreshOverviewStatus();
             }
-
-            // Reconnect TAPI
-            SetBadge(_lblTapiBadge, UIStrings.Status.Connecting, UITheme.StatusWarn);
-            await _bridgeService.ReconnectTapiAsync();
-            await Task.Delay(2000);
-
-            bool tapiOk = _bridgeService.TapiConnected;
-            SetBadge(_lblTapiBadge, tapiOk ? UIStrings.Status.Connected : UIStrings.Status.Disconnected,
-                tapiOk ? UITheme.StatusOk : UITheme.StatusBad);
-            _lblExtension.Text = string.Format(UIStrings.SettingsLabels.Extension, _bridgeService.Extension ?? "\u2014");
-
-            RefreshOverviewStatus();
-            _btnReconnectAll.Text = UIStrings.Labels.ReconnectAll;
-            _btnReconnectAll.Enabled = true;
+            finally
+            {
+                _btnReconnectAll.Text = UIStrings.Labels.ReconnectAll;
+                _btnReconnectAll.Enabled = true;
+            }
         }
 
         // ========== LOAD / SAVE ==========

@@ -84,7 +84,7 @@ namespace DatevConnector.Datev
         {
             lock (_lock)
             {
-                Init();
+                if (_datevContacts == null) Init();
 
                 string normalizedNumber = PhoneNumberNormalizer.NormalizeForComparison(
                     contactNumber,
