@@ -155,7 +155,7 @@ namespace DatevConnector.UI
 
         public static Color GetDirectionColor(bool isIncoming)
         {
-            return AccentIncoming;
+            return isIncoming ? AccentIncoming : AccentBridge;
         }
 
         // ========== APPLICATION ICON ==========

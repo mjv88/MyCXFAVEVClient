@@ -78,7 +78,7 @@ namespace DatevConnector.Datev.Managers
 
             if (!DatevConnectionChecker.IsDatevAvailable())
             {
-                _circuitBreaker.RecordFailure();
+                // Don't record as circuit breaker failure - DATEV not running is an expected state
                 LogManager.Log("Benachrichtigung '{0}' übersprungen - DATEV nicht verfügbar", actionName);
                 return false;
             }

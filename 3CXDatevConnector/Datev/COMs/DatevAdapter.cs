@@ -11,7 +11,7 @@ namespace DatevConnector.Datev.COMs
     /// Receives Dial/Drop commands from DATEV
     /// </summary>
     [ComVisible(true)]
-    [ClassInterface(ClassInterfaceType.AutoDual)]
+    [ClassInterface(ClassInterfaceType.None)]
     [ProgId("DatevConnector.DatevAdapter")]
     [Guid("D8CA0C15-8585-494A-93DF-07D706629793")]
     internal class DatevAdapter : IDatevCtiControl

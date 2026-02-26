@@ -29,8 +29,9 @@ namespace DatevConnector.Core
             {
                 return false;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
+                LogManager.Debug("EventHelper: InvalidOperationException (shutdown?): {0}", ex.Message);
                 return false;
             }
             catch (Exception ex)
@@ -58,8 +59,9 @@ namespace DatevConnector.Core
             {
                 return false;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
+                LogManager.Debug("EventHelper: InvalidOperationException (shutdown?): {0}", ex.Message);
                 return false;
             }
             catch (Exception ex)

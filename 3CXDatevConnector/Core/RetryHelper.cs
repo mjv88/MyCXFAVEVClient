@@ -127,19 +127,11 @@ namespace DatevConnector.Core
         /// <returns>True if the error is likely transient</returns>
         public static bool IsTransientError(Exception ex)
         {
-            // Check exception types first (cheaper than string matching)
-            if (ex is TimeoutException ||
-                ex is System.Runtime.InteropServices.COMException ||
-                ex is XmlException)
-                return true;
-
-            // Fall back to message-based heuristics for untyped errors
-            string message = ex.Message?.ToLower() ?? "";
-
-            return message.Contains("temporarily") ||
-                   message.Contains("busy") ||
-                   message.Contains("unavailable") ||
-                   message.Contains("connection");
+            return ex is TimeoutException
+                || ex is System.Runtime.InteropServices.COMException
+                || ex is XmlException
+                || ex is System.IO.IOException
+                || ex is System.Net.Sockets.SocketException;
         }
 
     }

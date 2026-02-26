@@ -302,8 +302,8 @@ namespace DatevConnector.Core.Config
             {
                 using (var writer = new StreamWriter(_iniPath, false, Encoding.UTF8))
                 {
-                    writer.WriteLine("// 3CX - DATEV Connector Configuration");
-                    writer.WriteLine("// Edit values below. Delete a line to restore its default.");
+                    writer.WriteLine("; 3CX - DATEV Connector Configuration");
+                    writer.WriteLine("; Edit values below. Delete a line to restore its default.");
                     writer.WriteLine();
 
                     writer.WriteLine("[Settings]");
