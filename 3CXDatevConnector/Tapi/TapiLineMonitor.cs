@@ -72,6 +72,41 @@ namespace DatevConnector.Tapi
                 }
             }
         }
+
+        /// <summary>
+        /// Create a copy with selectively updated fields.
+        /// Used by TapiLineMonitor to atomically replace entries in the ConcurrentDictionary,
+        /// preventing cross-thread mutation of shared TapiCallEvent instances.
+        /// </summary>
+        public TapiCallEvent WithUpdate(
+            int? callState = null,
+            int? callId = null,
+            int? origin = null,
+            int? addressId = null,
+            IntPtr? lineHandle = null,
+            bool? initialStateLogged = null,
+            string callerNumber = null,
+            string callerName = null,
+            string calledNumber = null,
+            string calledName = null,
+            string extension = null)
+        {
+            return new TapiCallEvent
+            {
+                CallHandle = this.CallHandle,
+                LineHandle = lineHandle ?? this.LineHandle,
+                CallState = callState ?? this.CallState,
+                CallId = callId ?? this.CallId,
+                Origin = origin ?? this.Origin,
+                AddressId = addressId ?? this.AddressId,
+                InitialStateLogged = initialStateLogged ?? this.InitialStateLogged,
+                CallerNumber = callerNumber ?? this.CallerNumber,
+                CallerName = callerName ?? this.CallerName,
+                CalledNumber = calledNumber ?? this.CalledNumber,
+                CalledName = calledName ?? this.CalledName,
+                Extension = extension ?? this.Extension
+            };
+        }
     }
 
     /// <summary>
@@ -349,13 +384,12 @@ namespace DatevConnector.Tapi
         private void HandleNewCall(IntPtr hLine, int addressId, IntPtr hCall)
         {
             var callEvent = GetOrCreateCallEvent(hCall);
-            callEvent.AddressId = addressId;
-            callEvent.LineHandle = hLine;
 
             TapiLineInfo line;
+            string ext = null;
             if (_linesByHandle.TryGetValue(hLine, out line))
             {
-                callEvent.Extension = line.Extension;
+                ext = line.Extension;
                 LogManager.Debug("TAPI: New call handle 0x{0:X} on line {1} address {2}",
                     hCall.ToInt64(), line.Extension, addressId);
             }
@@ -363,18 +397,38 @@ namespace DatevConnector.Tapi
             {
                 LogManager.Debug("TAPI: New call handle 0x{0:X} on address {1}", hCall.ToInt64(), addressId);
             }
+
+            var updated = callEvent.WithUpdate(addressId: addressId, lineHandle: hLine, extension: ext);
+            _activeCalls[hCall] = updated;
         }
 
         private void HandleCallState(IntPtr hCall, int callState, IntPtr param2, IntPtr param3)
         {
             var callEvent = GetOrCreateCallEvent(hCall);
-            callEvent.CallState = callState;
 
-            GetCallInfo(hCall, callEvent);
+            // Read call info from TAPI into a temporary scratch object, then
+            // merge everything into a new immutable snapshot via WithUpdate.
+            var scratch = new TapiCallEvent { CallHandle = hCall };
+            GetCallInfo(hCall, scratch);
 
-            string direction = callEvent.IsIncoming ? "inbound" : "outbound";
-            string caller = callEvent.CallerNumber ?? "?";
-            string called = callEvent.CalledNumber ?? "?";
+            bool markInitial = !callEvent.InitialStateLogged &&
+                               (callState == LINECALLSTATE_OFFERING || callState == LINECALLSTATE_DIALING);
+
+            var updated = callEvent.WithUpdate(
+                callState: callState,
+                callId: scratch.CallId != 0 ? scratch.CallId : (int?)null,
+                origin: scratch.Origin != 0 ? scratch.Origin : (int?)null,
+                initialStateLogged: markInitial ? true : (bool?)null,
+                callerNumber: scratch.CallerNumber,
+                callerName: scratch.CallerName,
+                calledNumber: scratch.CalledNumber,
+                calledName: scratch.CalledName);
+
+            _activeCalls[hCall] = updated;
+
+            string direction = updated.IsIncoming ? "inbound" : "outbound";
+            string caller = updated.CallerNumber ?? "?";
+            string called = updated.CalledNumber ?? "?";
 
             if (callState == LINECALLSTATE_IDLE)
             {
@@ -382,23 +436,21 @@ namespace DatevConnector.Tapi
                 LogManager.Debug("TAPI: Call 0x{0:X} state=IDLE direction={1} caller={2} called={3}",
                     hCall.ToInt64(), direction, caller, called);
             }
-            else if (!callEvent.InitialStateLogged &&
-                     (callState == LINECALLSTATE_OFFERING || callState == LINECALLSTATE_DIALING))
+            else if (markInitial)
             {
                 // First real call state - concise summary
-                callEvent.InitialStateLogged = true;
-                LogManager.Log("TAPI: New call on line {0}", callEvent.AddressId);
+                LogManager.Log("TAPI: New call on line {0}", updated.AddressId);
                 LogManager.Log("TAPI: Call direction={0} caller={1} called={2}", direction, LogManager.Mask(caller), called);
             }
             else
             {
                 LogManager.Log("TAPI: Call state={0} direction={1} caller={2} called={3}",
-                    callEvent.CallStateString, direction, LogManager.Mask(caller), called);
+                    updated.CallStateString, direction, LogManager.Mask(caller), called);
             }
 
             if (!_disposing && !_disposed)
             {
-                EventHelper.SafeInvoke(CallStateChanged, callEvent, "TapiLineMonitor.CallStateChanged");
+                EventHelper.SafeInvoke(CallStateChanged, updated, "TapiLineMonitor.CallStateChanged");
             }
 
             if (callState == LINECALLSTATE_IDLE || callState == LINECALLSTATE_DISCONNECTED)
