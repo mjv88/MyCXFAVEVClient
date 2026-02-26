@@ -697,8 +697,8 @@ namespace DatevConnector.Core
                 _cts.Dispose();
             }
 
-            // Safety-net flush of call history before shutdown
-            _callHistory?.Save();
+            // Flush any pending call history writes and dispose timer
+            _callHistory?.Dispose();
 
             _tapiMonitor?.Dispose();
             _callTracker?.Dispose();

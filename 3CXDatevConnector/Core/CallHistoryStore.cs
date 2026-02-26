@@ -14,7 +14,7 @@ namespace DatevConnector.Core
     /// Persistent call history with separate inbound/outbound circular buffers.
     /// Data is DPAPI-encrypted on disk so only the current Windows user can read it.
     /// </summary>
-    public class CallHistoryStore
+    public class CallHistoryStore : IDisposable
     {
         private readonly object _lock = new object();
         private readonly LinkedList<CallHistoryEntry> _inbound = new LinkedList<CallHistoryEntry>();
@@ -24,6 +24,9 @@ namespace DatevConnector.Core
         private bool _trackInbound;
         private bool _trackOutbound;
         private int _retentionDays;
+
+        private volatile bool _dirty;
+        private System.Threading.Timer _saveTimer;
 
         private static readonly string StorePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -40,6 +43,8 @@ namespace DatevConnector.Core
             _trackInbound = trackInbound;
             _trackOutbound = trackOutbound;
             _retentionDays = retentionDays;
+
+            _saveTimer = new System.Threading.Timer(_ => FlushIfDirty(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
 
             Load();
         }
@@ -83,7 +88,8 @@ namespace DatevConnector.Core
                         LogManager.Mask(entry.RemoteNumber), _outbound.Count);
                 }
 
-                Save();
+                _dirty = true;
+                _saveTimer.Change(5000, System.Threading.Timeout.Infinite);
             }
         }
 
@@ -114,6 +120,23 @@ namespace DatevConnector.Core
 
         public bool TrackInbound => _trackInbound;
         public bool TrackOutbound => _trackOutbound;
+
+        private void FlushIfDirty()
+        {
+            if (!_dirty) return;
+            lock (_lock)
+            {
+                if (!_dirty) return;
+                Save();
+                _dirty = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            _saveTimer?.Dispose();
+            FlushIfDirty();
+        }
 
         /// <summary>
         /// Persist current state to disk (safety-net flush, e.g. on app shutdown).

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev.Managers;
@@ -56,7 +57,7 @@ namespace DatevConnector.Core
 
                     if (attempt < retries)
                     {
-                        int currentDelay = delay * (int)Math.Pow(2, attempt);
+                        int currentDelay = Math.Min(delay * (int)Math.Pow(2, attempt), 60);
                         LogManager.Log("{0} fehlgeschlagen (Versuch {1}/{2}), erneuter Versuch in {3}s: {4}",
                             operationName, attempt + 1, retries + 1, currentDelay, ex.Message);
 
@@ -71,6 +72,52 @@ namespace DatevConnector.Core
             }
 
             return default(T);
+        }
+
+        /// <summary>
+        /// Async version of ExecuteWithRetry with exponential backoff and cancellation support.
+        /// </summary>
+        public static async Task<T> ExecuteWithRetryAsync<T>(
+            Func<T> operation,
+            string operationName,
+            int? maxRetries = null,
+            int? initialDelaySeconds = null,
+            Func<Exception, bool> shouldRetry = null,
+            CancellationToken ct = default)
+        {
+            int retries = maxRetries ?? DefaultMaxRetries;
+            int delay = initialDelaySeconds ?? DefaultInitialDelaySeconds;
+
+            for (int attempt = 0; attempt <= retries; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    return operation();
+                }
+                catch (Exception ex)
+                {
+                    if (shouldRetry != null && !shouldRetry(ex))
+                    {
+                        LogManager.Log("{0} fehlgeschlagen (nicht wiederholbar): {1}", operationName, ex.Message);
+                        break;
+                    }
+
+                    if (attempt < retries)
+                    {
+                        int currentDelay = Math.Min(delay * (int)Math.Pow(2, attempt), 60);
+                        LogManager.Log("{0} fehlgeschlagen (Versuch {1}/{2}), erneuter Versuch in {3}s: {4}",
+                            operationName, attempt + 1, retries + 1, currentDelay, ex.Message);
+                        await Task.Delay(currentDelay * 1000, ct).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        LogManager.Log("{0} fehlgeschlagen nach {1} Versuchen: {2}",
+                            operationName, retries + 1, ex.Message);
+                    }
+                }
+            }
+            return default;
         }
 
         /// <summary>
