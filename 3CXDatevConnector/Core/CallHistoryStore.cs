@@ -180,7 +180,22 @@ namespace DatevConnector.Core
             }
             catch (Exception ex)
             {
-                LogManager.Warning("CallHistory: Laden fehlgeschlagen (starte leer): {0}", ex.Message);
+                LogManager.Warning("CallHistory: Laden fehlgeschlagen: {0}", ex.Message);
+
+                try
+                {
+                    if (File.Exists(StorePath))
+                    {
+                        string backupPath = StorePath + ".bak";
+                        File.Copy(StorePath, backupPath, overwrite: true);
+                        LogManager.Warning("CallHistory: Beschädigte Datei gesichert als {0}", backupPath);
+                    }
+                }
+                catch (Exception backupEx)
+                {
+                    LogManager.Warning("CallHistory: Backup fehlgeschlagen: {0}", backupEx.Message);
+                }
+
                 _inbound.Clear();
                 _outbound.Clear();
             }
