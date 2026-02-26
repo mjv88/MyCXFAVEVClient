@@ -44,20 +44,23 @@ namespace DatevConnector.Core
             if (record == null)
                 return false;
 
-            TapiCallState currentState = record.TapiState;
+            lock (record.SyncLock)
+            {
+                TapiCallState currentState = record.TapiState;
 
-            if (IsValidTransition(currentState, newState))
-            {
-                record.TapiState = newState;
-                LogManager.Log("Connector: Call {0} state {1} -> {2}",
-                    record.TapiCallId, currentState, newState);
-                return true;
-            }
-            else
-            {
-                LogManager.Log("Connector: Anruf {0} ungültiger Status {1} -> {2} (ignoriert)",
-                    record.TapiCallId, currentState, newState);
-                return false;
+                if (IsValidTransition(currentState, newState))
+                {
+                    record.TapiState = newState;
+                    LogManager.Log("Connector: Call {0} state {1} -> {2}",
+                        record.TapiCallId, currentState, newState);
+                    return true;
+                }
+                else
+                {
+                    LogManager.Log("Connector: Anruf {0} ungültiger Status {1} -> {2} (ignoriert)",
+                        record.TapiCallId, currentState, newState);
+                    return false;
+                }
             }
         }
     }

@@ -6,6 +6,8 @@ namespace DatevConnector.Core
 {
     public class CallRecord
     {
+        public readonly object SyncLock = new object();
+
         public string TapiCallId { get; set; }
 
         public bool IsIncoming { get; set; }
