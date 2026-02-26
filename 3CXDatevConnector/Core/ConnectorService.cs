@@ -371,6 +371,29 @@ namespace DatevConnector.Core
             }
         }
 
+        private void OnProviderCallStateChanged(TapiCallEvent evt)
+        {
+            _callEventProcessor.OnTapiCallStateChanged(evt);
+        }
+
+        private void OnProviderLineDisconnected(TapiLineInfo line)
+        {
+            LogManager.Log("TAPI Leitung getrennt: {0}", line.Extension);
+            StatusChanged?.Invoke(Status);
+        }
+
+        private void OnProviderConnected()
+        {
+            AdoptExtensionFromProvider("connected line");
+            Status = ConnectorStatus.Connected;
+        }
+
+        private void OnProviderDisconnected()
+        {
+            Status = ConnectorStatus.Disconnected;
+            LogManager.Log("Connector getrennt (alle Leitungen)");
+        }
+
         private async Task ConnectWithRetryAsync(CancellationToken cancellationToken, IConnectionMethod initialProvider = null)
         {
             var ini = DebugConfigWatcher.Instance;
@@ -452,28 +475,19 @@ namespace DatevConnector.Core
 
                     Status = ConnectorStatus.Connecting;
 
+                    if (_tapiMonitor != null)
+                    {
+                        _tapiMonitor.CallStateChanged -= OnProviderCallStateChanged;
+                        _tapiMonitor.LineDisconnected -= OnProviderLineDisconnected;
+                        _tapiMonitor.Connected -= OnProviderConnected;
+                        _tapiMonitor.Disconnected -= OnProviderDisconnected;
+                    }
                     _tapiMonitor?.Dispose();
                     _tapiMonitor = providerToUse;
-                    _tapiMonitor.CallStateChanged += _callEventProcessor.OnTapiCallStateChanged;
-
-                    // Per-line events for multi-line support
-                    _tapiMonitor.LineDisconnected += (line) =>
-                    {
-                        LogManager.Log("TAPI Leitung getrennt: {0}", line.Extension);
-                        // Fire status changed to update UI
-                        StatusChanged?.Invoke(Status);
-                    };
-
-                    _tapiMonitor.Connected += () =>
-                    {
-                        AdoptExtensionFromProvider("connected line");
-                        Status = ConnectorStatus.Connected;
-                    };
-                    _tapiMonitor.Disconnected += () =>
-                    {
-                        Status = ConnectorStatus.Disconnected;
-                        LogManager.Log("Connector getrennt (alle Leitungen)");
-                    };
+                    _tapiMonitor.CallStateChanged += OnProviderCallStateChanged;
+                    _tapiMonitor.LineDisconnected += OnProviderLineDisconnected;
+                    _tapiMonitor.Connected += OnProviderConnected;
+                    _tapiMonitor.Disconnected += OnProviderDisconnected;
 
                     // Provider from auto-detection may already be connected (TryConnect succeeded)
                     if (_tapiMonitor.IsMonitoring)
