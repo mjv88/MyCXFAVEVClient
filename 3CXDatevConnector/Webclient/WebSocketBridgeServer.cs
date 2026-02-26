@@ -359,7 +359,7 @@ namespace DatevConnector.Webclient
                 for (int i = 0; i < 8; i++) len = (len << 8) | ext[i];
             }
 
-            if (len > MaxFrameSize) return null;
+            if (len < 0 || len > MaxFrameSize) return null;
 
             byte[] maskKey = null;
             if (masked)
