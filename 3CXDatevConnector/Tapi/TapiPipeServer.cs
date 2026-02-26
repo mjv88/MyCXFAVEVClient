@@ -68,19 +68,6 @@ namespace DatevConnector.Tapi
                 LogManager.Debug("PipeServer: Could not add AppContainer ACL: {0}", ex.Message);
             }
 
-            try
-            {
-                var everyoneSid = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
-                security.AddAccessRule(new PipeAccessRule(
-                    everyoneSid,
-                    PipeAccessRights.ReadWrite,
-                    AccessControlType.Allow));
-            }
-            catch (Exception ex)
-            {
-                LogManager.Debug("PipeServer: Could not add Everyone ACL: {0}", ex.Message);
-            }
-
             return security;
         }
 
