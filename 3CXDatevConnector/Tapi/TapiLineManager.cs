@@ -70,7 +70,10 @@ namespace DatevConnector.Tapi
                 return false;
             }
 
-            line.Handle = hLine;
+            lock (line.SyncLock)
+            {
+                line.Handle = hLine;
+            }
             _linesByHandle[hLine] = line;
 
             // Request line device state notifications (call states come automatically with MONITOR privilege)
@@ -92,13 +95,16 @@ namespace DatevConnector.Tapi
                 return false;
             }
 
-            if (line.Handle != IntPtr.Zero)
+            lock (line.SyncLock)
             {
-                progressText?.Invoke($"Trenne Leitung {extension}...");
-                _linesByHandle.TryRemove(line.Handle, out _);
-                lineClose(line.Handle);
-                line.Handle = IntPtr.Zero;
-                _onLineDisconnected?.Invoke(line);
+                if (line.Handle != IntPtr.Zero)
+                {
+                    progressText?.Invoke($"Trenne Leitung {extension}...");
+                    _linesByHandle.TryRemove(line.Handle, out _);
+                    lineClose(line.Handle);
+                    line.Handle = IntPtr.Zero;
+                    _onLineDisconnected?.Invoke(line);
+                }
             }
 
             progressText?.Invoke($"Öffne Leitung {extension}...");
@@ -109,11 +115,17 @@ namespace DatevConnector.Tapi
         {
             foreach (var line in _lines.Values.Where(l => l.IsConnected).ToList())
             {
-                progressText?.Invoke($"Trenne Leitung {line.Extension}...");
-                _linesByHandle.TryRemove(line.Handle, out _);
-                lineClose(line.Handle);
-                line.Handle = IntPtr.Zero;
-                _onLineDisconnected?.Invoke(line);
+                lock (line.SyncLock)
+                {
+                    if (line.Handle != IntPtr.Zero)
+                    {
+                        progressText?.Invoke($"Trenne Leitung {line.Extension}...");
+                        _linesByHandle.TryRemove(line.Handle, out _);
+                        lineClose(line.Handle);
+                        line.Handle = IntPtr.Zero;
+                        _onLineDisconnected?.Invoke(line);
+                    }
+                }
             }
 
             OpenAllLines(progressText);

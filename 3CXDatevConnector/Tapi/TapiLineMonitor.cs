@@ -13,6 +13,13 @@ namespace DatevConnector.Tapi
 {
     public class TapiLineInfo
     {
+        /// <summary>
+        /// Lock for compound check-then-act operations on Handle.
+        /// Prevents races between the TAPI message loop thread (HandleLineClose),
+        /// OpenSingleLine, and ReconnectLine/ReconnectAllLines.
+        /// </summary>
+        public readonly object SyncLock = new object();
+
         public int DeviceId { get; set; }
         public string LineName { get; set; }
         public string Extension { get; set; }
@@ -365,7 +372,10 @@ namespace DatevConnector.Tapi
             if (_linesByHandle.TryGetValue(hLine, out line))
             {
                 LogManager.Log("TAPI: LINE_CLOSE empfangen für {0} ({1})", line.Extension, line.LineName);
-                line.Handle = IntPtr.Zero;
+                lock (line.SyncLock)
+                {
+                    line.Handle = IntPtr.Zero;
+                }
                 _linesByHandle.TryRemove(hLine, out _);
                 SafeInvokeEvent(LineDisconnected, line);
             }

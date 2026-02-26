@@ -156,11 +156,14 @@ namespace DatevConnector.Tapi
                         progressText?.Invoke("Leitung getrennt - Neuverbindung erforderlich");
                         LogManager.Log("TAPI TestLine {0}: Leitung geschlossen/ungültig, Neuverbindung erforderlich", extension);
                         // Mark the line as disconnected
-                        if (line.Handle != IntPtr.Zero)
+                        lock (line.SyncLock)
                         {
-                            _linesByHandle.TryRemove(line.Handle, out _);
-                            line.Handle = IntPtr.Zero;
-                            _onLineDisconnected?.Invoke(line);
+                            if (line.Handle != IntPtr.Zero)
+                            {
+                                _linesByHandle.TryRemove(line.Handle, out _);
+                                line.Handle = IntPtr.Zero;
+                                _onLineDisconnected?.Invoke(line);
+                            }
                         }
                         return false;
 
