@@ -24,10 +24,12 @@ namespace DatevConnector.Webclient
         private const int MaxFrameSize = 1024 * 1024; // 1 MB
 
         private readonly int _port;
+        private readonly string _authToken;
         private TcpListener _listener;
         private readonly object _writeLock = new object();
         private volatile bool _disposed;
         private volatile bool _disconnectedFired;
+        private volatile bool _warnedNoToken;
 
         /// <summary>
         /// Groups all per-connection mutable state into a single object.
@@ -72,9 +74,10 @@ namespace DatevConnector.Webclient
         public string Domain => _conn.Domain;
         public string WebclientVersion => _conn.WebclientVersion;
 
-        public WebSocketBridgeServer(int port)
+        public WebSocketBridgeServer(int port, string authToken = null)
         {
             _port = port;
+            _authToken = authToken;
         }
 
         // ===== Connection lifecycle =====
@@ -452,6 +455,29 @@ namespace DatevConnector.Webclient
 
             if (string.Equals(msg.Type, Protocol.TypeHello, StringComparison.OrdinalIgnoreCase))
             {
+                // Validate auth token if configured
+                if (!string.IsNullOrEmpty(_authToken))
+                {
+                    string clientToken = msg.Token;
+                    if (string.IsNullOrEmpty(clientToken))
+                    {
+                        if (!_warnedNoToken)
+                        {
+                            LogManager.Warning("WebClient: HELLO ohne Auth-Token - Verbindung erlaubt (unsicher)");
+                            _warnedNoToken = true;
+                        }
+                    }
+                    else if (!string.Equals(clientToken, _authToken, StringComparison.Ordinal))
+                    {
+                        LogManager.Warning("WebClient: HELLO mit ungültigem Token abgelehnt");
+                        return; // Don't set HelloReceived, connection will be rejected
+                    }
+                    else
+                    {
+                        LogManager.Log("WebClient: HELLO mit gültigem Token authentifiziert");
+                    }
+                }
+
                 _conn.ExtensionNumber = msg.ExtensionNumber;
                 _conn.WebclientIdentity = msg.WebclientIdentity;
                 _conn.Domain = msg.Domain;

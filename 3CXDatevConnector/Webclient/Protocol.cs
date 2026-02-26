@@ -57,6 +57,7 @@ namespace DatevConnector.Webclient
         public string Domain { get; set; }
         public string WebclientVersion { get; set; }
         public string UserName { get; set; }
+        public string Token { get; set; }
 
         // CALL_EVENT fields
         public long Timestamp { get; set; }
@@ -92,6 +93,7 @@ namespace DatevConnector.Webclient
             msg.Domain = GetString(dict, "domain");
             msg.WebclientVersion = GetString(dict, "webclientVersion");
             msg.UserName = GetString(dict, "userName");
+            msg.Token = GetString(dict, "token");
 
             // CALL_EVENT nested "call" object
             msg.CallId = GetString(dict, "call.id");

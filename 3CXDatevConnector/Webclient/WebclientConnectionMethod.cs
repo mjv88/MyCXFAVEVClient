@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using DatevConnector.Core;
@@ -46,6 +48,10 @@ namespace DatevConnector.Webclient
         // IPC — WebSocket
         private WebSocketBridgeServer _wsServer;
 
+        // Auth token for WebSocket connections
+        private readonly string _authToken;
+        private readonly string _tokenFilePath;
+
         // ===== IConnectionMethod Events =====
         public event Action<TapiCallEvent> CallStateChanged;
         public event Action<TapiLineInfo> LineConnected;
@@ -65,6 +71,13 @@ namespace DatevConnector.Webclient
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
             _connectTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
             _wsPort = AppConfig.GetIntClamped(ConfigKeys.WebclientWebSocketPort, 19800, 1024, 65535);
+
+            // Generate a random auth token for WebSocket connections
+            _authToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            _tokenFilePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "3CXDATEVConnector", "ws_token");
+            WriteTokenFile();
         }
 
         /// <summary>
@@ -134,7 +147,7 @@ namespace DatevConnector.Webclient
                 {
                     progressText?.Invoke("WebClient: Warte auf Erweiterung (WebSocket)...");
 
-                    _wsServer = new WebSocketBridgeServer(_wsPort);
+                    _wsServer = new WebSocketBridgeServer(_wsPort, _authToken);
                     WireWebSocketEvents(progressText);
 
                     // RunAsync blocks: accepts connections in a loop, handles reconnect
@@ -221,7 +234,7 @@ namespace DatevConnector.Webclient
 
             try
             {
-                _wsServer = new WebSocketBridgeServer(_wsPort);
+                _wsServer = new WebSocketBridgeServer(_wsPort, _authToken);
                 WireWebSocketEvents(null);
 
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);
@@ -462,6 +475,38 @@ namespace DatevConnector.Webclient
 
         // ===== Helpers =====
 
+        private void WriteTokenFile()
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(_tokenFilePath);
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+                File.WriteAllText(_tokenFilePath, _authToken);
+                LogManager.Debug("WebClient: Auth-Token geschrieben nach {0}", _tokenFilePath);
+            }
+            catch (Exception ex)
+            {
+                LogManager.Warning("WebClient: Token-Datei konnte nicht geschrieben werden - {0}", ex.Message);
+            }
+        }
+
+        private void DeleteTokenFile()
+        {
+            try
+            {
+                if (File.Exists(_tokenFilePath))
+                {
+                    File.Delete(_tokenFilePath);
+                    LogManager.Debug("WebClient: Token-Datei gelöscht");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManager.Debug("WebClient: Token-Datei konnte nicht gelöscht werden - {0}", ex.Message);
+            }
+        }
+
         private void InitVirtualLine()
         {
             _virtualLine = new TapiLineInfo
@@ -494,6 +539,7 @@ namespace DatevConnector.Webclient
             _disposed = true;
 
             CleanupConnection();
+            DeleteTokenFile();
 
             if (_virtualLine != null)
                 _virtualLine.Handle = IntPtr.Zero;
