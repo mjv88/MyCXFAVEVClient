@@ -25,7 +25,7 @@ namespace DatevConnector.Core
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly CallHistoryStore _callHistory;
-        private readonly string _extension;
+        private volatile string _extension;
 
         // Settings (read from AppConfig)
         private bool _enableJournaling;
@@ -34,7 +34,7 @@ namespace DatevConnector.Core
         private bool _enableCallerPopup;
         private bool _enableCallerPopupOutbound;
         private CallerPopupMode _callerPopupMode;
-        private int _minCallerIdLength;
+        private volatile int _minCallerIdLength;
         private int _contactReshowDelaySeconds;
         private bool _isMuted;
 
@@ -435,5 +435,8 @@ namespace DatevConnector.Core
             _callerPopupMode = AppConfig.GetEnum(ConfigKeys.CallerPopupMode, CallerPopupMode.Form);
             _contactReshowDelaySeconds = AppConfig.GetIntClamped(ConfigKeys.ContactReshowDelaySeconds, 3, 0, 30);
         }
+
+        public void UpdateExtension(string extension) { _extension = extension; }
+        public void UpdateMinCallerIdLength(int length) { _minCallerIdLength = length; }
     }
 }

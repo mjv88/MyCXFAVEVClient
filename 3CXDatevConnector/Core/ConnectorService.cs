@@ -18,7 +18,7 @@ namespace DatevConnector.Core
     /// </summary>
     public class ConnectorService : IDisposable
     {
-        private string _extension;
+        private volatile string _extension;
         private readonly CallTracker _callTracker;
         private readonly NotificationManager _notificationManager;
         private readonly DatevAdapter _datevAdapter;
@@ -361,6 +361,7 @@ namespace DatevConnector.Core
             {
                 LogManager.Debug("Nebenstelle erkannt von {0}: {1}", source, firstLine.Extension);
                 _extension = firstLine.Extension;
+                _callEventProcessor.UpdateExtension(_extension);
                 CallIdGenerator.Initialize(_extension);
 
                 // Save detected extension to config
@@ -372,6 +373,7 @@ namespace DatevConnector.Core
                     LogManager.Log("Minimumlänge: {0} -> {1} -stellig (Aufgrund der Nebenstellenlänge)",
                         _minCallerIdLength, _extension.Length);
                     _minCallerIdLength = _extension.Length;
+                    _callEventProcessor.UpdateMinCallerIdLength(_minCallerIdLength);
                     AppConfig.SetInt(ConfigKeys.MinCallerIdLength, _extension.Length);
                 }
             }

@@ -57,14 +57,12 @@ namespace DatevConnector.Core
         public CallRecord AddPendingCall(string tempId, bool isIncoming = false)
         {
             var record = new CallRecord(tempId, isIncoming);
+            var result = _pendingCalls.GetOrAdd(tempId, record);
 
-            if (_pendingCalls.TryAdd(tempId, record))
-            {
+            if (ReferenceEquals(result, record))
                 LogManager.Log("Connector: Ausstehender Anruf hinzugefügt {0}", tempId);
-                return record;
-            }
 
-            return _pendingCalls[tempId];
+            return result;
         }
 
         public CallRecord PromotePendingCall(string tempId, string tapiCallId)
@@ -116,14 +114,12 @@ namespace DatevConnector.Core
         public CallRecord AddCall(string tapiCallId, bool isIncoming)
         {
             var record = new CallRecord(tapiCallId, isIncoming);
+            var result = _calls.GetOrAdd(tapiCallId, record);
 
-            if (_calls.TryAdd(tapiCallId, record))
-            {
+            if (ReferenceEquals(result, record))
                 LogManager.Log("Connector: Anruf hinzugefügt {0} (eingehend={1})", tapiCallId, isIncoming);
-                return record;
-            }
 
-            return _calls[tapiCallId];
+            return result;
         }
 
         public CallRecord GetCall(string tapiCallId)

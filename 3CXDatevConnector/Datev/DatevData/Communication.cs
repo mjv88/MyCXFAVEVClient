@@ -21,6 +21,7 @@ namespace DatevConnector.Datev.DatevData
 
         private string _effectiveNormalizedNumber;
         private bool _effectiveNormalizedNumberComputed;
+        private readonly object _normLock = new object();
 
         /// <summary>
         /// Effective normalized number for phone number matching.
@@ -33,14 +34,17 @@ namespace DatevConnector.Datev.DatevData
         {
             get
             {
-                if (!_effectiveNormalizedNumberComputed)
+                lock (_normLock)
                 {
-                    _effectiveNormalizedNumber = !string.IsNullOrWhiteSpace(NormalizedNumber)
-                        ? PhoneNumberNormalizer.Normalize(NormalizedNumber)
-                        : PhoneNumberNormalizer.Normalize(Number);
-                    _effectiveNormalizedNumberComputed = true;
+                    if (!_effectiveNormalizedNumberComputed)
+                    {
+                        _effectiveNormalizedNumber = !string.IsNullOrWhiteSpace(NormalizedNumber)
+                            ? PhoneNumberNormalizer.Normalize(NormalizedNumber)
+                            : PhoneNumberNormalizer.Normalize(Number);
+                        _effectiveNormalizedNumberComputed = true;
+                    }
+                    return _effectiveNormalizedNumber;
                 }
-                return _effectiveNormalizedNumber;
             }
         }
     }

@@ -22,6 +22,7 @@ namespace DatevConnector.Tapi
         private const int LengthPrefixSize = 2;
 
         private readonly string _pipeName;
+        private readonly object _writeLock = new object();
         private NamedPipeServerStream _pipe;
         private bool _disposed;
         private volatile bool _clientConnected;
@@ -268,8 +269,11 @@ namespace DatevConnector.Tapi
                 byte[] data = message.ToBytes();
                 LogManager.Log("PipeServer SEND: {0} ({1} bytes)", message.ToString(), data.Length);
 
-                _pipe.Write(data, 0, data.Length);
-                _pipe.Flush();
+                lock (_writeLock)
+                {
+                    _pipe.Write(data, 0, data.Length);
+                    _pipe.Flush();
+                }
                 return true;
             }
             catch (Exception ex)
