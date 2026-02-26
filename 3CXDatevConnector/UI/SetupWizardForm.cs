@@ -673,7 +673,7 @@ namespace DatevConnector.UI
 
                 if (connected && !string.IsNullOrEmpty(ext))
                 {
-                    _lblTapiStatus.Text = string.Format("Verbunden - Nebenstelle: {0}", ext);
+                    _lblTapiStatus.Text = string.Format(UIStrings.Status.ConnectedExtension, ext);
                     _lblTapiStatus.ForeColor = UITheme.StatusOk;
                 }
                 else if (connected)

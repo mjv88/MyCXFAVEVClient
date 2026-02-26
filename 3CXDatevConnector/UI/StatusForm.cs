@@ -324,7 +324,7 @@ namespace DatevConnector.UI
             var lblTitle = new Label
             {
                 Text = title,
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Font = UITheme.FontTitle,
                 ForeColor = accentColor,
                 Location = new Point(12, 8),
                 AutoSize = true,

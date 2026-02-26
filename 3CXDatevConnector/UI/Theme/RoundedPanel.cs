@@ -68,11 +68,13 @@ namespace DatevConnector.UI.Theme
                 var stripeRect = new Rectangle(1, 0, Width - 3, AccentStripeHeight);
                 using (var clipPath = CreateRoundedRect(bounds, _cornerRadius))
                 {
-                    var oldClip = g.Clip;
-                    g.SetClip(clipPath);
-                    using (var brush = new SolidBrush(_accentColor))
-                        g.FillRectangle(brush, stripeRect);
-                    g.Clip = oldClip;
+                    using (var oldClip = g.Clip)
+                    {
+                        g.SetClip(clipPath);
+                        using (var brush = new SolidBrush(_accentColor))
+                            g.FillRectangle(brush, stripeRect);
+                        g.Clip = oldClip;
+                    }
                 }
             }
 

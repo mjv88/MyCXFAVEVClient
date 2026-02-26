@@ -19,6 +19,8 @@ namespace DatevConnector.Datev.COMs
             Direction = ENUM_DIRECTION.eDirUnknown;
             Note = string.Empty;
             SyncID = string.Empty;
+            Begin = DateTime.Now;
+            End = DateTime.Now;
         }
 
         #region IDatevCtiData Members
@@ -41,10 +43,10 @@ namespace DatevConnector.Datev.COMs
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.Append("AdressatenId: " + AdressatenId + "\n");
-            builder.Append("Adressatenname: " + Adressatenname + "\n");
-            builder.Append("CallID: " + CallID + "\n");
-            builder.Append("CalledNumber: " + CalledNumber + "\n");
+            builder.Append("AdressatenId: ").Append(AdressatenId).Append('\n');
+            builder.Append("Adressatenname: ").Append(Adressatenname).Append('\n');
+            builder.Append("CallID: ").Append(CallID).Append('\n');
+            builder.Append("CalledNumber: ").Append(CalledNumber).Append('\n');
 
             switch (CallState)
             {
@@ -62,7 +64,7 @@ namespace DatevConnector.Datev.COMs
                     break;
             }
 
-            builder.Append("DataSource: " + DataSource + "\n");
+            builder.Append("DataSource: ").Append(DataSource).Append('\n');
 
             switch (Direction)
             {
@@ -77,10 +79,10 @@ namespace DatevConnector.Datev.COMs
                     break;
             }
 
-            builder.Append("Begin: " + Begin.ToString("dd.MM.yyyy HH:mm:ss") + "\n");
-            builder.Append("End: " + End.ToString("dd.MM.yyyy HH:mm:ss") + "\n");
-            builder.Append("Note: " + Note + "\n");
-            builder.Append("SyncID: " + SyncID + "\n");
+            builder.Append("Begin: ").Append(Begin.ToString("dd.MM.yyyy HH:mm:ss")).Append('\n');
+            builder.Append("End: ").Append(End.ToString("dd.MM.yyyy HH:mm:ss")).Append('\n');
+            builder.Append("Note: ").Append(Note).Append('\n');
+            builder.Append("SyncID: ").Append(SyncID).Append('\n');
 
             return builder.ToString();
         }

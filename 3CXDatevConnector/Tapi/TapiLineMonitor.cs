@@ -122,7 +122,7 @@ namespace DatevConnector.Tapi
     /// </summary>
     public class TapiLineMonitor : IConnectionMethod
     {
-        private bool _disposed;
+        private volatile bool _disposed;
         private volatile bool _disposing;
         private readonly ConcurrentDictionary<IntPtr, TapiCallEvent> _activeCalls = new ConcurrentDictionary<IntPtr, TapiCallEvent>();
 
@@ -560,7 +560,6 @@ namespace DatevConnector.Tapi
             // Prevent callbacks from firing during teardown
             _disposing = true;
             _disposed = true;
-            GC.SuppressFinalize(this);
 
             _initializer.Shutdown(_lines, _linesByHandle);
         }

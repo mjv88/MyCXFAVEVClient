@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
@@ -19,10 +21,22 @@ namespace DatevConnector.Core
             = new ConcurrentDictionary<string, ContactUsage>();
 
         private static int _routingWindowMinutes;
+        private static readonly Timer _evictionTimer;
 
         static ContactRoutingCache()
         {
             _routingWindowMinutes = AppConfig.GetIntClamped(ConfigKeys.LastContactRoutingMinutes, 60, 0, 1440);
+            _evictionTimer = new Timer(_ => EvictExpired(), null, TimeSpan.FromMinutes(60), TimeSpan.FromMinutes(60));
+        }
+
+        private static void EvictExpired()
+        {
+            if (_routingWindowMinutes <= 0) return;
+            var expired = _cache.Where(kv => (DateTime.Now - kv.Value.Timestamp).TotalMinutes > _routingWindowMinutes).ToList();
+            foreach (var kv in expired)
+                _cache.TryRemove(kv.Key, out _);
+            if (expired.Count > 0)
+                LogManager.Debug("ContactRouting: Evicted {0} expired entries", expired.Count);
         }
 
         /// <summary>

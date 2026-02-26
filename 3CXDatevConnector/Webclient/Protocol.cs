@@ -245,6 +245,11 @@ namespace DatevConnector.Webclient
                     // Nested object — recurse with dot-prefix
                     ParseObject(json, ref pos, fullKey, dict);
                 }
+                else if (pos < json.Length && json[pos] == '[')
+                {
+                    // Array — skip entire array content (not used by protocol)
+                    SkipArray(json, ref pos);
+                }
                 else if (pos < json.Length && json[pos] == '"')
                 {
                     string val = ReadString(json, ref pos);
@@ -280,6 +285,25 @@ namespace DatevConnector.Webclient
                         case 'n': sb.Append('\n'); break;
                         case 'r': sb.Append('\r'); break;
                         case 't': sb.Append('\t'); break;
+                        case 'u':
+                            if (pos + 4 < json.Length)
+                            {
+                                var hex = json.Substring(pos + 1, 4);
+                                if (int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out int cp))
+                                {
+                                    sb.Append((char)cp);
+                                    pos += 4;
+                                }
+                                else
+                                {
+                                    sb.Append('u');
+                                }
+                            }
+                            else
+                            {
+                                sb.Append('u');
+                            }
+                            break;
                         default: sb.Append(esc); break;
                     }
                     pos++;
@@ -304,6 +328,20 @@ namespace DatevConnector.Webclient
             while (pos < json.Length && json[pos] != ',' && json[pos] != '}' && json[pos] != ']' && !char.IsWhiteSpace(json[pos]))
                 pos++;
             return json.Substring(start, pos - start).Trim();
+        }
+
+        private static void SkipArray(string json, ref int pos)
+        {
+            if (pos >= json.Length || json[pos] != '[') return;
+            int depth = 1;
+            pos++;
+            while (pos < json.Length && depth > 0)
+            {
+                if (json[pos] == '[') depth++;
+                else if (json[pos] == ']') depth--;
+                else if (json[pos] == '"') { ReadString(json, ref pos); continue; }
+                pos++;
+            }
         }
 
         private static void SkipWhitespace(string json, ref int pos)

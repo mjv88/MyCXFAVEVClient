@@ -32,6 +32,7 @@ namespace DatevConnector.Datev.Managers
         private static readonly Task _logWriterTask;
 
         private static readonly int _logRetentionDays;
+        private static int _maskDigits;
         private static string _currentLogFilePath;
         private static long _currentLogSize;
 
@@ -65,6 +66,8 @@ namespace DatevConnector.Datev.Managers
             _logRetentionDays = AppConfig.GetInt(ConfigKeys.LogRetentionDays, 7);
             if (_logRetentionDays < 1) _logRetentionDays = 1;
             if (_logRetentionDays > 90) _logRetentionDays = 90;
+
+            _maskDigits = AppConfig.GetInt(ConfigKeys.LogMaskDigits, 5);
 
             bool asyncEnabled = AppConfig.GetBool(ConfigKeys.LogAsync, true);
 
@@ -363,7 +366,7 @@ namespace DatevConnector.Datev.Managers
             if (string.IsNullOrEmpty(value))
                 return value;
 
-            int visible = AppConfig.GetInt(ConfigKeys.LogMaskDigits, 5);
+            int visible = _maskDigits;
 
             if (visible <= 0 || value.Length <= visible)
                 return value;

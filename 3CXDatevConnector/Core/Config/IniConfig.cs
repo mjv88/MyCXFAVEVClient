@@ -10,6 +10,7 @@ namespace DatevConnector.Core.Config
     /// </summary>
     public static class IniConfig
     {
+        private static readonly object _iniLock = new object();
         private static string _iniPath;
 
         [DllImport("kernel32", CharSet = CharSet.Unicode)]
@@ -53,9 +54,12 @@ namespace DatevConnector.Core.Config
             if (string.IsNullOrEmpty(_iniPath) || !File.Exists(_iniPath))
                 return defaultValue;
 
-            var result = new StringBuilder(512);
-            GetPrivateProfileString(section, key, defaultValue ?? "", result, result.Capacity, _iniPath);
-            return result.ToString();
+            lock (_iniLock)
+            {
+                var result = new StringBuilder(512);
+                GetPrivateProfileString(section, key, defaultValue ?? "", result, result.Capacity, _iniPath);
+                return result.ToString();
+            }
         }
 
         public static int GetInt(string section, string key, int defaultValue = 0)
@@ -63,7 +67,10 @@ namespace DatevConnector.Core.Config
             if (string.IsNullOrEmpty(_iniPath) || !File.Exists(_iniPath))
                 return defaultValue;
 
-            return GetPrivateProfileInt(section, key, defaultValue, _iniPath);
+            lock (_iniLock)
+            {
+                return GetPrivateProfileInt(section, key, defaultValue, _iniPath);
+            }
         }
 
         public static bool GetBool(string section, string key, bool defaultValue = false)
@@ -77,7 +84,10 @@ namespace DatevConnector.Core.Config
             if (string.IsNullOrEmpty(_iniPath))
                 return false;
 
-            return WritePrivateProfileString(section, key, value, _iniPath);
+            lock (_iniLock)
+            {
+                return WritePrivateProfileString(section, key, value, _iniPath);
+            }
         }
 
         public static bool SetInt(string section, string key, int value)

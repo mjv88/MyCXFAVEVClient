@@ -70,6 +70,10 @@ namespace DatevConnector.UI.Strings
             public const string TrayRestarting = "3CX - DATEV Connector - Neustart...";
             public const string TapiDisconnectedShort = "3CX getrennt";
             public const string DatevUnavailableShort = "DATEV nicht verfügbar";
+            public const string ConnectedActiveCalls = "Verbunden ({0} Anruf{1})";
+            public const string ConnectedReady = "Verbunden (bereit)";
+            public const string ConnectedOutOfService = "Verbunden (au\u00DFer Betrieb)";
+            public const string ConnectedExtension = "Verbunden - Nebenstelle: {0}";
             public const string LastSyncFormat = "Letzte Synchronisierung: {0:HH:mm:ss}";
             public const string LastSyncNone = "Letzte Synchronisierung: \u2014";
         }
@@ -251,6 +255,11 @@ namespace DatevConnector.UI.Strings
         {
             public const string TestAll = "Alle Verbindungen testen";
             public const string ReloadContacts = "Kontakte neu laden";
+            public const string OpenLog = "Log-Datei \u00F6ffnen";
+            public const string CallHistory = "Anrufliste";
+            public const string SaveSettings = "Einstellungen speichern";
+            public const string Refresh = "Aktualisieren";
+            public const string CloseWindow = "Fenster schlie\u00DFen";
             public const string KeyboardShortcuts = "Tastenkürzel";
         }
 
@@ -266,8 +275,8 @@ namespace DatevConnector.UI.Strings
             public const string Contact = Labels.Contact;
             public const string Duration = "Dauer";
             public const string Journal = "Journal";
-            public const string JournalSent = "\u2713 ✅";
-            public const string JournalPending = "❌";
+            public const string JournalSent = "\u2705";
+            public const string JournalPending = "\u274C";
             public const string JournalNone = "\u2014";
             public const string Unknown = Labels.Unknown;
         }

@@ -547,6 +547,7 @@ namespace DatevConnector.Webclient
 
         private async Task<bool> SetupClientAsync(TcpClient client)
         {
+            client.NoDelay = true;
             var stream = client.GetStream();
             if (!await PerformHandshakeAsync(stream))
             {

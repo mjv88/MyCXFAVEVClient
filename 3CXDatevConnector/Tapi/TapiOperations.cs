@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using DatevConnector.Datev.Managers;
+using DatevConnector.UI.Strings;
 using static DatevConnector.Interop.TapiInterop;
 
 namespace DatevConnector.Tapi
@@ -237,19 +238,19 @@ namespace DatevConnector.Tapi
                 if (inService)
                 {
                     if (activeCalls > 0)
-                        statusMsg = $"Verbunden ({activeCalls} Anruf{(activeCalls > 1 ? "e" : "")})";
+                        statusMsg = string.Format(UIStrings.Status.ConnectedActiveCalls, activeCalls, activeCalls > 1 ? "e" : "");
                     else
-                        statusMsg = "Verbunden (bereit)";
+                        statusMsg = UIStrings.Status.ConnectedReady;
                     isConnected = true;
                 }
                 else if (connected)
                 {
-                    statusMsg = "Verbunden (außer Betrieb)";
+                    statusMsg = UIStrings.Status.ConnectedOutOfService;
                     isConnected = true; // Handle is valid even if not in service
                 }
                 else
                 {
-                    statusMsg = "Nicht verbunden";
+                    statusMsg = UIStrings.Status.NotConnected;
                     isConnected = false;
                 }
 

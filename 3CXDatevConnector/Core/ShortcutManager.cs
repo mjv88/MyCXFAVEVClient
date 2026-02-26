@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using DatevConnector.UI.Strings;
 
 namespace DatevConnector.Core
 {
@@ -33,13 +34,13 @@ namespace DatevConnector.Core
 
         public static string GetShortcutDescription(Keys keys)
         {
-            if (keys == TestAll) return "Alle Verbindungen testen";
-            if (keys == ReloadContacts) return "Kontakte neu laden";
-            if (keys == OpenLog) return "Log-Datei öffnen";
-            if (keys == CallHistory) return "Anrufliste";
-            if (keys == SaveSettings) return "Einstellungen speichern";
-            if (keys == Refresh) return "Aktualisieren";
-            if (keys == CloseWindow) return "Fenster schließen";
+            if (keys == TestAll) return UIStrings.ShortcutLabels.TestAll;
+            if (keys == ReloadContacts) return UIStrings.ShortcutLabels.ReloadContacts;
+            if (keys == OpenLog) return UIStrings.ShortcutLabels.OpenLog;
+            if (keys == CallHistory) return UIStrings.ShortcutLabels.CallHistory;
+            if (keys == SaveSettings) return UIStrings.ShortcutLabels.SaveSettings;
+            if (keys == Refresh) return UIStrings.ShortcutLabels.Refresh;
+            if (keys == CloseWindow) return UIStrings.ShortcutLabels.CloseWindow;
             return keys.ToString();
         }
     }

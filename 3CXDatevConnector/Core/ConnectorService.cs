@@ -37,8 +37,8 @@ namespace DatevConnector.Core
         private Task _datevAutoDetectTask;
 
         // Settings
-        private int _minCallerIdLength;
-        private bool _isMuted;
+        private volatile int _minCallerIdLength;
+        private volatile bool _isMuted;
 
         // Call history
         private readonly CallHistoryStore _callHistory;
@@ -679,7 +679,6 @@ namespace DatevConnector.Core
                 return;
 
             _disposed = true;
-            GC.SuppressFinalize(this);
 
             // Unregister DatevAdapter from ROT
             try

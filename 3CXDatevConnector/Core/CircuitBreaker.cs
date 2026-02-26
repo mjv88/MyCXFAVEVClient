@@ -25,7 +25,6 @@ namespace DatevConnector.Core
 
         private CircuitState _state;
         private int _failureCount;
-        private DateTime _lastFailureTime;
         private DateTime _lastStateChange;
 
         public CircuitBreaker(string name, int failureThreshold = 3, int openTimeoutSeconds = 30, int halfOpenTestTimeoutSeconds = 5)
@@ -36,7 +35,6 @@ namespace DatevConnector.Core
             _halfOpenTestTimeout = TimeSpan.FromSeconds(halfOpenTestTimeoutSeconds);
             _state = CircuitState.Closed;
             _failureCount = 0;
-            _lastFailureTime = DateTime.MinValue;
             _lastStateChange = DateTime.UtcNow;
         }
 
@@ -89,7 +87,6 @@ namespace DatevConnector.Core
             lock (_lock)
             {
                 _failureCount++;
-                _lastFailureTime = DateTime.UtcNow;
 
                 if (_state == CircuitState.HalfOpen)
                 {

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace DatevConnector.Interop
 {
-    public class Rot
+    public static class Rot
     {
         [DllImport("oleaut32.dll", EntryPoint = "GetActiveObject",
             CharSet = CharSet.Unicode, ExactSpelling = true,

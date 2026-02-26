@@ -84,29 +84,19 @@ namespace DatevConnector.UI
                     Location = new Point(LayoutConstants.SpaceLG, y)
                 };
                 content.Controls.Add(iconBox);
+            }
 
-                var titleLabel = new Label
-                {
-                    Text = "3CX - DATEV Connector",
-                    Font = UITheme.FontTitle,
-                    ForeColor = UITheme.TextPrimary,
-                    AutoSize = true,
-                    Location = new Point(LayoutConstants.SpaceLG + 36 + LayoutConstants.SpaceSM, y + 6)
-                };
-                content.Controls.Add(titleLabel);
-            }
-            else
+            var titleLabel = new Label
             {
-                var titleLabel = new Label
-                {
-                    Text = "3CX - DATEV Connector",
-                    Font = UITheme.FontTitle,
-                    ForeColor = UITheme.TextPrimary,
-                    AutoSize = true,
-                    Location = new Point(LayoutConstants.SpaceLG, y)
-                };
-                content.Controls.Add(titleLabel);
-            }
+                Text = UIStrings.FormTitles.AppTitle,
+                Font = UITheme.FontTitle,
+                ForeColor = UITheme.TextPrimary,
+                AutoSize = true,
+                Location = bridgeIcon != null
+                    ? new Point(LayoutConstants.SpaceLG + 36 + LayoutConstants.SpaceSM, y + 6)
+                    : new Point(LayoutConstants.SpaceLG, y)
+            };
+            content.Controls.Add(titleLabel);
 
             y += 44;
 
