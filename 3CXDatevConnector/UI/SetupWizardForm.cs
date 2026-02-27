@@ -6,6 +6,7 @@ using DatevConnector.Core;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev;
 using DatevConnector.Datev.Managers;
+using DatevConnector.Tapi;
 using DatevConnector.UI.Strings;
 using DatevConnector.UI.Theme;
 
@@ -230,6 +231,8 @@ namespace DatevConnector.UI
                     // Auto mode: pick based on environment
                     if (SessionManager.IsTerminalSession)
                         ShowPipePage();
+                    else if (TapiConfigReader.IsTapiInstalled() && !SessionManager.Is3CXProcessRunning())
+                        ShowWebclientPage(); // TAPI driver present but Softphone not running
                     else
                         ShowTapiPage();
                     break;

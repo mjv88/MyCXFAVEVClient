@@ -143,22 +143,34 @@ namespace DatevConnector.Core
 
                     if (tapiProvider.ProbeLines())
                     {
-                        string reason = "Desktop environment - TAPI lines available";
-                        LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
-                        diagnostics.AppendLine("Desktop (TAPI): Ausgewählt (Leitungen verfügbar)");
-
-                        return new ProviderSelectionResult
+                        // TAPI lines found — but is the 3CX Softphone actually running?
+                        bool is3CXRunning = SessionManager.Is3CXProcessRunning();
+                        if (is3CXRunning)
                         {
-                            Provider = tapiProvider,
-                            SelectedMode = ConnectionMode.Desktop,
-                            Reason = reason,
-                            DiagnosticSummary = diagnostics.ToString()
-                        };
-                    }
+                            string reason = "Desktop environment - TAPI lines available, 3CX Softphone running";
+                            LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
+                            diagnostics.AppendLine("Desktop (TAPI): Ausgewählt (Leitungen + Softphone verfügbar)");
 
-                    tapiProvider.Dispose();
-                    diagnostics.AppendLine("Desktop (TAPI): Keine Leitungen verfügbar");
-                    LogManager.Debug("ConnectionMethodSelector: [A] TAPI hat keine Leitungen - überspringe");
+                            return new ProviderSelectionResult
+                            {
+                                Provider = tapiProvider,
+                                SelectedMode = ConnectionMode.Desktop,
+                                Reason = reason,
+                                DiagnosticSummary = diagnostics.ToString()
+                            };
+                        }
+
+                        // TAPI installed but Softphone not running — fall through to WebClient
+                        tapiProvider.Dispose();
+                        diagnostics.AppendLine("Desktop (TAPI): Leitungen vorhanden aber 3CX Softphone nicht gestartet");
+                        LogManager.Log("Auto-Erkennung: TAPI-Treiber installiert aber 3CX Softphone läuft nicht - versuche WebClient");
+                    }
+                    else
+                    {
+                        tapiProvider.Dispose();
+                        diagnostics.AppendLine("Desktop (TAPI): Keine Leitungen verfügbar");
+                        LogManager.Debug("ConnectionMethodSelector: [A] TAPI hat keine Leitungen - überspringe");
+                    }
                 }
                 catch (Exception ex)
                 {
