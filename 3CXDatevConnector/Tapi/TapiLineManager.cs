@@ -40,6 +40,10 @@ namespace DatevConnector.Tapi
 
         public bool OpenSingleLine(TapiLineInfo line, Action<string> progressText = null)
         {
+            // Skip if already open (e.g., opened during auto-detection probe)
+            if (line.IsConnected)
+                return true;
+
             IntPtr hLine;
             int result = lineOpen(
                 _getLineAppHandle(),

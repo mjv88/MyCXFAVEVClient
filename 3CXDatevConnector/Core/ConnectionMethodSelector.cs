@@ -143,13 +143,13 @@ namespace DatevConnector.Core
 
                     if (tapiProvider.ProbeLines())
                     {
-                        // TAPI lines found — but is the 3CX Softphone actually running?
-                        bool is3CXRunning = SessionManager.Is3CXProcessRunning();
-                        if (is3CXRunning)
+                        // TAPI lines found — verify the TSP is actually registered by trying lineOpen
+                        progressText?.Invoke("Auto-Erkennung: Teste TAPI-Verbindung...");
+                        if (tapiProvider.TryOpenLines())
                         {
-                            string reason = "Desktop environment - TAPI lines available, 3CX Softphone running";
+                            string reason = "Desktop environment - TAPI lines available and TSP registered";
                             LogManager.Debug("ConnectionMethodSelector: TAPI ausgewählt - {0}", reason);
-                            diagnostics.AppendLine("Desktop (TAPI): Ausgewählt (Leitungen + Softphone verfügbar)");
+                            diagnostics.AppendLine("Desktop (TAPI): Ausgewählt (Leitungen geöffnet)");
 
                             return new ProviderSelectionResult
                             {
@@ -160,10 +160,10 @@ namespace DatevConnector.Core
                             };
                         }
 
-                        // TAPI installed but Softphone not running — fall through to WebClient
+                        // lineOpen failed — TSP not registered (Softphone not running or not connected)
                         tapiProvider.Dispose();
-                        diagnostics.AppendLine("Desktop (TAPI): Leitungen vorhanden aber 3CX Softphone nicht gestartet");
-                        LogManager.Log("Auto-Erkennung: TAPI-Treiber installiert aber 3CX Softphone läuft nicht - versuche WebClient");
+                        diagnostics.AppendLine("Desktop (TAPI): Leitungen vorhanden aber lineOpen fehlgeschlagen (TSP nicht registriert)");
+                        LogManager.Log("Auto-Erkennung: TAPI-Leitungen gefunden aber lineOpen fehlgeschlagen - versuche WebClient");
                     }
                     else
                     {

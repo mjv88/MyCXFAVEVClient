@@ -189,6 +189,18 @@ namespace DatevConnector.Tapi
             return _lines.Count > 0;
         }
 
+        /// <summary>
+        /// Try to open all discovered lines to verify the TSP is actually registered.
+        /// Must be called after ProbeLines() returns true.
+        /// Returns true if at least one line opened successfully.
+        /// Lines that open successfully remain open for StartAsync to reuse.
+        /// </summary>
+        public bool TryOpenLines()
+        {
+            _lineManager.OpenAllLines();
+            return _lines.Values.Any(l => l.IsConnected);
+        }
+
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             await StartAsync(cancellationToken, null);
