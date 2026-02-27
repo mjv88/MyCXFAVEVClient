@@ -6,7 +6,6 @@ using DatevConnector.Core;
 using DatevConnector.Core.Config;
 using DatevConnector.Datev;
 using DatevConnector.Datev.Managers;
-using DatevConnector.Tapi;
 using DatevConnector.UI.Strings;
 using DatevConnector.UI.Theme;
 
@@ -111,8 +110,11 @@ namespace DatevConnector.UI
             _lblStepIndicator.Text = string.Format(UIStrings.Wizard.StepOf, step, TOTAL_STEPS);
 
             // Update button states
+            _noEndpointMode = false;
+            _waitingForDetection = false;
             _btnBack.Visible = step > 1;
             _btnNext.Text = step == TOTAL_STEPS ? UIStrings.Wizard.Finish : UIStrings.Wizard.Next;
+            _btnNext.Enabled = true;
 
             switch (step)
             {
@@ -228,18 +230,81 @@ namespace DatevConnector.UI
                     ShowTapiPage();
                     break;
                 default:
-                    // Auto mode: pick based on environment
-                    if (SessionManager.IsTerminalSession)
-                        ShowPipePage();
-                    else if (TapiConfigReader.IsTapiInstalled() && !SessionManager.Is3CXProcessRunning())
-                        ShowWebclientPage(); // TAPI driver present but Softphone not running
-                    else
-                        ShowTapiPage();
+                    // No provider detected yet — show searching page and wait for service to detect one
+                    ShowSearchingPage();
+                    _btnNext.Enabled = false;
+                    _waitingForDetection = true;
                     break;
             }
         }
 
-        // ========== TAPI / PIPE / WEBCLIENT CONFIG ==========
+        private void ShowSearchingPage()
+        {
+            _contentPanel.Controls.Clear();
+            AddStepTitle("3CX Verbindung", UITheme.AccentIncoming);
+
+            _lblTapiStatus = new Label
+            {
+                Text = "Suche nach 3CX Endpunkt...",
+                Font = UITheme.FontMedium,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                Size = new Size(ContentWidth, 30)
+            };
+            _contentPanel.Controls.Add(_lblTapiStatus);
+        }
+
+        private bool _noEndpointMode;
+        private bool _waitingForDetection;
+
+        private void ShowNoEndpointPage()
+        {
+            _noEndpointMode = true;
+            _btnNext.Text = UIStrings.Wizard.NoEndpointRetry;
+            _btnNext.Enabled = true;
+
+            AddStepTitle(UIStrings.Wizard.NoEndpointTitle, UITheme.StatusBad);
+
+            var lblDesc = new Label
+            {
+                Text = UIStrings.Wizard.NoEndpointDesc,
+                Font = UITheme.FontMedium,
+                ForeColor = UITheme.TextPrimary,
+                Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                Size = new Size(ContentWidth, 60)
+            };
+            _contentPanel.Controls.Add(lblDesc);
+
+            int optionY = StepDetailY + 20;
+
+            var lblOption1 = new Label
+            {
+                Text = "\u2022 " + UIStrings.Wizard.NoEndpointOption1,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(LayoutConstants.SpaceLG + 16, optionY),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblOption1);
+
+            var lblOption2 = new Label
+            {
+                Text = "\u2022 " + UIStrings.Wizard.NoEndpointOption2,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(LayoutConstants.SpaceLG + 16, optionY + 24),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lblOption2);
+        }
+
+        // ========== UNIFIED PROVIDER / DATEV PAGES ==========
+
+        // Shared layout constants for Step 2 and Step 3
+        private const int StepTitleY = 30;
+        private const int StepStatusY = 85;
+        private const int StepDetailY = 135;
+        private int ContentWidth => ClientSize.Width - (LayoutConstants.SpaceLG * 2);
 
         private void ShowTapiPage()
         {
@@ -249,213 +314,109 @@ namespace DatevConnector.UI
                 return;
             }
 
-            int y = LayoutConstants.SpaceLG;
+            bool connected = _bridgeService?.TapiConnected ?? false;
+            string ext = _bridgeService?.Extension ?? "";
 
-            var lblTitle = new Label
+            AddStepTitle(UIStrings.Wizard.TapiConfig, UITheme.AccentIncoming);
+
+            if (connected)
             {
-                Text = UIStrings.Wizard.TapiConfig,
-                Font = UITheme.FontLarge,
-                ForeColor = UITheme.AccentIncoming,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblTitle);
-            y += 40;
-
-            var lblDesc = new Label
+                string statusText = !string.IsNullOrEmpty(ext)
+                    ? string.Format(UIStrings.Status.ConnectedExtension, ext)
+                    : UIStrings.Status.Connected;
+                AddStepStatus(statusText, UITheme.StatusOk);
+                AddStepDetail(ConnectionMethodSelector.GetModeDescription(ConnectionMode.Desktop));
+            }
+            else
             {
-                Text = UIStrings.Wizard.TapiSelectLine,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblDesc);
-            y += 30;
+                AddStepStatus(UIStrings.Wizard.TapiSelectLine, UITheme.TextSecondary);
 
-            _cboTapiLine = new ComboBox
-            {
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = UITheme.InputBackground,
-                ForeColor = UITheme.TextPrimary,
-                FlatStyle = FlatStyle.Flat
-            };
-            _contentPanel.Controls.Add(_cboTapiLine);
-            y += 40;
+                _cboTapiLine = new ComboBox
+                {
+                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY),
+                    Size = new Size(ContentWidth, 28),
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    BackColor = UITheme.InputBackground,
+                    ForeColor = UITheme.TextPrimary,
+                    FlatStyle = FlatStyle.Flat
+                };
+                _contentPanel.Controls.Add(_cboTapiLine);
 
-            _lblTapiStatus = new Label
-            {
-                Text = "",
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextSecondary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 60)
-            };
-            _contentPanel.Controls.Add(_lblTapiStatus);
+                _lblTapiStatus = new Label
+                {
+                    Text = "",
+                    Font = UITheme.FontMedium,
+                    ForeColor = UITheme.TextSecondary,
+                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY + 40),
+                    Size = new Size(ContentWidth, 60)
+                };
+                _contentPanel.Controls.Add(_lblTapiStatus);
 
-            // Load TAPI lines
-            LoadTapiLines();
+                LoadTapiLines();
+            }
         }
 
         private void ShowPipePage()
         {
-            int y = LayoutConstants.SpaceLG;
+            bool connected = _bridgeService?.TapiConnected ?? false;
+            string ext = _bridgeService?.Extension ?? "";
 
-            var lblTitle = new Label
+            AddStepTitle(UIStrings.Wizard.PipeConfig, UITheme.AccentIncoming);
+
+            if (connected)
             {
-                Text = UIStrings.Wizard.PipeConfig,
-                Font = UITheme.FontLarge,
-                ForeColor = UITheme.AccentIncoming,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblTitle);
-            y += 40;
-
-            // Extension
-            string ext = _bridgeService?.Extension ?? "(auto)";
-            var lblExtension = new Label
-            {
-                Text = string.Format(UIStrings.Wizard.PipeExtension, ext),
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblExtension);
-            y += 28;
-
-            // Pipe name
-            var lblPipeName = new Label
-            {
-                Text = string.Format(UIStrings.Wizard.PipeName, ext),
-                Font = UITheme.FontSmall,
-                ForeColor = UITheme.TextMuted,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblPipeName);
-            y += 35;
-
-            // Pipe status
-            _lblTapiStatus = new Label
-            {
-                Text = UIStrings.Wizard.PipeStatus,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextSecondary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
-            };
-            _contentPanel.Controls.Add(_lblTapiStatus);
-            y += 30;
-
-            // Check pipe and 3CX Softphone status
-            bool pipeConnected = _bridgeService?.TapiConnected ?? false;
-            bool softphoneRunning = SessionManager.Is3CXProcessRunning();
-
-            var lblPipeStatus = new Label
-            {
-                Font = UITheme.FontBody,
-                Location = new Point(LayoutConstants.SpaceLG + 16, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2) - 16, 28)
-            };
-
-            if (pipeConnected)
-            {
-                lblPipeStatus.Text = UIStrings.Wizard.PipeConnected;
-                lblPipeStatus.ForeColor = UITheme.StatusOk;
+                string statusText = !string.IsNullOrEmpty(ext)
+                    ? string.Format(UIStrings.Status.ConnectedExtension, ext)
+                    : UIStrings.Status.Connected;
+                AddStepStatus(statusText, UITheme.StatusOk);
+                AddStepDetail(ConnectionMethodSelector.GetModeDescription(ConnectionMode.TerminalServer));
             }
             else
             {
-                lblPipeStatus.Text = UIStrings.Wizard.PipeWaiting;
-                lblPipeStatus.ForeColor = UITheme.StatusWarn;
-            }
-            _contentPanel.Controls.Add(lblPipeStatus);
-            y += 28;
+                AddStepStatus(UIStrings.Wizard.PipeWaiting, UITheme.StatusWarn);
 
-            var lblSoftphone = new Label
-            {
-                Font = UITheme.FontBody,
-                Location = new Point(LayoutConstants.SpaceLG + 16, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2) - 16, 28)
-            };
-
-            if (softphoneRunning)
-            {
-                lblSoftphone.Text = UIStrings.Wizard.Softphone3CXRunning;
-                lblSoftphone.ForeColor = UITheme.StatusOk;
+                _lblTapiStatus = new Label
+                {
+                    Font = UITheme.FontMedium,
+                    ForeColor = UITheme.StatusWarn,
+                    Text = UIStrings.Wizard.PipeWaiting,
+                    Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                    Size = new Size(ContentWidth, 30)
+                };
+                _contentPanel.Controls.Add(_lblTapiStatus);
             }
-            else
-            {
-                lblSoftphone.Text = UIStrings.Wizard.Softphone3CXNotRunning;
-                lblSoftphone.ForeColor = UITheme.StatusBad;
-            }
-            _contentPanel.Controls.Add(lblSoftphone);
         }
 
         private void ShowWebclientPage()
         {
-            int y = LayoutConstants.SpaceLG;
-
-            var lblTitle = new Label
-            {
-                Text = UIStrings.Wizard.WebclientConfig,
-                Font = UITheme.FontLarge,
-                ForeColor = UITheme.AccentIncoming,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblTitle);
-            y += 35;
-
-            // Description
-            var lblDesc = new Label
-            {
-                Text = UIStrings.Wizard.WebclientDesc,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextPrimary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 40)
-            };
-            _contentPanel.Controls.Add(lblDesc);
-            y += 48;
-
-            // Install steps
-            var lblSteps = new Label
-            {
-                Text = UIStrings.Wizard.WebclientInstallSteps,
-                Font = UITheme.FontBody,
-                ForeColor = UITheme.TextSecondary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 90)
-            };
-            _contentPanel.Controls.Add(lblSteps);
-            y += 95;
-
-            // Connection status
-            bool webclientConnected = _bridgeService?.TapiConnected ?? false;
+            bool connected = _bridgeService?.TapiConnected ?? false;
             var activeMode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
+            string ext = _bridgeService?.Extension ?? "";
 
-            _lblTapiStatus = new Label
-            {
-                Font = UITheme.FontBody,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 28)
-            };
+            AddStepTitle(UIStrings.Wizard.WebclientConfig, UITheme.AccentIncoming);
 
-            if (activeMode == ConnectionMode.WebClient && webclientConnected)
+            if (activeMode == ConnectionMode.WebClient && connected)
             {
-                _lblTapiStatus.Text = UIStrings.Wizard.WebclientConnected;
-                _lblTapiStatus.ForeColor = UITheme.StatusOk;
+                string statusText = !string.IsNullOrEmpty(ext)
+                    ? string.Format(UIStrings.Status.ConnectedExtension, ext)
+                    : UIStrings.Wizard.WebclientConnected;
+                AddStepStatus(statusText, UITheme.StatusOk);
+                AddStepDetail(ConnectionMethodSelector.GetModeDescription(ConnectionMode.WebClient));
             }
             else
             {
-                _lblTapiStatus.Text = UIStrings.Wizard.WebclientWaiting;
-                _lblTapiStatus.ForeColor = UITheme.StatusWarn;
+                AddStepStatus(UIStrings.Wizard.WebclientWaiting, UITheme.StatusWarn);
+
+                _lblTapiStatus = new Label
+                {
+                    Font = UITheme.FontMedium,
+                    ForeColor = UITheme.StatusWarn,
+                    Text = UIStrings.Wizard.WebclientWaiting,
+                    Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                    Size = new Size(ContentWidth, 30)
+                };
+                _contentPanel.Controls.Add(_lblTapiStatus);
             }
-            _contentPanel.Controls.Add(_lblTapiStatus);
         }
 
         private void LoadTapiLines()
@@ -489,30 +450,18 @@ namespace DatevConnector.UI
 
         private void ShowDatevPage()
         {
-            int y = LayoutConstants.SpaceLG;
-
-            var lblTitle = new Label
-            {
-                Text = UIStrings.Wizard.DatevConnection,
-                Font = UITheme.FontLarge,
-                ForeColor = UITheme.AccentDatev,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                AutoSize = true
-            };
-            _contentPanel.Controls.Add(lblTitle);
-            y += 40;
+            AddStepTitle(UIStrings.Wizard.DatevConnection, UITheme.AccentDatev);
 
             _lblDatevStatus = new Label
             {
                 Text = UIStrings.Wizard.DatevTesting,
-                Font = UITheme.FontBody,
+                Font = UITheme.FontMedium,
                 ForeColor = UITheme.TextSecondary,
-                Location = new Point(LayoutConstants.SpaceLG, y),
-                Size = new Size(ClientSize.Width - (LayoutConstants.SpaceLG * 2), 80)
+                Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                Size = new Size(ContentWidth, 120)
             };
             _contentPanel.Controls.Add(_lblDatevStatus);
 
-            // Start DATEV test
             TestDatevConnection();
         }
 
@@ -532,10 +481,9 @@ namespace DatevConnector.UI
                 {
                     if (_datevOk)
                     {
-                        _lblDatevStatus.Text = $"{UIStrings.Status.Connected}\n\n{UIStrings.Status.Available}";
+                        _lblDatevStatus.Text = UIStrings.Status.Connected;
                         _lblDatevStatus.ForeColor = UITheme.StatusOk;
 
-                        // Also show contact count if available
                         int contactCount = _bridgeService?.ContactCount ?? 0;
                         if (contactCount > 0)
                         {
@@ -562,6 +510,47 @@ namespace DatevConnector.UI
                     _btnNext.Enabled = true;
                 });
             }
+        }
+
+        // ========== SHARED STEP LAYOUT HELPERS ==========
+
+        private void AddStepTitle(string text, Color color)
+        {
+            var lbl = new Label
+            {
+                Text = text,
+                Font = UITheme.FontLarge,
+                ForeColor = color,
+                Location = new Point(LayoutConstants.SpaceLG, StepTitleY),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lbl);
+        }
+
+        private void AddStepStatus(string text, Color color)
+        {
+            _lblTapiStatus = new Label
+            {
+                Text = text,
+                Font = UITheme.FontMedium,
+                ForeColor = color,
+                Location = new Point(LayoutConstants.SpaceLG, StepStatusY),
+                Size = new Size(ContentWidth, 30)
+            };
+            _contentPanel.Controls.Add(_lblTapiStatus);
+        }
+
+        private void AddStepDetail(string text)
+        {
+            var lbl = new Label
+            {
+                Text = text,
+                Font = UITheme.FontBody,
+                ForeColor = UITheme.TextMuted,
+                Location = new Point(LayoutConstants.SpaceLG, StepDetailY),
+                AutoSize = true
+            };
+            _contentPanel.Controls.Add(lbl);
         }
 
         // ========== STEP 4: FINISH ==========
@@ -664,14 +653,53 @@ namespace DatevConnector.UI
 
         private void OnConnectorStatusChanged(ConnectorStatus status)
         {
-            if (_currentStep != 2 || _lblTapiStatus == null) return;
+            if (_currentStep != 2) return;
 
             BeginInvoke(new Action(() =>
             {
-                if (_lblTapiStatus == null || _lblTapiStatus.IsDisposed) return;
+                if (IsDisposed) return;
 
                 var mode = _bridgeService?.SelectedConnectionMode ?? ConnectionMode.Auto;
                 bool connected = status == ConnectorStatus.Connected;
+
+                // If we're waiting for detection (searching or no-endpoint page) and the service found a provider,
+                // switch to the appropriate provider config page
+                if ((_waitingForDetection || _noEndpointMode) && connected && mode != ConnectionMode.Auto)
+                {
+                    _waitingForDetection = false;
+                    _noEndpointMode = false;
+                    _contentPanel.Controls.Clear();
+                    _btnNext.Text = UIStrings.Wizard.Next;
+                    _btnNext.Enabled = true;
+
+                    switch (mode)
+                    {
+                        case ConnectionMode.WebClient:
+                            ShowWebclientPage();
+                            break;
+                        case ConnectionMode.TerminalServer:
+                            ShowPipePage();
+                            break;
+                        case ConnectionMode.Desktop:
+                            ShowTapiPage();
+                            break;
+                    }
+                    return;
+                }
+
+                // If we're waiting and still no endpoint after a Disconnected status,
+                // switch from searching page to no-endpoint page
+                if (_waitingForDetection && status == ConnectorStatus.Disconnected)
+                {
+                    _waitingForDetection = false;
+                    _contentPanel.Controls.Clear();
+                    ShowNoEndpointPage();
+                    return;
+                }
+
+                // Normal live-update of status label on an existing provider page
+                if (_lblTapiStatus == null || _lblTapiStatus.IsDisposed) return;
+
                 string ext = _bridgeService?.Extension;
 
                 if (connected && !string.IsNullOrEmpty(ext))
@@ -713,6 +741,17 @@ namespace DatevConnector.UI
 
         private void BtnNext_Click(object sender, EventArgs e)
         {
+            // On the no-endpoint page, show searching page and wait for service detection
+            if (_noEndpointMode && _currentStep == 2)
+            {
+                _noEndpointMode = false;
+                _contentPanel.Controls.Clear();
+                ShowSearchingPage();
+                _btnNext.Enabled = false;
+                _waitingForDetection = true;
+                return;
+            }
+
             if (_currentStep < TOTAL_STEPS)
             {
                 ShowStep(_currentStep + 1);

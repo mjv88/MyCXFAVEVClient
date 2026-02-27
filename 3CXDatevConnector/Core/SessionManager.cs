@@ -150,12 +150,23 @@ namespace DatevConnector.Core
             }
         }
 
+        // Only log full TAPI diagnostics block once per process lifetime
+        private static bool _tapiDiagnosticsLogged;
+
         /// <summary>
         /// Log diagnostic information about 3CX TAPI readiness.
         /// Call when LINEERR_NOTREGISTERED is encountered.
+        /// Full diagnostics are logged only once; subsequent calls log a single-line summary.
         /// </summary>
         internal static void Log3CXTapiDiagnostics(string extension)
         {
+            if (_tapiDiagnosticsLogged)
+            {
+                LogManager.Debug("TAPI lineOpen fehlgeschlagen (TSP nicht registriert) - Diagnostik bereits ausgegeben");
+                return;
+            }
+            _tapiDiagnosticsLogged = true;
+
             bool is3CXRunning = Is3CXProcessRunning();
             bool isPipeAvailable = Is3CXPipeAvailable(extension);
 

@@ -438,39 +438,27 @@ namespace DatevConnector.Core
 
                         if (_configuredConnectionMode == ConnectionMode.Auto)
                         {
-                            bool tapiInstalled = TapiConfigReader.IsTapiInstalled();
+                            // Full auto-detection cascade (TAPI → TS → WebClient)
+                            int retryInterval = AppConfig.GetInt(ConfigKeys.AutoDetectionRetryIntervalSec, 30);
+                            LogManager.Debug("Auto-Erkennung: Wiederholung...");
 
-                            if (tapiInstalled && !SessionManager.IsTerminalSession)
-                            {
-                                // Desktop: TAPI listens passively (LINE_CREATE if no lines yet)
-                                providerToUse = new TapiLineMonitor(lineFilter, _extension);
-                                _selectedMode = ConnectionMode.Desktop;
-                                LogManager.Log("Auto-Erkennung: Desktop (TAPI) - passiver Listener");
-                            }
-                            else if (tapiInstalled && SessionManager.IsTerminalSession)
-                            {
-                                // Terminal Server: Pipe waits for softphone
-                                providerToUse = new PipeConnectionMethod(_extension);
-                                _selectedMode = ConnectionMode.TerminalServer;
-                                LogManager.Log("Auto-Erkennung: Terminal Server - passiver Listener");
-                            }
-                            else if (AppConfig.GetBool(ConfigKeys.WebclientEnabled, true))
-                            {
-                                // No TAPI: WebClient waits for browser extension
-                                providerToUse = new WebclientConnectionMethod(_extension);
-                                _selectedMode = ConnectionMode.WebClient;
-                                LogManager.Log("Auto-Erkennung: WebClient - passiver Listener");
-                            }
+                            var retryResult = await ConnectionMethodSelector.SelectProviderAsync(
+                                _extension, cancellationToken);
 
-                            if (providerToUse == null)
+                            if (retryResult.Success)
                             {
-                                LogManager.Log("Auto-Erkennung: Kein Connector verfügbar");
+                                providerToUse = retryResult.Provider;
+                                _selectedMode = retryResult.SelectedMode;
+                                _detectionDiagnostics = retryResult.DiagnosticSummary;
+                                LogManager.Log("Auto-Erkennung: {0} erkannt", _selectedMode);
+                            }
+                            else
+                            {
+                                LogManager.Debug("Auto-Erkennung: Kein Endpunkt - nächster Versuch in {0}s", retryInterval);
                                 Status = ConnectorStatus.Disconnected;
-                                await Task.Delay(TimeSpan.FromSeconds(reconnectInterval), cancellationToken);
+                                await Task.Delay(TimeSpan.FromSeconds(retryInterval), cancellationToken);
                                 continue;
                             }
-
-                            _detectionDiagnostics = string.Format("Auto-Erkennung: {0} (passiv)", _selectedMode);
                         }
                         else
                         {

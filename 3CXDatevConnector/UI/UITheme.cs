@@ -118,39 +118,70 @@ namespace DatevConnector.UI
             return btn;
         }
 
+        // Grid colors
+        public static readonly Color GridRowAlt = Color.FromArgb(42, 42, 46);
+        public static readonly Color GridSelectionBack = Color.FromArgb(60, 0, 122, 204);
+        public static readonly Color GridHeaderBorder = Color.FromArgb(70, 70, 75);
+
         public static DataGridView CreateDataGridView()
         {
-            return new DataGridView
+            var grid = new DataGridView
             {
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 AllowUserToResizeRows = false,
+                AllowUserToResizeColumns = false,
                 MultiSelect = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 RowHeadersVisible = false,
                 EnableHeadersVisualStyles = false,
-                CellBorderStyle = DataGridViewCellBorderStyle.None,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(55, 55, 60),
                 BorderStyle = BorderStyle.None,
-                BackgroundColor = CardBackground,
+                BackgroundColor = PanelBackground,
                 Font = FontBody,
+                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single,
                 ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
                 {
                     BackColor = PanelBackground,
-                    ForeColor = TextSecondary,
-                    Font = FontLabel,
+                    ForeColor = TextMuted,
+                    Font = FontSmall,
                     SelectionBackColor = PanelBackground,
-                    SelectionForeColor = TextSecondary
+                    SelectionForeColor = TextMuted,
+                    Padding = new Padding(4, 0, 4, 0),
+                    Alignment = DataGridViewContentAlignment.MiddleLeft
                 },
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
                     BackColor = CardBackground,
                     ForeColor = TextPrimary,
-                    SelectionBackColor = ButtonPrimary,
-                    SelectionForeColor = TextPrimary
+                    SelectionBackColor = Color.FromArgb(30, 80, 140),
+                    SelectionForeColor = Color.White,
+                    Padding = new Padding(4, 2, 4, 2)
                 },
-                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
+                AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = GridRowAlt,
+                    ForeColor = TextPrimary,
+                    SelectionBackColor = Color.FromArgb(30, 80, 140),
+                    SelectionForeColor = Color.White,
+                    Padding = new Padding(4, 2, 4, 2)
+                },
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+                ColumnHeadersHeight = 28,
+                RowTemplate = { Height = 30 },
+                ScrollBars = ScrollBars.Vertical
             };
+
+            // Enable double-buffering for smoother scrolling
+            typeof(DataGridView).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic,
+                null, grid, new object[] { true });
+
+            return grid;
         }
 
         public static Color GetDirectionColor(bool isIncoming)

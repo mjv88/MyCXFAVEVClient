@@ -175,7 +175,7 @@ namespace DatevConnector.UI.Strings
             public const string Title = "3CX - DATEV Connector - Einrichtung";
             public const string Welcome = "Willkommen";
             public const string WelcomeText = "Dieser Assistent hilft Ihnen bei der Einrichtung des 3CX - DATEV Connector`s.";
-            public const string TapiConfig = "3CX-Konfiguration";
+            public const string TapiConfig = "3CX Windows App";
             public const string TapiSelectLine = "Wählen Sie Ihre gewünschte 3CX Verbindung aus:";
             public const string DatevConnection = "DATEV";
             public const string DatevTesting = "DATEV-Verbindung wird geprüft...";
@@ -201,7 +201,7 @@ namespace DatevConnector.UI.Strings
             public const string FirstRunTitle = "3CX - DATEV Connector - Ersteinrichtung";
 
             // Terminal Server mode (Named Pipe)
-            public const string PipeConfig = "Terminal Server";
+            public const string PipeConfig = "3CX Windows App (Terminal Server)";
             public const string PipeStatus = "Verbindungsstatus:";
             public const string PipeWaiting = "Warte auf 3CX Windows-App-Verbindung...";
             public const string PipeConnected = "3CX Windows-App verbunden";
@@ -211,11 +211,18 @@ namespace DatevConnector.UI.Strings
             public const string Softphone3CXNotRunning = "3CX Windows-App nicht erkannt \u2014 bitte starten";
 
             // Webclient mode
-            public const string WebclientConfig = "Webclient (Browser-Erweiterung)";
+            public const string WebclientConfig = "3CX WebClient";
             public const string WebclientDesc = "Sie verwenden den 3CX Webclient im Browser.\nAnrufereignisse werden über die Browser-Erweiterung empfangen.";
             public const string WebclientInstallSteps = "1. Browser-Erweiterung installieren (Chrome/Edge)\n2. Native Messaging Host registrieren\n3. 3CX Webclient im Browser öffnen\n4. Erweiterung mit Ihrer Nebenstelle verbinden";
             public const string WebclientConnected = "Browser-Erweiterung verbunden";
             public const string WebclientWaiting = "Warte auf Browser-Erweiterung...";
+
+            // No endpoint detected
+            public const string NoEndpointTitle = "Kein 3CX Endpunkt erkannt";
+            public const string NoEndpointDesc = "Es konnte kein 3CX Endpunkt erkannt werden.\n\nBitte starten Sie eine der folgenden Optionen:";
+            public const string NoEndpointOption1 = "3CX Windows App (Desktop / Terminal Server)";
+            public const string NoEndpointOption2 = "3CX WebClient im Browser";
+            public const string NoEndpointRetry = "Erneut suchen";
 
             // Connection mode selection (setup wizard)
             public const string ModeSelectionTitle = "Telefonie-Modus";
@@ -238,6 +245,7 @@ namespace DatevConnector.UI.Strings
             public const string DatevLost = "DATEV Arbeitsplatz nicht gefunden.\nBitte DATEV starten.";
             public const string WebclientConnected = "Webclient / PWA (Nebenstelle {0})";
             public const string WebclientDisconnected = "Browser-Erweiterung getrennt";
+            public const string NoEndpointDetected = "Kein 3CX Endpunkt erkannt.\nBitte 3CX Windows-App oder 3CX WebClient starten.";
             public const string ReloadTitle = "Neu laden";
             public const string ContactsReloading = "Kontakte werden aus DATEV geladen...";
             public const string ContactsReloadedTitle = "Kontakte geladen";

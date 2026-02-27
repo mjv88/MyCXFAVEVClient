@@ -227,7 +227,9 @@ namespace DatevConnector.UI
                     if (statusChanged)
                     {
                         string discMsg;
-                        if (_bridgeService.SelectedConnectionMode == Core.ConnectionMode.WebClient)
+                        if (_bridgeService.SelectedConnectionMode == Core.ConnectionMode.Auto)
+                            discMsg = UIStrings.Notifications.NoEndpointDetected;
+                        else if (_bridgeService.SelectedConnectionMode == Core.ConnectionMode.WebClient)
                             discMsg = UIStrings.Notifications.WebclientDisconnected;
                         else if (SessionManager.IsTerminalSession)
                             discMsg = UIStrings.Notifications.PipeDisconnected;

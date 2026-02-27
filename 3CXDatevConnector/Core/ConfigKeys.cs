@@ -76,6 +76,7 @@ namespace DatevConnector.Core
         // ===== Connection Mode =====
         public const string TelephonyMode = "TelephonyMode";
         public const string AutoDetectionTimeoutSec = "Auto.DetectionTimeoutSec";
+        public const string AutoDetectionRetryIntervalSec = "Auto.RetryIntervalSec";
         public const string WebclientConnectTimeoutSec = "Webclient.ConnectTimeoutSec";
         public const string WebclientEnabled = "Webclient.Enabled";
         public const string WebclientWebSocketPort = "Webclient.WebSocketPort";

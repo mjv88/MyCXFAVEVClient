@@ -244,7 +244,7 @@ namespace DatevConnector.UI
             grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 HeaderText = UIStrings.CallHistory.Number,
-                Width = 130,
+                Width = 120,
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.None
             });
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -256,16 +256,66 @@ namespace DatevConnector.UI
             {
                 HeaderText = UIStrings.CallHistory.Duration,
                 Width = 55,
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                HeaderCell = { Style = { Alignment = DataGridViewContentAlignment.MiddleCenter } },
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    ForeColor = UITheme.TextMuted
+                }
             });
             grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 HeaderText = UIStrings.CallHistory.Journal,
-                Width = 55,
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+                Width = 65,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                HeaderCell = { Style = { Alignment = DataGridViewContentAlignment.MiddleCenter } },
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    Alignment = DataGridViewContentAlignment.MiddleCenter
+                }
             });
 
+            grid.CellPainting += OnCellPainting;
+
             return grid;
+        }
+
+        private void OnCellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+        {
+            // Paint journal status column (index 4) with colored dot instead of text
+            if (e.ColumnIndex != 4 || e.RowIndex < 0) return;
+
+            var grid = sender as DataGridView;
+            if (grid == null) return;
+
+            var entry = grid.Rows[e.RowIndex].Tag as CallHistoryEntry;
+            if (entry == null) return;
+
+            e.Paint(e.CellBounds, DataGridViewPaintParts.Background | DataGridViewPaintParts.SelectionBackground);
+
+            Color dotColor;
+            if (entry.JournalSent)
+                dotColor = UITheme.StatusOk;
+            else if (!string.IsNullOrEmpty(entry.AdressatenId))
+                dotColor = UITheme.StatusWarn;
+            else
+                dotColor = UITheme.TextMuted;
+
+            int dotSize = 8;
+            int x = e.CellBounds.X + (e.CellBounds.Width - dotSize) / 2;
+            int y = e.CellBounds.Y + (e.CellBounds.Height - dotSize) / 2;
+
+            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                new Rectangle(x, y, dotSize, dotSize), dotColor,
+                Color.FromArgb(dotColor.A, Math.Max(0, dotColor.R - 30), Math.Max(0, dotColor.G - 30), Math.Max(0, dotColor.B - 30)),
+                System.Drawing.Drawing2D.LinearGradientMode.Vertical))
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillEllipse(brush, x, y, dotSize, dotSize);
+            }
+
+            e.Handled = true;
         }
 
         private void LoadHistory()
@@ -294,13 +344,11 @@ namespace DatevConnector.UI
                 entry.RemoteNumber ?? UIStrings.CallHistory.JournalNone,
                 string.IsNullOrEmpty(entry.ContactName) ? UIStrings.CallHistory.Unknown : entry.ContactName,
                 entry.Duration.ToString(@"mm\:ss"),
-                entry.JournalSent ? UIStrings.CallHistory.JournalSent
-                    : !string.IsNullOrEmpty(entry.AdressatenId) ? UIStrings.CallHistory.JournalPending
-                    : UIStrings.CallHistory.JournalNone
+                "" // Journal column painted via CellPainting
             );
 
-            // Muted forecolor for sent or no-journal rows
-            if (entry.JournalSent || string.IsNullOrEmpty(entry.AdressatenId))
+            // Muted text for already-sent journal entries
+            if (entry.JournalSent)
                 row.DefaultCellStyle.ForeColor = UITheme.TextMuted;
 
             row.Tag = entry;

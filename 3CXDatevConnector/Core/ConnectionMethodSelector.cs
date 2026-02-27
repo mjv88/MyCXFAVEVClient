@@ -192,9 +192,9 @@ namespace DatevConnector.Core
                         isTerminalSession ? "Ja" : "Nein", pipeAvailable ? "Ja" : "Nein", softphoneRunning ? "Ja" : "Nein");
                     diagnostics.AppendLine();
 
-                    if (isTerminalSession)
+                    if (isTerminalSession && softphoneRunning)
                     {
-                        string reason = "Terminal server session detected";
+                        string reason = "Terminal server session detected, 3CX Softphone running";
                         LogManager.Debug("ConnectionMethodSelector: Terminal Server ausgewählt - {0}", reason);
                         diagnostics.AppendLine("Terminal Server: Ausgewählt");
 
@@ -205,6 +205,12 @@ namespace DatevConnector.Core
                             Reason = reason,
                             DiagnosticSummary = diagnostics.ToString()
                         };
+                    }
+
+                    if (isTerminalSession && !softphoneRunning)
+                    {
+                        diagnostics.AppendLine("Terminal Server: Sitzung erkannt aber 3CX Softphone nicht gestartet");
+                        LogManager.Log("Auto-Erkennung: Terminal-Server-Sitzung aber 3CX Softphone nicht gestartet - versuche WebClient");
                     }
                 }
                 else
@@ -282,11 +288,11 @@ namespace DatevConnector.Core
             switch (mode)
             {
                 case ConnectionMode.Desktop:
-                    return "Desktop (TAPI)";
+                    return "3CX Windows App";
                 case ConnectionMode.TerminalServer:
-                    return "Terminal Server (TAPI)";
+                    return "3CX Windows App (Terminal Server)";
                 case ConnectionMode.WebClient:
-                    return "WebClient (Browser-Erweiterung)";
+                    return "3CX WebClient";
                 case ConnectionMode.Auto:
                 default:
                     return "Automatisch";
