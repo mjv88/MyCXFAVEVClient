@@ -98,8 +98,8 @@ namespace DatevConnector.Webclient
                     TcpClient client = null;
                     try
                     {
-                        client = await AcceptAsync(ct);
-                        if (client == null) break;
+                        client = await AcceptAndVerifyAsync(ct);
+                        if (client == null) continue;                   // session-rejected or no client: no backoff
 
                         if (!await HandshakeAndRunClient(client, ct))
                             continue;
@@ -115,7 +115,7 @@ namespace DatevConnector.Webclient
                     }
 
                     if (!ct.IsCancellationRequested && !_disposed)
-                        await Task.Delay(500, ct);
+                        await Task.Delay(500, ct);                      // only after a fully-handled client
                 }
             }
             finally
@@ -146,8 +146,8 @@ namespace DatevConnector.Webclient
 
                     try
                     {
-                        client = await AcceptAsync(timeoutCts.Token);
-                        if (client == null) return false;
+                        client = await AcceptAndVerifyAsync(timeoutCts.Token);
+                        if (client == null) continue;
 
                         if (!await SetupClientAsync(client))
                         {
@@ -544,6 +544,42 @@ namespace DatevConnector.Webclient
                     try { t.Result?.Close(); } catch { }
             }, TaskContinuationOptions.ExecuteSynchronously);
             return null;
+        }
+
+        // Accept a connection and enforce same-Windows-session identity. Returns
+        // null if the peer isn't in our session (cross-RDS-session call). Closing
+        // the socket without a WebSocket handshake means cross-session probes see
+        // a silent TCP close, which the extension already treats as "try another
+        // port".
+        private async Task<TcpClient> AcceptAndVerifyAsync(CancellationToken ct)
+        {
+            var client = await AcceptAsync(ct);
+            if (client == null) return null;
+
+            try
+            {
+                var local = (IPEndPoint)client.Client.LocalEndPoint;
+                var peer  = (IPEndPoint)client.Client.RemoteEndPoint;
+                uint? peerSid = LoopbackPeerSession.ResolvePeerSessionId(local, peer);
+                uint mySid = LoopbackPeerSession.CurrentSessionId();
+
+                if (peerSid == null || peerSid.Value != mySid)
+                {
+                    LogManager.Debug(
+                        "WebClient Connector: Peer aus Session {0} abgewiesen, eigene Session {1}",
+                        peerSid.HasValue ? peerSid.Value.ToString() : "(null)", mySid);
+                    try { client.Close(); } catch { }
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManager.Debug("WebClient Connector: Session-Pruefung fehlgeschlagen - {0}", ex.Message);
+                try { client.Close(); } catch { }
+                return null;
+            }
+
+            return client;
         }
 
         private async Task<bool> SetupClientAsync(TcpClient client)
