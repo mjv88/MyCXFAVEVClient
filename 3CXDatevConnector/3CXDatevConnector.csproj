@@ -43,13 +43,20 @@
   </ItemGroup>
 
   <!-- Bundled DATEV SDD DLLs. Copied to <output>/Datev/ so GacAssemblyResolver
-       can fall back to them when the GAC install is missing or corrupted. -->
+       can fall back to them when the GAC install is missing or corrupted.
+       ExcludeFromSingleFile keeps them as separate files next to the exe
+       even with PublishSingleFile=true, so the runtime resolver can probe
+       them by path. -->
   <ItemGroup>
-    <None Include="..\lib\Datev.Sdd.Data.ClientInterfaces.dll"
-          Link="Datev\Datev.Sdd.Data.ClientInterfaces.dll"
-          CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll"
-          Link="Datev\Datev.Sdd.Data.ClientPlugIn.Base.dll"
-          CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\lib\Datev.Sdd.Data.ClientInterfaces.dll"
+             Link="Datev\Datev.Sdd.Data.ClientInterfaces.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             ExcludeFromSingleFile="true" />
+    <Content Include="..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll"
+             Link="Datev\Datev.Sdd.Data.ClientPlugIn.Base.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>
