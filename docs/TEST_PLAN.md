@@ -415,6 +415,176 @@ WebClient Connector: Extension disconnected
 
 ---
 
+## WebClient Mode — Terminal Server / RDS
+
+These scenarios cover the multi-user auto-port discovery behaviour on Remote Desktop Services. Each user's connector picks the first free port in the range 19800–19899 and the browser extension discovers it via a session-scoped probe.
+
+### TS-1: Single user, clean install
+
+**Preconditions:** RDS host available. 3CX-DATEV-Connector not yet installed for the test user.
+
+**Steps:**
+
+1. Log into an RDS session. Install the 3CX-DATEV-Connector per-user.
+2. Start the tray app. Open `%AppData%\3CXDATEVConnector\logs\*.log`.
+3. Open 3CX WebClient in Chrome/Edge with the extension installed.
+4. Place a test call and confirm DATEV receives the call event.
+
+**Expected log output:**
+
+```
+Bridge lauscht auf Port 19800 (Session-ID <N>)
+```
+
+Service-worker console:
+
+```
+Bridge verbunden auf Port 19800
+```
+
+**Pass criteria:** Bridge binds 19800, extension connects to 19800, DATEV receives the call event.
+
+---
+
+### TS-2: Two users, sequential start
+
+**Preconditions:** RDS host supporting at least two concurrent sessions. Connector installed per-user for both A and B.
+
+**Steps:**
+
+1. Log in as user A. Start the tray app.
+2. Log in as user B (without logging A out). Start the tray app for B.
+3. Open WebClient as user B.
+4. Place a test call as user B.
+
+**Expected log output:**
+
+```
+(user A) Bridge lauscht auf Port 19800
+(user B) Bridge lauscht auf Port 19801
+(user B service-worker) Bridge verbunden auf Port 19801
+```
+
+**Pass criteria:** User A stays on 19800, user B lands on 19801. Only user B's DATEV receives user B's test call.
+
+---
+
+### TS-3: Two users, simultaneous start
+
+**Preconditions:** Same as TS-2. A mechanism to start both tray apps within ~1 second (batch file with two `psexec -u` invocations, or two RDP sessions clicked near-simultaneously).
+
+**Steps:**
+
+1. Script-start the tray app as user A and user B within 1 second of each other.
+2. Inspect both users' log files.
+
+**Expected log output:**
+
+- Exactly one user logs `Bridge lauscht auf Port 19800`.
+- The other user logs `Bridge lauscht auf Port 19801`.
+- Neither log contains `Kein freier Port`.
+
+**Pass criteria:** Both bridges start cleanly on distinct ports without collision errors.
+
+---
+
+### TS-4: Cross-session cache hit (negative test)
+
+**Preconditions:** TS-2 setup complete (user A on 19800, user B on 19801).
+
+**Steps:**
+
+1. As user B, in the service-worker console, run `chrome.storage.local.set({bridgePort: 19800})`.
+2. Reload the extension.
+3. Place a test call as user B.
+
+**Expected log output:**
+
+Service-worker console:
+
+```
+Cache-Port 19800 nicht erreichbar, Scan lief, gefunden auf 19801
+```
+
+**Pass criteria:** User A's bridge on 19800 silently refuses user B's probe (session check). Extension falls back to scan and locks onto 19801. User A's DATEV does NOT receive user B's call event.
+
+---
+
+### TS-5: Bridge restart port re-discovery
+
+**Preconditions:** User A and user B both logged in with connectors running (A on 19800, B on 19801).
+
+**Steps:**
+
+1. As user A, kill the tray app: `taskkill /f /im 3cxDatevConnector.exe`.
+2. As user B, restart the tray app (still should hold 19801; if B had 19800, adjust so B grabs 19800 here).
+3. As user A, restart the tray app.
+4. Check user A's service-worker console for reconnect.
+
+**Expected log output:**
+
+```
+(user A, restart) Bridge lauscht auf Port 19801
+```
+
+(or whichever port is free — must not collide with user B)
+
+**Pass criteria:** User A's bridge picks a free port and the extension reconnects to the new port automatically.
+
+---
+
+### TS-6: 25-user load (reduced from full 100)
+
+**Preconditions:** RDS host capable of hosting 25 concurrent sessions. Connector installed per-user for all 25.
+
+**Steps:**
+
+1. Script 25 RDS sessions starting the tray app.
+2. Collect the log file from each user's `%AppData%\3CXDATEVConnector\logs\` directory.
+3. Extract the `Bridge lauscht auf Port` line from each.
+4. Spot-check 3 random users' logs for the HELLO line.
+
+**Expected log output:**
+
+- 25 distinct ports in the range 19800–19824 across the 25 log directories.
+- Each spot-checked log shows only that user's own extension number in the `WebClient HELLO von extension=...` line.
+
+**Pass criteria:** No port collisions, no cross-session bleed in HELLO lines.
+
+---
+
+### TS-7: Port exhaustion
+
+**Preconditions:** Tray app not running. PowerShell available.
+
+**Steps:**
+
+1. Externally bind all 100 ports in the range using a PowerShell loop with `[System.Net.Sockets.TcpListener]` instances (keep the listeners alive in that shell).
+2. Start the tray app.
+3. Check the connector log and tray UI.
+
+**Expected log output:**
+
+```
+Kein freier Port in 19800-19899, Bridge nicht gestartet
+```
+
+**Pass criteria:** Connector logs the exhaustion message and the tray UI surfaces a user-visible failure state (connection state shows failed / error).
+
+---
+
+### TS-R: Regression — non-RDS single-user
+
+**Preconditions:** Existing Desktop (TAPI) and Terminal Server (Pipe) environments from the top of this document.
+
+**Steps:**
+
+1. Re-run TC-01 through TC-14 on Environment 1 (Desktop) and Environment 2 (Terminal Server, Pipe mode).
+
+**Pass criteria:** All existing TC-XX scenarios remain green. The auto-port change must not touch TAPI or Pipe paths.
+
+---
+
 ## Log Format Verification Checklist
 
 After running tests, verify the following in the log file:
