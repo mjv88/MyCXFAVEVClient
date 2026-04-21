@@ -228,7 +228,7 @@ LogAsync=true
 | `AutoDetectionTimeoutSec` | 10 | [Connection] | Total timeout for auto-detection in seconds |
 | `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
 | `WebclientEnabled` | true | [Connection] | Enable/disable WebClient detection in Auto mode |
-| `WebclientWebSocketPort` | 19800 | [Connection] | WebSocket port for browser extension connection |
+| `WebclientWebSocketPort` | 19800 | [Connection] | Start of the WebSocket port range (bridge walks `WebSocketPort..WebSocketPort+RangeSize-1` and binds first free port) |
 | `WebclientWebSocketPortRangeSize` | 100 | [Connection] | Number of ports to walk starting at `WebclientWebSocketPort` when binding the bridge. Use `1` to restore single-fixed-port behaviour. |
 | `ReconnectIntervalSeconds` | 5 | [Connection] | Seconds between 3CX reconnection attempts |
 | `ConnectionTimeoutSeconds` | 30 | [Connection] | Connection timeout for named pipes |
@@ -577,8 +577,9 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 +----------------------------------------------------------------------+
 |  Webclient/                                                          |
 |    Protocol.cs                   - JSON protocol (v1) types & parser |
-|    WebSocketBridgeServer.cs      - WebSocket server (port 19800)     |
-|    WebclientConnectionMethod.cs  - IConnectionMethod for WebClient   |
+|    WebSocketBridgeServer.cs      - WebSocket server (port range)    |
+|    LoopbackPeerSession.cs        - Windows session peer resolver    |
+|    WebclientConnectionMethod.cs  - IConnectionMethod for WebClient  |
 +----------------------------------------------------------------------+
 |  Interop/                                                            |
 |    Rot.cs                        - Running Object Table interop      |
@@ -624,7 +625,7 @@ On console sessions (non-TS), the same base GUIDs and standard pipe names are us
 +----------------------------------------------------------------------+
          |                |                              |
          | TAPI 2.x       | WebSocket                    | COM/ROT
-         | (Desktop)       | ws://127.0.0.1:19800         | (per-session)
+         | (Desktop)       | ws://127.0.0.1:19800+        | (per-session)
          |                 | (WebClient)                  |
          | Named Pipe      |                              |
          | (MAKE-CALL)     |                              |
@@ -1103,9 +1104,9 @@ Enable verbose logging (`VerboseLogging=true` in `[Debug]` section) for detailed
 | DATEV SyncID lost | Ensure DATEV-initiated calls are using Dial command (not manual dialing) |
 | Short internal numbers triggering lookup | MinCallerIdLength auto-adjusts to extension length |
 | Fewer contacts than expected | If "Aktive Kontakte" is enabled, only contacts with Status ≠ 0 are loaded (inactive contacts excluded) — check setting |
-| WebClient: no calls forwarded | Ensure browser extension is installed, 3CX WebClient is open, and bridge is listening on port 19800 |
+| WebClient: no calls forwarded | Ensure browser extension is installed, 3CX WebClient is open, and bridge is listening (check log for `Bridge lauscht auf Port`; default 19800, may be 19801–19899 on Terminal Server) |
 | WebClient: empty extension in HELLO | Reload extension; ensure `localStorage.wc.provision` exists in the 3CX PWA origin |
-| WebClient: connection refused | Bridge not running or port 19800 blocked; check `Webclient.WebSocketPort` in INI |
+| WebClient: connection refused | Bridge not running or port range blocked; check `Webclient.WebSocketPort` / `Webclient.WebSocketPortRangeSize` in INI and log line `Bridge lauscht auf Port` |
 | Sync timestamp not updating | Reload contacts via Laden button — timestamp updates on successful load |
 | StatusForm shows disconnected after reconnect | Wait for event-based update (up to 6 seconds) or status will auto-refresh |
 | Mode label not updating after save | Mode updates immediately via `ModeChanged` event — reopen form if still stale |
