@@ -59,9 +59,9 @@ function resolveExtensionNumber() {
 // Probe port with fetch before opening a WebSocket. Fetch errors are silently
 // catchable and do NOT appear on chrome://extensions, unlike WebSocket
 // ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
-async function isPortReachable() {
+async function isPortReachable(port) {
   try {
-    await fetch(`http://127.0.0.1:${bridgePort}/`, {
+    await fetch(`http://127.0.0.1:${port}/`, {
       signal: AbortSignal.timeout(2000)
     });
     return true;
@@ -82,7 +82,7 @@ async function connectBridge() {
   const url = `ws://127.0.0.1:${bridgePort}`;
   logDebug("Connecting to bridge", url);
 
-  if (!(await isPortReachable())) {
+  if (!(await isPortReachable(bridgePort))) {
     logDebug("Port probe failed — server not reachable");
     connectingInProgress = false;
     scheduleReconnect();
