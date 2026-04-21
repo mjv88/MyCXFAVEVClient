@@ -480,7 +480,8 @@ Size-based rotation (10 MB per file, 5 files max = 50 MB cap) limits active disk
 │   └── PluginData/                     Contact models
 ├── Webclient/
 │   ├── Protocol.cs                    JSON protocol (v1) types & parser
-│   ├── WebSocketBridgeServer.cs       WebSocket server (port 19800)
+│   ├── WebSocketBridgeServer.cs       WebSocket server (port range 19800–19899, first free)
+│   ├── LoopbackPeerSession.cs         Session-identity enforcement for loopback peers
 │   └── WebclientConnectionMethod.cs   IConnectionMethod for WebClient
 ├── Interop/
 │   ├── Rot.cs                          Running Object Table P/Invoke
@@ -552,6 +553,10 @@ ConnectorService -> DATEV (COM/ROT)
 ```
 
 The extension auto-detects the extension number from the 3CX PWA's `localStorage.wc.provision` and from protobuf `MyExtensionInfo` (MessageId 201). Provision data is persisted to `chrome.storage.local` to survive MV3 service worker restarts.
+
+### Port Discovery on Terminal Server (RDS) Deployments
+
+On Terminal Server deployments, each user's tray app binds its own port in 19800–19899 (first free). Cross-session connections are rejected at accept time via `LoopbackPeerSession.ResolvePeerSessionId`, which looks up the peer's owning PID in `GetExtendedTcpTable` and compares `ProcessIdToSessionId` results. The browser extension probes its cached port first, then parallel-probes the range on miss, picking the first responder. Because cross-session bridges refuse probes silently (HTTP body check on the `OK` response discriminates our bridge from other local HTTP servers), in practice only one bridge per user responds.
 
 ### Protocol (v1)
 
@@ -646,7 +651,8 @@ Sent for each call state change.
 | File | Purpose |
 |------|---------|
 | `Webclient/Protocol.cs` | Message types, constants, JSON parser |
-| `Webclient/WebSocketBridgeServer.cs` | WebSocket server (port 19800) |
+| `Webclient/WebSocketBridgeServer.cs` | WebSocket server; binds the first free port in 19800–19899 on startup |
+| `Webclient/LoopbackPeerSession.cs` | Resolves peer PID / Windows session ID to reject cross-session connections |
 | `Webclient/WebclientConnectionMethod.cs` | IConnectionMethod implementation |
 
 ### Browser Extension
@@ -686,7 +692,7 @@ When the browser extension disconnects (e.g., tab closed, browser closed), the `
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check bridge is running on port 19800 |
+| "Warte auf Browser-Erweiterung" | Extension not installed or not connected | Install extension, check bridge is running on a port in 19800–19899 (default 19800, walks to first free on startup) |
 | Extension connects but no HELLO | Protocol version mismatch | Verify extension sends `"v": 1` and `"type": "HELLO"` |
 | HELLO has empty extension | Content script not injected or PWA not detected | Check `localStorage.wc.provision` exists; reload extension |
 | Calls not appearing in DATEV | State mapping issue | Check logs for "WebClient Connector" entries |
@@ -719,7 +725,8 @@ When `TelephonyMode = Auto` (default), the connector attempts to detect the best
 | `Auto.DetectionTimeoutSec` | `10` | Total timeout for auto-detection |
 | `Webclient.ConnectTimeoutSec` | `8` | How long to wait for browser extension |
 | `Webclient.Enabled` | `true` | Enable/disable Webclient detection in Auto mode |
-| `Webclient.WebSocketPort` | `19800` | WebSocket port for browser extension connection |
+| `Webclient.WebSocketPort` | `19800` | Base WebSocket port for browser extension connection. The bridge walks to the first free port in the configured range on startup; see `LoopbackPeerSession` for session-identity enforcement |
+| `Webclient.WebSocketPortRangeSize` | `100` | Size of the WebSocket port range to walk (default range 19800–19899). Use `1` for a fixed port |
 
 ### Explicit Mode
 
