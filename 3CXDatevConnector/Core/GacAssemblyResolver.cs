@@ -31,11 +31,11 @@ namespace DatevConnector.Core
                 "assembly", "GAC_64")
         };
 
-        private static readonly string[] SddAssemblyNames =
-        {
-            "Datev.Sdd.Data.ClientInterfaces",
-            "Datev.Sdd.Data.ClientPlugIn.Base"
-        };
+        // Public key token of all DATEV-signed assemblies (ClientInterfaces,
+        // ClientPlugIn.Base, Framework.MicroKernel, etc.). Used as a fast
+        // filter so we only try to resolve DATEV DLLs.
+        private static readonly byte[] DatevPublicKeyToken =
+            { 0xcb, 0xc6, 0x31, 0xf1, 0xc6, 0x82, 0x33, 0x6b };
 
         private static bool _registered;
 
@@ -50,18 +50,17 @@ namespace DatevConnector.Core
 
         private static Assembly OnResolving(AssemblyLoadContext context, AssemblyName assemblyName)
         {
-            // Only handle DATEV SDD assemblies
-            bool isSddAssembly = false;
-            foreach (var name in SddAssemblyNames)
-            {
-                if (string.Equals(assemblyName.Name, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    isSddAssembly = true;
-                    break;
-                }
-            }
+            // Handle any DATEV-signed assembly. Name prefix catches partial-name
+            // lookups; public key token catches strong-named ones. Either match
+            // is sufficient — the per-candidate token check further down still
+            // verifies we're loading the right DLL.
+            bool nameMatches = assemblyName.Name != null &&
+                assemblyName.Name.StartsWith("Datev.", StringComparison.OrdinalIgnoreCase);
+            var requestedToken = assemblyName.GetPublicKeyToken();
+            bool tokenMatches = requestedToken != null && requestedToken.Length > 0 &&
+                requestedToken.SequenceEqual(DatevPublicKeyToken);
 
-            if (!isSddAssembly)
+            if (!nameMatches && !tokenMatches)
                 return null;
 
             LogManager.Debug("GAC Resolver: Suche Assembly '{0}'", assemblyName.Name);
