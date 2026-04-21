@@ -41,4 +41,15 @@
     <EmbeddedResource Include="UI\Assets\bridge_icon.png" />
     <EmbeddedResource Include="UI\Assets\DATEVLogo.png" />
   </ItemGroup>
+
+  <!-- Bundled DATEV SDD DLLs. Copied to <output>/Datev/ so GacAssemblyResolver
+       can fall back to them when the GAC install is missing or corrupted. -->
+  <ItemGroup>
+    <None Include="..\lib\Datev.Sdd.Data.ClientInterfaces.dll"
+          Link="Datev\Datev.Sdd.Data.ClientInterfaces.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll"
+          Link="Datev\Datev.Sdd.Data.ClientPlugIn.Base.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

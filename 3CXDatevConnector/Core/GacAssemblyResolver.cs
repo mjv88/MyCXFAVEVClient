@@ -102,8 +102,49 @@ namespace DatevConnector.Core
                 }
             }
 
-            LogManager.Debug("GAC Resolver: Assembly '{0}' nicht im GAC gefunden", assemblyName.Name);
+            LogManager.Debug("GAC Resolver: Assembly '{0}' nicht im GAC gefunden, probiere Fallbacks", assemblyName.Name);
+
+            foreach (var fallbackDir in FallbackDirectories())
+            {
+                string dllPath = Path.Combine(fallbackDir, assemblyName.Name + ".dll");
+                if (!File.Exists(dllPath))
+                    continue;
+
+                try
+                {
+                    var candidateName = AssemblyName.GetAssemblyName(dllPath);
+                    var expectedToken = assemblyName.GetPublicKeyToken();
+                    var candidateToken = candidateName.GetPublicKeyToken();
+                    if (expectedToken != null && expectedToken.Length > 0 &&
+                        (candidateToken == null || !expectedToken.SequenceEqual(candidateToken)))
+                    {
+                        LogManager.Debug("GAC Resolver: Public key token mismatch for '{0}', skipping", dllPath);
+                        continue;
+                    }
+
+                    LogManager.Log("GAC Resolver: Assembly '{0}' aus Fallback geladen: {1}",
+                        assemblyName.Name, dllPath);
+                    return context.LoadFromAssemblyPath(dllPath);
+                }
+                catch (Exception ex)
+                {
+                    LogManager.Debug("GAC Resolver: Fehler beim Laden von '{0}': {1}", dllPath, ex.Message);
+                }
+            }
+
+            LogManager.Debug("GAC Resolver: Assembly '{0}' auch nicht in Fallback-Pfaden gefunden", assemblyName.Name);
             return null;
+        }
+
+        // Probed after the GAC in order: (1) bundled copy next to the exe,
+        // (2) user-writable copy under %AppData% so an operator can drop
+        // replacement DLLs without re-running the installer.
+        private static System.Collections.Generic.IEnumerable<string> FallbackDirectories()
+        {
+            yield return Path.Combine(AppContext.BaseDirectory, "Datev");
+            yield return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "3CXDATEVConnector", "Datev");
         }
     }
 }
