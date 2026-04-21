@@ -144,7 +144,7 @@ namespace DatevConnector.Core
             yield return Path.Combine(AppContext.BaseDirectory, "Datev");
             yield return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "3CXDATEVConnector", "Datev");
+                "3CXDATEVConnector", "Assembly");
         }
     }
 }
