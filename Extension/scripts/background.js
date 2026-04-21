@@ -69,10 +69,12 @@ function resolveExtensionNumber() {
 // ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
 async function isPortReachable(port) {
   try {
-    await fetch(`http://127.0.0.1:${port}/`, {
+    const response = await fetch(`http://127.0.0.1:${port}/`, {
       signal: AbortSignal.timeout(2000)
     });
-    return true;
+    if (!response.ok) return false;
+    const body = await response.text();
+    return body === "OK";
   } catch {
     return false;
   }
@@ -91,7 +93,9 @@ async function findBridgePort() {
 
   // 2. Parallel probe across the range.
   const ports = [];
-  for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) ports.push(p);
+  for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) {
+    if (p !== cached) ports.push(p);
+  }
   const results = await Promise.allSettled(ports.map(isPortReachable));
   const responders = ports.filter((_, i) =>
     results[i].status === "fulfilled" && results[i].value === true);
@@ -878,9 +882,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     }
 
     const portChanged = !!changes.bridgePort && !portChangeSuppressed;
-    loadConfig().catch((err) => {
-      console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
-    });
+    const onlyPortSuppressed =
+      portChangeSuppressed && !changes.extensionNumber && !changes.debugLogging;
+    if (!onlyPortSuppressed) {
+      loadConfig().catch((err) => {
+        console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
+      });
+    }
     if (changes.extensionNumber || portChanged) {
       // Close existing connection so it reconnects with new settings
       if (ws) {
