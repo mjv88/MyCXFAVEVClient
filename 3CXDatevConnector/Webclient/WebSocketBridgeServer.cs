@@ -207,7 +207,7 @@ namespace DatevConnector.Webclient
 
         public bool SendHelloAck(string bridgeVersion, string extension)
         {
-            return SendJson(BridgeMessageBuilder.BuildHelloAck(bridgeVersion, extension));
+            return SendJson(BridgeMessageBuilder.BuildHelloAck(bridgeVersion, extension, BoundPort));
         }
 
         public bool SendDial(string number, string syncId = null)
@@ -461,9 +461,9 @@ namespace DatevConnector.Webclient
                 _conn.Domain = msg.Domain;
                 _conn.WebclientVersion = msg.WebclientVersion;
                 _conn.HelloReceived = true;
-                LogManager.Log("WebClient HELLO von extension={0}, identity={1}, FQDN={2}",
+                LogManager.Log("WebClient HELLO von extension={0}, identity={1}, FQDN={2}, Port={3}",
                     _conn.ExtensionNumber ?? "(none)", _conn.WebclientIdentity ?? "(none)",
-                    _conn.Domain ?? "(none)");
+                    _conn.Domain ?? "(none)", BoundPort);
                 LogManager.Debug("WebClient Connector: version={0}", _conn.WebclientVersion ?? "(none)");
                 HelloReceived?.Invoke(_conn.ExtensionNumber);
             }

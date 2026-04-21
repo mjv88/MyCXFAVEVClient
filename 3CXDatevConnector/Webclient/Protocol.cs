@@ -139,13 +139,14 @@ namespace DatevConnector.Webclient
     /// </summary>
     public static class BridgeMessageBuilder
     {
-        public static string BuildHelloAck(string bridgeVersion, string extension)
+        public static string BuildHelloAck(string bridgeVersion, string extension, int port)
         {
             var sb = new StringBuilder();
             sb.Append("{\"v\":").Append(Protocol.Version);
             sb.Append(",\"type\":\"").Append(Protocol.TypeHelloAck).Append("\"");
             sb.Append(",\"bridgeVersion\":\"").Append(EscapeJson(bridgeVersion)).Append("\"");
             sb.Append(",\"extension\":\"").Append(EscapeJson(extension)).Append("\"");
+            sb.Append(",\"port\":").Append(port);
             sb.Append(",\"ready\":true");
             sb.Append("}");
             return sb.ToString();
