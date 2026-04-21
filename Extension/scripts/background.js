@@ -3,6 +3,9 @@
 
 const PROTOCOL_VERSION = 1;
 const DEFAULT_BRIDGE_PORT = 19800;
+const BRIDGE_PORT_RANGE_START = 19800;
+const BRIDGE_PORT_RANGE_END   = 19899;
+const HELLO_TIMEOUT_MS        = 1500;
 const RECONNECT_DELAY_MS = 2_000;
 const RECONNECT_MAX_DELAY_MS = 30_000;
 const HELLO_RETRY_INTERVAL_MS = 2_000;
@@ -23,6 +26,7 @@ let detectedVersion = "";
 let detectedUserName = "";
 let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
+let suppressNextPortChangeReconnect = false;
 const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevConnectorHelloTimer";
 
 let webclientTabId = null; // Tab ID of the active 3CX webclient
@@ -33,6 +37,10 @@ const connIdToCallId = new Map();   // conn.id(f2) -> callId(f3)
 
 function logDebug(...args) {
   if (!debugLogging) return;
+  console.log("[3CX-DATEV-C][bg]", ...args);
+}
+
+function logInfo(...args) {
   console.log("[3CX-DATEV-C][bg]", ...args);
 }
 
@@ -72,6 +80,36 @@ async function isPortReachable(port) {
 
 let connectingInProgress = false;
 
+// Cache-first, parallel-scan-on-miss. Returns a port number or null.
+async function findBridgePort() {
+  // 1. Cached port first.
+  const cached = Number.isFinite(bridgePort) ? bridgePort : null;
+  if (cached && await isPortReachable(cached)) {
+    logInfo(`Cache-Port ${cached} erreichbar, verbunden`);
+    return cached;
+  }
+
+  // 2. Parallel probe across the range.
+  const ports = [];
+  for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) ports.push(p);
+  const results = await Promise.allSettled(ports.map(isPortReachable));
+  const responders = ports.filter((_, i) =>
+    results[i].status === "fulfilled" && results[i].value === true);
+
+  if (responders.length === 0) {
+    logInfo(`Keine Bridge in ${BRIDGE_PORT_RANGE_START}-${BRIDGE_PORT_RANGE_END} gefunden, Retry geplant`);
+    return null;
+  }
+
+  const picked = responders[0];
+  if (cached) {
+    logInfo(`Cache-Port ${cached} nicht erreichbar, Scan lief, gefunden auf ${picked}`);
+  } else {
+    logInfo(`Scan lief, Bridge gefunden auf ${picked}`);
+  }
+  return picked;
+}
+
 async function connectBridge() {
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
     return ws;
@@ -79,15 +117,22 @@ async function connectBridge() {
   if (connectingInProgress) return null;
   connectingInProgress = true;
 
-  const url = `ws://127.0.0.1:${bridgePort}`;
-  logDebug("Connecting to bridge", url);
-
-  if (!(await isPortReachable(bridgePort))) {
-    logDebug("Port probe failed — server not reachable");
+  const foundPort = await findBridgePort();
+  if (foundPort === null) {
     connectingInProgress = false;
     scheduleReconnect();
     return null;
   }
+
+  if (foundPort !== bridgePort) {
+    bridgePort = foundPort;
+    // Suppress the onChanged-driven reconnect (we're already connecting here).
+    suppressNextPortChangeReconnect = true;
+    chrome.storage.local.set({ bridgePort: foundPort });
+  }
+
+  const url = `ws://127.0.0.1:${bridgePort}`;
+  logDebug("Connecting to bridge", url);
 
   try {
     ws = new WebSocket(url);
@@ -119,7 +164,8 @@ async function connectBridge() {
         helloAcked = true;
         clearHelloRetry();
         clearBridgeRetryAlarm();
-        logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion });
+        logInfo(`Bridge verbunden auf Port ${bridgePort} (Extension ${msg.extension || "(unbekannt)"})`);
+        logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion, port: msg.port });
       }
 
       if (msg && msg.type === "COMMAND") {
@@ -822,7 +868,16 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes.extensionNumber || changes.debugLogging || changes.bridgePort) {
-    const portChanged = !!changes.bridgePort;
+    // If the port change was initiated by findBridgePort mid-connect, consume
+    // the suppression flag and skip the reconnect path for the port branch.
+    let portChangeSuppressed = false;
+    if (changes.bridgePort && suppressNextPortChangeReconnect) {
+      suppressNextPortChangeReconnect = false;
+      portChangeSuppressed = true;
+      bridgePort = parseInt(changes.bridgePort.newValue, 10) || DEFAULT_BRIDGE_PORT;
+    }
+
+    const portChanged = !!changes.bridgePort && !portChangeSuppressed;
     loadConfig().catch((err) => {
       console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
     });
