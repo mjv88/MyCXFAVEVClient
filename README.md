@@ -43,7 +43,7 @@ This broke existing DATEV integrations. This standalone proxy application restor
 | **Setup Wizard** | First-run wizard for TAPI line selection, DATEV connection test, and optional autostart |
 | **Troubleshooting Help** | Built-in help dialog with common problems and solutions |
 | **Keyboard Shortcuts** | Quick access to common functions (Ctrl+T, Ctrl+R, Ctrl+H, etc.) |
-| **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (`ws://127.0.0.1:19800`) — no desktop app required |
+| **WebClient Mode** | Browser extension captures 3CX WebClient call events via WebSocket (default port 19800, bridge walks `19800..19899` on Terminal Server installations so each user gets a free port automatically) — no desktop app required |
 | **Extension Popup** | Dark-themed browser extension popup with live WebSocket connection status (green/yellow/red dot), bold extension number, configurable DATEV Auto-DIAL delay |
 | **Auto-Detection** | Automatic telephony mode selection (Desktop, Terminal Server, or WebClient) based on environment |
 
@@ -229,6 +229,7 @@ LogAsync=true
 | `WebclientConnectTimeoutSec` | 8 | [Connection] | How long to wait for browser extension in seconds |
 | `WebclientEnabled` | true | [Connection] | Enable/disable WebClient detection in Auto mode |
 | `WebclientWebSocketPort` | 19800 | [Connection] | WebSocket port for browser extension connection |
+| `WebclientWebSocketPortRangeSize` | 100 | [Connection] | Number of ports to walk starting at `WebclientWebSocketPort` when binding the bridge. Use `1` to restore single-fixed-port behaviour. |
 | `ReconnectIntervalSeconds` | 5 | [Connection] | Seconds between 3CX reconnection attempts |
 | `ConnectionTimeoutSeconds` | 30 | [Connection] | Connection timeout for named pipes |
 | `ReadTimeoutSeconds` | 60 | [Connection] | Read timeout for pipe operations |

@@ -77,6 +77,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.WebclientConnectTimeoutSec, "8" },
             { ConfigKeys.WebclientEnabled, "true" },
             { ConfigKeys.WebclientWebSocketPort, "19800" },
+            { ConfigKeys.WebclientWebSocketPortRangeSize, "100" },
         };
 
         // Section grouping for INI file layout
@@ -134,6 +135,7 @@ namespace DatevConnector.Core.Config
             { ConfigKeys.WebclientConnectTimeoutSec, SectionConnection },
             { ConfigKeys.WebclientEnabled, SectionConnection },
             { ConfigKeys.WebclientWebSocketPort, SectionConnection },
+            { ConfigKeys.WebclientWebSocketPortRangeSize, SectionConnection },
         };
 
         public static string FilePath => _iniPath;
@@ -350,6 +352,10 @@ namespace DatevConnector.Core.Config
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientConnectTimeoutSec));
                     writer.WriteLine("// Enable Webclient mode (browser extension via WebSocket)");
                     writer.WriteLine(DefaultLine(ConfigKeys.WebclientEnabled));
+                    writer.WriteLine("// WebSocket port for browser extension connection");
+                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientWebSocketPort));
+                    writer.WriteLine("// Number of ports to walk starting at WebclientWebSocketPort (1 = fixed single port)");
+                    writer.WriteLine(DefaultLine(ConfigKeys.WebclientWebSocketPortRangeSize));
                     writer.WriteLine();
 
                     writer.WriteLine("[Logging]");

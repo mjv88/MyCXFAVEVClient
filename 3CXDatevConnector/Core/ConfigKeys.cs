@@ -80,5 +80,6 @@ namespace DatevConnector.Core
         public const string WebclientConnectTimeoutSec = "Webclient.ConnectTimeoutSec";
         public const string WebclientEnabled = "Webclient.Enabled";
         public const string WebclientWebSocketPort = "Webclient.WebSocketPort";
+        public const string WebclientWebSocketPortRangeSize = "Webclient.WebSocketPortRangeSize";
     }
 }
