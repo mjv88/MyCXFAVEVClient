@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
 namespace DatevConnector.Webclient
@@ -43,6 +44,8 @@ namespace DatevConnector.Webclient
         public static uint? ResolvePeerSessionId(IPEndPoint local, IPEndPoint peer)
         {
             if (local == null || peer == null) return null;
+            if (local.AddressFamily != AddressFamily.InterNetwork ||
+                peer.AddressFamily  != AddressFamily.InterNetwork) return null;
 
             uint localAddr = (uint)BitConverter.ToInt32(local.Address.GetAddressBytes(), 0);
             uint peerAddr  = (uint)BitConverter.ToInt32(peer.Address.GetAddressBytes(),  0);
