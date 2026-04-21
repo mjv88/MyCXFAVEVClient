@@ -81,8 +81,6 @@ namespace DatevConnector.Webclient
             _rangeEnd = rangeEnd;
         }
 
-        public WebSocketBridgeServer(int port) : this(port, port) { }
-
         // ===== Connection lifecycle =====
 
         /// <summary>
