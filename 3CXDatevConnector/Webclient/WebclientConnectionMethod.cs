@@ -28,6 +28,7 @@ namespace DatevConnector.Webclient
         private string _extension;
         private readonly int _connectTimeoutSec;
         private readonly int _wsPort;
+        private readonly int _wsPortRangeEnd;
         private volatile bool _disposed;
         private volatile bool _connected;
         private volatile bool _disconnectedFired;
@@ -65,7 +66,11 @@ namespace DatevConnector.Webclient
         {
             _extension = extension ?? throw new ArgumentNullException(nameof(extension));
             _connectTimeoutSec = AppConfig.GetInt(ConfigKeys.WebclientConnectTimeoutSec, 8);
-            _wsPort = AppConfig.GetIntClamped(ConfigKeys.WebclientWebSocketPort, 19800, 1024, 65535);
+            int rangeStart = AppConfig.GetIntClamped(ConfigKeys.WebclientWebSocketPort, 19800, 1024, 65535);
+            int rangeSize = AppConfig.GetIntClamped(ConfigKeys.WebclientWebSocketPortRangeSize, 100, 1, 1000);
+            int rangeEnd = Math.Min(65535, rangeStart + rangeSize - 1);
+            _wsPort = rangeStart; // retained for any diagnostic code that still reads _wsPort
+            _wsPortRangeEnd = rangeEnd;
         }
 
         /// <summary>
@@ -135,7 +140,7 @@ namespace DatevConnector.Webclient
                 {
                     progressText?.Invoke("WebClient: Warte auf Erweiterung (WebSocket)...");
 
-                    _wsServer = new WebSocketBridgeServer(_wsPort);
+                    _wsServer = new WebSocketBridgeServer(_wsPort, _wsPortRangeEnd);
                     WireWebSocketEvents(progressText);
 
                     // RunAsync blocks: accepts connections in a loop, handles reconnect
@@ -222,7 +227,7 @@ namespace DatevConnector.Webclient
 
             try
             {
-                _wsServer = new WebSocketBridgeServer(_wsPort);
+                _wsServer = new WebSocketBridgeServer(_wsPort, _wsPortRangeEnd);
                 WireWebSocketEvents(null);
 
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);

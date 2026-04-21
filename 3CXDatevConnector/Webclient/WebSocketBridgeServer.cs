@@ -23,7 +23,9 @@ namespace DatevConnector.Webclient
         private const string WsGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         private const int MaxFrameSize = 1024 * 1024; // 1 MB
 
-        private readonly int _port;
+        private readonly int _rangeStart;
+        private readonly int _rangeEnd;
+        public int BoundPort { get; private set; }
         private TcpListener _listener;
         private readonly object _writeLock = new object();
         private volatile bool _disposed;
@@ -73,10 +75,13 @@ namespace DatevConnector.Webclient
         public string Domain => _conn.Domain;
         public string WebclientVersion => _conn.WebclientVersion;
 
-        public WebSocketBridgeServer(int port)
+        public WebSocketBridgeServer(int rangeStart, int rangeEnd)
         {
-            _port = port;
+            _rangeStart = rangeStart;
+            _rangeEnd = rangeEnd;
         }
+
+        public WebSocketBridgeServer(int port) : this(port, port) { }
 
         // ===== Connection lifecycle =====
 
@@ -490,9 +495,32 @@ namespace DatevConnector.Webclient
         private void StartListener()
         {
             if (_listener != null) return;
-            _listener = new TcpListener(IPAddress.Loopback, _port);
-            _listener.Start();
-            LogManager.Debug("WebClient Connector: Lausche auf Port {0}", _port);
+
+            System.Net.Sockets.SocketException lastError = null;
+            for (int port = _rangeStart; port <= _rangeEnd; port++)
+            {
+                try
+                {
+                    var listener = new TcpListener(IPAddress.Loopback, port);
+                    listener.Start();
+                    _listener = listener;
+                    BoundPort = port;
+                    LogManager.Log("WebClient Connector: Bridge lauscht auf Port {0} (Session-ID {1})",
+                        port, LoopbackPeerSession.CurrentSessionId());
+                    return;
+                }
+                catch (System.Net.Sockets.SocketException ex)
+                    when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
+                {
+                    lastError = ex;
+                    // try next port
+                }
+            }
+
+            LogManager.Log("WebClient Connector: Kein freier Port in {0}-{1}, Bridge nicht gestartet",
+                _rangeStart, _rangeEnd);
+            throw new System.IO.IOException(
+                $"No free port in range {_rangeStart}-{_rangeEnd}", lastError);
         }
 
         private void StopListener()
