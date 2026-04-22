@@ -65,6 +65,13 @@ namespace DatevConnector.Core
 
             LogManager.Debug("GAC Resolver: Suche Assembly '{0}'", assemblyName.Name);
 
+            // Priority 1: DATEV program install folder (C:\Program Files (x86)\DATEV\PROGRAMM\K*).
+            // These are typically newer / Remoting-free versions; loading them first
+            // avoids picking up an older, Remoting-dependent copy from the GAC that
+            // fails at type-load time on Terminal Server.
+            var fromDatevInstall = TryLoadFromDatevInstall(context, assemblyName);
+            if (fromDatevInstall != null) return fromDatevInstall;
+
             foreach (var gacRoot in GacRoots)
             {
                 string assemblyDir = Path.Combine(gacRoot, assemblyName.Name);
@@ -241,6 +248,54 @@ namespace DatevConnector.Core
             return null;
         }
 
+        // Direct load (no copy-to-AppData) from the DATEV program install folder.
+        // Enumerates every match and picks the first one whose public-key-token
+        // matches what .NET asked for — so version diffs between install roots
+        // don't trap us on the first mismatch.
+        private static Assembly TryLoadFromDatevInstall(AssemblyLoadContext context, AssemblyName requested)
+        {
+            if (requested?.Name == null) return null;
+            var expectedToken = requested.GetPublicKeyToken();
+            string fileName = requested.Name + ".dll";
+
+            foreach (var root in DatevInstallRoots())
+            {
+                if (!Directory.Exists(root)) continue;
+                System.Collections.Generic.IEnumerable<string> matches;
+                try
+                {
+                    matches = Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories);
+                }
+                catch (Exception ex)
+                {
+                    LogManager.Debug("GAC Resolver: Scan '{0}' abgebrochen: {1}", root, ex.Message);
+                    continue;
+                }
+
+                foreach (var candidate in matches)
+                {
+                    try
+                    {
+                        var candidateName = AssemblyName.GetAssemblyName(candidate);
+                        var candidateToken = candidateName.GetPublicKeyToken();
+                        if (expectedToken != null && expectedToken.Length > 0 &&
+                            (candidateToken == null || !expectedToken.SequenceEqual(candidateToken)))
+                        {
+                            continue; // wrong token, keep looking
+                        }
+                        LogManager.Log("GAC Resolver: Assembly '{0}' aus DATEV-Programm geladen: {1}",
+                            requested.Name, candidate);
+                        return context.LoadFromAssemblyPath(candidate);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManager.Debug("GAC Resolver: Kandidat '{0}' nicht ladbar: {1}", candidate, ex.Message);
+                    }
+                }
+            }
+            return null;
+        }
+
         private static System.Collections.Generic.IEnumerable<string> DatevInstallRoots()
         {
             // Registry-configured install root takes precedence (both 32/64-bit views).
@@ -260,12 +315,21 @@ namespace DatevConnector.Core
                 if (!string.IsNullOrWhiteSpace(fromReg)) yield return fromReg;
             }
 
-            // Common default install paths — cover both Englisch- and Deutsch-locale Windows.
-            yield return Path.Combine(Environment.GetFolderPath(
-                Environment.SpecialFolder.ProgramFilesX86), "DATEV");
-            yield return Path.Combine(Environment.GetFolderPath(
-                Environment.SpecialFolder.ProgramFiles), "DATEV");
-            yield return @"C:\Programme\DATEV";
+            // Common default install paths — cover both Englisch- and Deutsch-locale
+            // Windows, and the PROGRAMM\K* subfolder where DATEV puts versioned
+            // runtime DLLs (e.g. PROGRAMM\K500, PROGRAMM\K510, ...).
+            string pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            string pf64 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            foreach (var baseDir in new[] {
+                Path.Combine(pf86, "DATEV", "PROGRAMM"),
+                Path.Combine(pf64, "DATEV", "PROGRAMM"),
+                @"C:\Programme\DATEV\PROGRAMM",
+                Path.Combine(pf86, "DATEV"),
+                Path.Combine(pf64, "DATEV"),
+                @"C:\Programme\DATEV" })
+            {
+                if (!string.IsNullOrEmpty(baseDir)) yield return baseDir;
+            }
         }
     }
 }
