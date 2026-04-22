@@ -1,23 +1,12 @@
-// ===== Transport: WebSocket to bridge (ws://127.0.0.1:PORT) =====
-// Speaks the bridge JSON protocol (HELLO, HELLO_ACK, CALL_EVENT, COMMAND).
+// ===== Service worker: coordinator for the offscreen WebSocket =====
+// The WebSocket lives in offscreen.html so it survives MV3 SW suspension.
+// This script loads config, routes content-script signals through the SW,
+// forwards bridge payloads to offscreen via SEND_TO_BRIDGE, and handles
+// BRIDGE_STATE / BRIDGE_COMMAND / PORT_LEARNED messages from offscreen.
 
 const PROTOCOL_VERSION = 1;
 const DEFAULT_BRIDGE_PORT = 19800;
-const BRIDGE_PORT_RANGE_START = 19800;
-const BRIDGE_PORT_RANGE_END   = 19899;
-const RECONNECT_DELAY_MS = 2_000;
-const RECONNECT_MAX_DELAY_MS = 30_000;
-const HELLO_RETRY_INTERVAL_MS = 2_000;
-const HELLO_MAX_RETRIES = 3;
 
-let ws = null;
-let helloSent = false;
-let helloAcked = false;
-let helloRetryTimer = null;
-let helloRetryCount = 0;
-let reconnectTimer = null;
-let reconnectDelay = RECONNECT_DELAY_MS;
-let hasEverConnected = false;    // Set true on first successful ws.onopen
 let configuredExtension = "";
 let detectedExtension = "";
 let detectedDomain = "";
@@ -25,14 +14,23 @@ let detectedVersion = "";
 let detectedUserName = "";
 let debugLogging = false;
 let bridgePort = DEFAULT_BRIDGE_PORT;
-let suppressNextPortChangeReconnect = false;
-const HELLO_BOOTSTRAP_TIMER_KEY = "__3cxDatevConnectorHelloTimer";
 
 let webclientTabId = null; // Tab ID of the active 3CX webclient
+
+// Last-known state pushed from offscreen; popup GET_STATUS reads from this.
+let bridgeState = {
+  wsState: 3, // WebSocket.CLOSED
+  helloAcked: false,
+  extension: "",
+  port: DEFAULT_BRIDGE_PORT
+};
 
 // Deduplication: field 3 (callId) groups all legs of one logical call
 const logicalCallConns = new Map(); // callId(f3) -> Set of active conn.id(f2)
 const connIdToCallId = new Map();   // conn.id(f2) -> callId(f3)
+
+const KEEPALIVE_ALARM = "offscreen-keepalive";
+const OFFSCREEN_URL = "offscreen.html";
 
 function logDebug(...args) {
   if (!debugLogging) return;
@@ -57,259 +55,65 @@ async function loadConfig() {
     detectedUserName = cfg.lastProvision.userName || "";
   }
   logDebug("Config loaded", { configuredExtension, detectedExtension, debugLogging, bridgePort });
+
+  // Push latest config into the offscreen document.
+  await sendInitToOffscreen();
 }
 
 function resolveExtensionNumber() {
   return configuredExtension || detectedExtension || "";
 }
 
-// Deterministic port per extension: BRIDGE_PORT_RANGE_START + extension.
-// Extension 1005 on default base 19800 -> 20805. Unique extension -> unique
-// port, so we can reach our bridge with one probe instead of scanning the
-// range. Returns 0 when the extension is unknown or out of TCP range.
-function computePreferredPort() {
-  const ext = parseInt(resolveExtensionNumber(), 10);
-  if (!Number.isFinite(ext) || ext <= 0) return 0;
-  const port = BRIDGE_PORT_RANGE_START + ext;
-  if (port < 1024 || port > 65535) return 0;
-  return port;
-}
+// ----- Offscreen document management -----
 
-// Probe port with fetch before opening a WebSocket. Fetch errors are silently
-// catchable and do NOT appear on chrome://extensions, unlike WebSocket
-// ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
-async function isPortReachable(port) {
+async function ensureOffscreen() {
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/`, {
-      signal: AbortSignal.timeout(2000)
+    if (await chrome.offscreen.hasDocument()) return;
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_URL,
+      reasons: ["WORKERS"],
+      justification: "Hold WebSocket to 3CX-DATEV bridge; MV3 service workers cannot keep sockets alive."
     });
-    if (!response.ok) return false;
-    const body = await response.text();
-    return body === "OK";
-  } catch {
-    return false;
-  }
-}
-
-let connectingInProgress = false;
-
-// Preferred-first, then cache, then parallel scan.
-async function findBridgePort() {
-  const preferred = computePreferredPort();
-  const cached = Number.isFinite(bridgePort) ? bridgePort : null;
-
-  // 1. Deterministic port from extension — virtually always the bridge.
-  if (preferred && await isPortReachable(preferred)) {
-    logInfo(`Nebenstelle-Port ${preferred} erreichbar, verbunden`);
-    return preferred;
-  }
-
-  // 2. Cached port, if different from the (failed) preferred one.
-  if (cached && cached !== preferred && await isPortReachable(cached)) {
-    logInfo(`Cache-Port ${cached} erreichbar, verbunden`);
-    return cached;
-  }
-
-  // 3. Parallel probe across the default range.
-  const tried = new Set();
-  if (preferred) tried.add(preferred);
-  if (cached) tried.add(cached);
-  const ports = [];
-  for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) {
-    if (!tried.has(p)) ports.push(p);
-  }
-  const results = await Promise.allSettled(ports.map(isPortReachable));
-  const responders = ports.filter((_, i) =>
-    results[i].status === "fulfilled" && results[i].value === true);
-
-  if (responders.length === 0) {
-    logInfo(`Keine Bridge gefunden (Nebenstelle=${preferred || "?"}, Cache=${cached || "?"}, Range=${BRIDGE_PORT_RANGE_START}-${BRIDGE_PORT_RANGE_END}), Retry geplant`);
-    return null;
-  }
-
-  const picked = responders[0];
-  logInfo(`Scan lief, Bridge gefunden auf ${picked}`);
-  return picked;
-}
-
-async function connectBridge() {
-  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-    return ws;
-  }
-  if (connectingInProgress) return null;
-  connectingInProgress = true;
-
-  const foundPort = await findBridgePort();
-  if (foundPort === null) {
-    connectingInProgress = false;
-    scheduleReconnect();
-    return null;
-  }
-
-  if (foundPort !== bridgePort) {
-    bridgePort = foundPort;
-    // Suppress the onChanged-driven reconnect (we're already connecting here).
-    suppressNextPortChangeReconnect = true;
-    chrome.storage.local.set({ bridgePort: foundPort });
-  }
-
-  const url = `ws://127.0.0.1:${bridgePort}`;
-  logDebug("Connecting to bridge", url);
-
-  try {
-    ws = new WebSocket(url);
+    logDebug("Offscreen document created");
   } catch (err) {
-    console.warn("[3CX-DATEV-C][bg] WebSocket create failed", err);
-    connectingInProgress = false;
-    scheduleReconnect();
-    return null;
-  }
-
-  connectingInProgress = false;
-
-  ws.onopen = () => {
-    logDebug("WebSocket connected");
-    hasEverConnected = true;
-    reconnectDelay = RECONNECT_DELAY_MS; // reset backoff on success
-    helloSent = false;
-    helloAcked = false;
-    clearHelloRetry();
-    ensureHello("ws-open");
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data);
-      logDebug("Bridge -> extension", msg);
-
-      if (msg && msg.type === "HELLO_ACK") {
-        helloAcked = true;
-        clearHelloRetry();
-        clearBridgeRetryAlarm();
-        logInfo(`Bridge verbunden auf Port ${bridgePort} (Extension ${msg.extension || "(unbekannt)"})`);
-        logDebug("HELLO_ACK received", { extension: msg.extension, bridgeVersion: msg.bridgeVersion, port: msg.port });
-      }
-
-      if (msg && msg.type === "COMMAND") {
-        handleBridgeCommand(msg);
-      }
-    } catch (err) {
-      console.warn("[3CX-DATEV-C][bg] Failed to parse bridge message", err);
+    // createDocument throws if one already exists (race between parallel calls).
+    // hasDocument() before createDocument minimizes this, but tolerate it.
+    if (!(err && /single offscreen document/i.test(String(err.message || err)))) {
+      console.warn("[3CX-DATEV-C][bg] ensureOffscreen failed", err);
     }
-  };
-
-  ws.onclose = (event) => {
-    logDebug("WebSocket closed", { code: event.code, reason: event.reason });
-    ws = null;
-    helloSent = false;
-    helloAcked = false;
-    clearHelloRetry();
-    ensureBridgeRetryAlarm();
-    scheduleReconnect();
-  };
-
-  ws.onerror = (event) => {
-    // onerror is always followed by onclose, so reconnect is handled there
-    logDebug("WebSocket error", event);
-  };
-
-  return ws;
+  }
 }
 
-function sendBridge(message) {
+async function sendToOffscreen(msg) {
+  const wrapped = { ...msg, target: "offscreen" };
   try {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      connectBridge(); // async — initiates probe + connection for future sends
-      return false;
-    }
-    ws.send(JSON.stringify(message));
-    logDebug("Extension -> bridge", message);
-    return true;
+    await chrome.runtime.sendMessage(wrapped);
   } catch (err) {
-    console.error("[3CX-DATEV-C][bg] Bridge send failed", err);
-    return false;
-  }
-}
-
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-
-  ensureBridgeRetryAlarm(); // Ensure alarm is active as fallback for service worker shutdown
-  logDebug("Scheduling reconnect", { delay: reconnectDelay });
-
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    if (ws && ws.readyState === WebSocket.OPEN) return;
-    connectBridge();
-    // Exponential backoff (capped)
-    reconnectDelay = Math.min(reconnectDelay * 1.5, RECONNECT_MAX_DELAY_MS);
-  }, reconnectDelay);
-}
-
-function ensureHello(sourceTabId = "") {
-  if (helloAcked) return;
-  if (helloSent && ws && ws.readyState === WebSocket.OPEN) return;
-
-  const hello = {
-    v: PROTOCOL_VERSION,
-    type: "HELLO",
-    extension: resolveExtensionNumber(),
-    identity: "3CX WebClient"
-  };
-  if (detectedDomain) hello.domain = detectedDomain;
-  if (detectedVersion) hello.webclientVersion = detectedVersion;
-  if (detectedUserName) hello.userName = detectedUserName;
-
-  const sent = sendBridge(hello);
-
-  helloSent = sent;
-  if (sent) {
-    logDebug("HELLO sent", { sourceTabId, extension: resolveExtensionNumber() });
-    scheduleHelloRetry();
-  }
-}
-
-function clearHelloRetry() {
-  if (helloRetryTimer) {
-    clearTimeout(helloRetryTimer);
-    helloRetryTimer = null;
-  }
-  helloRetryCount = 0;
-}
-
-function scheduleHelloRetry() {
-  if (helloRetryTimer || helloAcked) return;
-  if (helloRetryCount >= HELLO_MAX_RETRIES) return;
-
-  helloRetryTimer = setTimeout(() => {
-    helloRetryTimer = null;
-    if (helloAcked || !ws || ws.readyState !== WebSocket.OPEN) return;
-
-    helloRetryCount++;
-    logDebug("HELLO retry (no ACK)", { attempt: helloRetryCount, max: HELLO_MAX_RETRIES });
-    helloSent = false;
-    ensureHello("retry");
-  }, HELLO_RETRY_INTERVAL_MS);
-}
-
-function scheduleHelloBootstrap(delayMs = 250) {
-  if (helloAcked) return;
-  logDebug("Scheduling HELLO bootstrap", { delayMs });
-
-  const currentTimer = globalThis[HELLO_BOOTSTRAP_TIMER_KEY];
-  if (currentTimer) {
-    clearTimeout(currentTimer);
-  }
-
-  globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = setTimeout(() => {
-    globalThis[HELLO_BOOTSTRAP_TIMER_KEY] = null;
+    // Typically "Could not establish connection. Receiving end does not exist."
+    // Happens when the offscreen doc isn't up yet — bring it up and retry once.
     try {
-      ensureHello("bootstrap");
-    } catch (err) {
-      console.warn("[3CX-DATEV-C][bg] HELLO bootstrap failed", err);
+      await ensureOffscreen();
+      await chrome.runtime.sendMessage(wrapped);
+    } catch (err2) {
+      logDebug("sendToOffscreen failed after retry", err2);
     }
-  }, Math.max(0, delayMs));
+  }
 }
+
+async function sendInitToOffscreen() {
+  await sendToOffscreen({
+    type: "INIT",
+    bridgePort,
+    extensionNumber: configuredExtension,
+    detectedExtension,
+    detectedDomain,
+    detectedVersion,
+    detectedUserName,
+    debugLogging
+  });
+}
+
+// ----- Call-event mapping (unchanged from previous background.js) -----
 
 function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reason = "", tabId = "" }) {
   return {
@@ -331,9 +135,9 @@ function toCallEvent({ callId, direction, remoteNumber, remoteName, state, reaso
   };
 }
 
-function emitCallEvent(event, sourceTabId = "") {
-  ensureHello(sourceTabId);
-  sendBridge(event);
+function emitCallEvent(event) {
+  // Fire-and-forget: offscreen will ensureHello itself before sending.
+  sendToOffscreen({ type: "SEND_TO_BRIDGE", payload: event });
 }
 
 function handleBridgeCommand(msg) {
@@ -423,7 +227,7 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
       state: "ended", reason: "unknown", tabId: sourceTabId
     });
     logDebug("Mapped last connection deleted -> ended", evt);
-    emitCallEvent(evt, sourceTabId);
+    emitCallEvent(evt);
     return;
   }
 
@@ -464,7 +268,7 @@ function emitFromLocalConnection(conn, actionType, sourceTabId = "") {
   });
 
   logDebug("Mapped LocalConnection -> CALL_EVENT", evt);
-  emitCallEvent(evt, sourceTabId);
+  emitCallEvent(evt);
 }
 
 function tryHandleDecodedMyExtensionInfo(message, sourceTabId = "") {
@@ -473,7 +277,12 @@ function tryHandleDecodedMyExtensionInfo(message, sourceTabId = "") {
   }
 
   if (!configuredExtension && message.extensionNumber) {
+    const prev = detectedExtension;
     detectedExtension = String(message.extensionNumber).trim();
+    if (detectedExtension !== prev) {
+      // Extension learned from a live frame — push to offscreen so HELLO uses it.
+      sendInitToOffscreen();
+    }
   }
 
   logDebug("Decoded MessageId 201", {
@@ -737,12 +546,16 @@ function parse3cxFrame(payload) {
   return null;
 }
 
+// ----- Message routing -----
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg) return;
+
   if (msg.type === "GET_STATUS") {
     sendResponse({
-      wsState: ws ? ws.readyState : 3,
-      helloAcked,
-      extension: configuredExtension || detectedExtension || null
+      wsState: bridgeState.wsState,
+      helloAcked: bridgeState.helloAcked,
+      extension: configuredExtension || detectedExtension || bridgeState.extension || null
     });
     return true;
   }
@@ -752,8 +565,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       setTimeout(() => {
         sendResponse({
           found: !!(detectedExtension || configuredExtension),
-          wsState: ws ? ws.readyState : 3,
-          helloAcked,
+          wsState: bridgeState.wsState,
+          helloAcked: bridgeState.helloAcked,
           extension: configuredExtension || detectedExtension || null
         });
       }, 1500);
@@ -762,32 +575,45 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "RELOAD_EXTENSION") {
-    // Soft reload: disconnect WebSocket, reset state, reconnect
-    if (ws) {
-      // Detach handlers so the old onclose doesn't clobber the new connection
-      ws.onopen = null;
-      ws.onmessage = null;
-      ws.onclose = null;
-      ws.onerror = null;
-      try { ws.close(); } catch {}
-      ws = null;
-    }
-    helloSent = false;
-    helloAcked = false;
-    clearHelloRetry();
-    reconnectDelay = RECONNECT_DELAY_MS;
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-
-    // Respond immediately, reconnect in the background
+    // Respond immediately, reload in the background.
     sendResponse({ success: true });
-    loadConfig()
-      .then(() => connectBridge())
-      .then(() => injectExistingTabs())
-      .catch((err) => logDebug("Reload reconnect failed", err));
+    (async () => {
+      try {
+        await ensureOffscreen();
+        await loadConfig();
+        await sendToOffscreen({ type: "REFRESH" });
+        await injectExistingTabs();
+      } catch (err) {
+        logDebug("Reload failed", err);
+      }
+    })();
     return true;
+  }
+
+  // ---- Messages from the offscreen document ----
+  if (msg.target === "background") {
+    if (msg.type === "BRIDGE_STATE") {
+      bridgeState = {
+        wsState: typeof msg.wsState === "number" ? msg.wsState : 3,
+        helloAcked: !!msg.helloAcked,
+        extension: msg.extension || "",
+        port: msg.port || bridgePort
+      };
+      logDebug("BRIDGE_STATE from offscreen", bridgeState);
+      return;
+    }
+    if (msg.type === "BRIDGE_COMMAND") {
+      handleBridgeCommand(msg.data || {});
+      return;
+    }
+    if (msg.type === "PORT_LEARNED" && msg.port) {
+      const port = parseInt(msg.port, 10);
+      if (Number.isFinite(port)) {
+        bridgePort = port;
+        chrome.storage.local.set({ bridgePort: port }).catch(() => {});
+      }
+      return;
+    }
   }
 });
 
@@ -795,7 +621,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   // Handle provision data from content script (localStorage auto-detect)
   if (msg?.type === "3CX_PROVISION" && msg.provision) {
     const prov = msg.provision;
-    const extensionChanged = prov.extension && !configuredExtension && prov.extension !== detectedExtension;
+    const prevResolved = resolveExtensionNumber();
 
     if (prov.extension && !configuredExtension) {
       detectedExtension = prov.extension;
@@ -821,11 +647,12 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       }
     }).catch(() => {});
 
-    // Re-send HELLO if extension changed or handshake not complete
-    if (extensionChanged || !helloAcked) {
-      helloSent = false;
-      if (extensionChanged) helloAcked = false; // allow re-handshake with correct extension
-      ensureHello("provision");
+    // Push updated identity into the offscreen document.
+    const extensionChanged = resolveExtensionNumber() !== prevResolved;
+    sendInitToOffscreen();
+    if (extensionChanged) {
+      // Force the offscreen to re-handshake.
+      sendToOffscreen({ type: "REFRESH" });
     }
     return;
   }
@@ -835,8 +662,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const sourceTabId = sender?.tab?.id ?? "";
   if (sourceTabId) webclientTabId = sourceTabId; // track active 3CX tab
   logDebug("Raw signal received", { kind: msg.payload?.kind, sourceTabId });
-
-  ensureHello(sourceTabId);
 
   const decoded = parse3cxFrame(msg.payload);
   if (!decoded) {
@@ -878,69 +703,54 @@ async function injectExistingTabs() {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
+  await ensureOffscreen();
   await loadConfig();
+  ensureKeepaliveAlarm();
   await injectExistingTabs();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await ensureOffscreen();
   await loadConfig();
+  ensureKeepaliveAlarm();
   await injectExistingTabs();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
-  if (changes.extensionNumber || changes.debugLogging || changes.bridgePort) {
-    // If the port change was initiated by findBridgePort mid-connect, consume
-    // the suppression flag and skip the reconnect path for the port branch.
-    let portChangeSuppressed = false;
-    if (changes.bridgePort && suppressNextPortChangeReconnect) {
-      suppressNextPortChangeReconnect = false;
-      portChangeSuppressed = true;
-      bridgePort = parseInt(changes.bridgePort.newValue, 10) || DEFAULT_BRIDGE_PORT;
-    }
+  if (!changes.extensionNumber && !changes.debugLogging && !changes.bridgePort) return;
 
-    const portChanged = !!changes.bridgePort && !portChangeSuppressed;
-    const onlyPortSuppressed =
-      portChangeSuppressed && !changes.extensionNumber && !changes.debugLogging;
-    if (!onlyPortSuppressed) {
-      loadConfig().catch((err) => {
-        console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
-      });
-    }
-    if (changes.extensionNumber || portChanged) {
-      // Close existing connection so it reconnects with new settings
-      if (ws) {
-        try { ws.close(); } catch {}
+  loadConfig()
+    .then(() => {
+      // loadConfig already re-sends INIT. If identity or port changed, cycle
+      // the offscreen WebSocket so it picks up the new settings cleanly.
+      if (changes.extensionNumber || changes.bridgePort) {
+        return sendToOffscreen({ type: "REFRESH" });
       }
-      helloSent = false;
-      helloAcked = false;
-      clearHelloRetry();
-      scheduleHelloBootstrap(50);
-    }
-  }
+    })
+    .catch((err) => {
+      console.warn("[3CX-DATEV-C][bg] Failed to reload config", err);
+    });
 });
 
-// Alarm-based reconnect — survives service worker shutdown
-const BRIDGE_RETRY_ALARM = "bridge-retry";
-
+// Alarm keeps the SW warm enough to call ensureOffscreen periodically. If
+// Chrome evicts the offscreen document for some reason, this rebuilds it.
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== BRIDGE_RETRY_ALARM) return;
-  if (ws && ws.readyState === WebSocket.OPEN && helloAcked) return;
-  logDebug("Alarm-triggered bridge reconnect");
-  connectBridge();
+  if (alarm.name !== KEEPALIVE_ALARM) return;
+  ensureOffscreen();
 });
 
-function ensureBridgeRetryAlarm() {
-  chrome.alarms.create(BRIDGE_RETRY_ALARM, { periodInMinutes: 0.5 }); // 30s = MV3 minimum
+function ensureKeepaliveAlarm() {
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.5 }); // 30s = MV3 minimum
 }
 
-function clearBridgeRetryAlarm() {
-  chrome.alarms.clear(BRIDGE_RETRY_ALARM);
-}
-
-loadConfig().then(() => {
-  connectBridge();
-  ensureBridgeRetryAlarm();
-}).catch((err) => {
-  console.warn("[3CX-DATEV-C][bg] Initial config load failed", err);
-});
+// Boot: bring up the offscreen doc, then load config (which pushes INIT).
+(async () => {
+  try {
+    await ensureOffscreen();
+    await loadConfig();
+    ensureKeepaliveAlarm();
+  } catch (err) {
+    console.warn("[3CX-DATEV-C][bg] Initial boot failed", err);
+  }
+})();
