@@ -108,13 +108,18 @@ async function findBridgePort() {
     return cached;
   }
 
-  // 3. Parallel probe across the default range.
+  // 3. Parallel probe. The default 19800-19899 range is fine for when the
+  //    extension number is unknown, but once we have a preferred port outside
+  //    that range (base + extension, e.g. 20798 for ext 998) we MUST still
+  //    probe it here — the tray app may have been slow to bind when we
+  //    checked at step 1. Include cached too, in case the tray is back on an
+  //    older port.
   const tried = new Set();
-  if (preferred) tried.add(preferred);
-  if (cached) tried.add(cached);
   const ports = [];
+  if (preferred) { ports.push(preferred); tried.add(preferred); }
+  if (cached && !tried.has(cached)) { ports.push(cached); tried.add(cached); }
   for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) {
-    if (!tried.has(p)) ports.push(p);
+    if (!tried.has(p)) { ports.push(p); tried.add(p); }
   }
   const results = await Promise.allSettled(ports.map(isPortReachable));
   const responders = ports.filter((_, i) =>
@@ -125,7 +130,10 @@ async function findBridgePort() {
     return null;
   }
 
-  const picked = responders[0];
+  // Prefer the preferred port if it responded, even if not first in
+  // `responders` order (ordering follows the ports[] construction, so
+  // preferred is first anyway — but defend against future reorderings).
+  const picked = preferred && responders.includes(preferred) ? preferred : responders[0];
   logInfo(`Scan lief, Bridge gefunden auf ${picked}`);
   return picked;
 }
@@ -342,12 +350,11 @@ function applyInit(msg) {
 
   if (!ws) {
     connectBridge();
-  } else if (extensionChanged && ws.readyState === WebSocket.OPEN) {
-    // Re-handshake so the bridge sees the new extension number.
-    helloSent = false;
-    helloAcked = false;
-    clearHelloRetry();
-    scheduleHelloBootstrap(50);
+  } else if (extensionChanged) {
+    // Extension changed → the deterministic port probably changed too. Force
+    // a full reconnect so we re-probe the new preferred port instead of just
+    // re-handshaking on the wrong socket.
+    handleRefresh();
   }
 }
 

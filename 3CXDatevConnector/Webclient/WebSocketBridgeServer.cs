@@ -112,7 +112,17 @@ namespace DatevConnector.Webclient
                     catch (OperationCanceledException) { break; }
                     catch (Exception ex)
                     {
-                        LogManager.Log("WebClient Connector: Fehler - {0}", ex.Message);
+                        // During shutdown / listener-stop / reconnect cycles, a pending
+                        // AcceptAsync is cancelled and surfaces as an IOException with
+                        // Windows error 995 (ERROR_OPERATION_ABORTED) rather than as
+                        // an OperationCanceledException. Demote to Debug so we don't
+                        // scare operators reading the log.
+                        bool isShutdownAbort = ct.IsCancellationRequested || _disposed
+                            || IsOperationAborted(ex);
+                        if (isShutdownAbort)
+                            LogManager.Debug("WebClient Connector: Accept-Loop abgebrochen - {0}", ex.Message);
+                        else
+                            LogManager.Log("WebClient Connector: Fehler - {0}", ex.Message);
                     }
                     finally
                     {
@@ -494,6 +504,24 @@ namespace DatevConnector.Webclient
         }
 
         // ===== Helpers =====
+
+        // True when the exception chain is the Windows "I/O operation aborted"
+        // (ERROR_OPERATION_ABORTED, 995) that fires when a pending accept is
+        // cancelled by a listener.Stop() during shutdown / reconnect.
+        private static bool IsOperationAborted(Exception ex)
+        {
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                if (e is System.Net.Sockets.SocketException se &&
+                    (int)se.SocketErrorCode == 995)
+                    return true;
+                if (e is System.IO.IOException &&
+                    e.Message != null &&
+                    e.Message.IndexOf("wegen eines Threadendes", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
+        }
 
         // Deterministic port first (computed from user extension number), then
         // the fallback range walk. Extensions are unique within a 3CX PBX so
