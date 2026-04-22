@@ -21,9 +21,15 @@ namespace DatevConnector.Datev.Managers
                 const uint flags = 0; //ACTIVEOBJECT_STRONG
 
                 uint hr = Rot.RegisterActiveObject(adapter, ref adapterGuid, flags, out _registrationId);
-                if (hr != 0)
+                // HRESULTs with the S_ prefix (high bit 0) are success codes with status info.
+                // 0x000401E7 = MK_S_MONIKERALREADYREGISTERED — already registered in ROT, not a failure.
+                if ((hr & 0x80000000) != 0)
                 {
                     LogManager.Warning("ROT RegisterActiveObject fehlgeschlagen: HRESULT=0x{0:X8}", hr);
+                }
+                else if (hr != 0)
+                {
+                    LogManager.Debug("ROT RegisterActiveObject: HRESULT=0x{0:X8} (informational)", hr);
                 }
 
                 _adapter = adapter;
