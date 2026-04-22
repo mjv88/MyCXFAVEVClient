@@ -63,6 +63,18 @@ function resolveExtensionNumber() {
   return configuredExtension || detectedExtension || "";
 }
 
+// Deterministic port per extension: BRIDGE_PORT_RANGE_START + extension.
+// Extension 1005 on default base 19800 -> 20805. Unique extension -> unique
+// port, so we can reach our bridge with one probe instead of scanning the
+// range. Returns 0 when the extension is unknown or out of TCP range.
+function computePreferredPort() {
+  const ext = parseInt(resolveExtensionNumber(), 10);
+  if (!Number.isFinite(ext) || ext <= 0) return 0;
+  const port = BRIDGE_PORT_RANGE_START + ext;
+  if (port < 1024 || port > 65535) return 0;
+  return port;
+}
+
 // Probe port with fetch before opening a WebSocket. Fetch errors are silently
 // catchable and do NOT appear on chrome://extensions, unlike WebSocket
 // ERR_CONNECTION_REFUSED which Chrome logs at the browser level.
@@ -81,35 +93,42 @@ async function isPortReachable(port) {
 
 let connectingInProgress = false;
 
-// Cache-first, parallel-scan-on-miss. Returns a port number or null.
+// Preferred-first, then cache, then parallel scan.
 async function findBridgePort() {
-  // 1. Cached port first.
+  const preferred = computePreferredPort();
   const cached = Number.isFinite(bridgePort) ? bridgePort : null;
-  if (cached && await isPortReachable(cached)) {
+
+  // 1. Deterministic port from extension — virtually always the bridge.
+  if (preferred && await isPortReachable(preferred)) {
+    logInfo(`Nebenstelle-Port ${preferred} erreichbar, verbunden`);
+    return preferred;
+  }
+
+  // 2. Cached port, if different from the (failed) preferred one.
+  if (cached && cached !== preferred && await isPortReachable(cached)) {
     logInfo(`Cache-Port ${cached} erreichbar, verbunden`);
     return cached;
   }
 
-  // 2. Parallel probe across the range.
+  // 3. Parallel probe across the default range.
+  const tried = new Set();
+  if (preferred) tried.add(preferred);
+  if (cached) tried.add(cached);
   const ports = [];
   for (let p = BRIDGE_PORT_RANGE_START; p <= BRIDGE_PORT_RANGE_END; p++) {
-    if (p !== cached) ports.push(p);
+    if (!tried.has(p)) ports.push(p);
   }
   const results = await Promise.allSettled(ports.map(isPortReachable));
   const responders = ports.filter((_, i) =>
     results[i].status === "fulfilled" && results[i].value === true);
 
   if (responders.length === 0) {
-    logInfo(`Keine Bridge in ${BRIDGE_PORT_RANGE_START}-${BRIDGE_PORT_RANGE_END} gefunden, Retry geplant`);
+    logInfo(`Keine Bridge gefunden (Nebenstelle=${preferred || "?"}, Cache=${cached || "?"}, Range=${BRIDGE_PORT_RANGE_START}-${BRIDGE_PORT_RANGE_END}), Retry geplant`);
     return null;
   }
 
   const picked = responders[0];
-  if (cached) {
-    logInfo(`Cache-Port ${cached} nicht erreichbar, Scan lief, gefunden auf ${picked}`);
-  } else {
-    logInfo(`Scan lief, Bridge gefunden auf ${picked}`);
-  }
+  logInfo(`Scan lief, Bridge gefunden auf ${picked}`);
   return picked;
 }
 

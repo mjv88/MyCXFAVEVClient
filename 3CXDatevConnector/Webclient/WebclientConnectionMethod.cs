@@ -29,6 +29,7 @@ namespace DatevConnector.Webclient
         private readonly int _connectTimeoutSec;
         private readonly int _wsPortRangeStart;
         private readonly int _wsPortRangeEnd;
+        private int _preferredPort; // 0 = no preference; otherwise computed from extension
         private volatile bool _disposed;
         private volatile bool _connected;
         private volatile bool _disconnectedFired;
@@ -71,6 +72,20 @@ namespace DatevConnector.Webclient
             int rangeEnd = Math.Min(65535, rangeStart + rangeSize - 1);
             _wsPortRangeStart = rangeStart;
             _wsPortRangeEnd = rangeEnd;
+            _preferredPort = ComputePreferredPort(extension, rangeStart);
+        }
+
+        // Deterministic port per extension: rangeStart + extension. Extension 1005
+        // on default base 19800 -> 20805. Unique extension -> unique port, so
+        // identically-configured users on the same TS never collide. Returns 0
+        // when the extension is unset or would overflow the valid TCP range.
+        private static int ComputePreferredPort(string extension, int rangeStart)
+        {
+            if (string.IsNullOrWhiteSpace(extension)) return 0;
+            if (!int.TryParse(extension, out int ext) || ext <= 0) return 0;
+            long p = (long)rangeStart + ext;
+            if (p < 1024 || p > 65535) return 0;
+            return (int)p;
         }
 
         /// <summary>
@@ -140,7 +155,7 @@ namespace DatevConnector.Webclient
                 {
                     progressText?.Invoke("WebClient: Warte auf Erweiterung (WebSocket)...");
 
-                    _wsServer = new WebSocketBridgeServer(_wsPortRangeStart, _wsPortRangeEnd);
+                    _wsServer = new WebSocketBridgeServer(_wsPortRangeStart, _wsPortRangeEnd, _preferredPort);
                     WireWebSocketEvents(progressText);
 
                     // RunAsync blocks: accepts connections in a loop, handles reconnect
@@ -227,7 +242,7 @@ namespace DatevConnector.Webclient
 
             try
             {
-                _wsServer = new WebSocketBridgeServer(_wsPortRangeStart, _wsPortRangeEnd);
+                _wsServer = new WebSocketBridgeServer(_wsPortRangeStart, _wsPortRangeEnd, _preferredPort);
                 WireWebSocketEvents(null);
 
                 bool ok = await _wsServer.TryAcceptAsync(cancellationToken, timeoutSec);

@@ -356,6 +356,7 @@ namespace DatevConnector.UI
 
                 LoadTapiLines();
             }
+            AddExtensionOverrideControl();
         }
 
         private void ShowPipePage()
@@ -387,6 +388,7 @@ namespace DatevConnector.UI
                 };
                 _contentPanel.Controls.Add(_lblTapiStatus);
             }
+            AddExtensionOverrideControl();
         }
 
         private void ShowWebclientPage()
@@ -418,41 +420,45 @@ namespace DatevConnector.UI
                     Size = new Size(ContentWidth, 30)
                 };
                 _contentPanel.Controls.Add(_lblTapiStatus);
-
-                // Optional manual extension entry — useful on Terminal Server
-                // where auto-detection via browser HELLO may take a while,
-                // or where an admin wants to pre-configure before login.
-                var lblHint = new Label
-                {
-                    Text = "Nebenstelle (optional, leer lassen fuer Auto-Erkennung):",
-                    Font = UITheme.FontSmall,
-                    ForeColor = UITheme.TextSecondary,
-                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY),
-                    Size = new Size(ContentWidth, 18)
-                };
-                _contentPanel.Controls.Add(lblHint);
-
-                _txtWebclientExtension = new TextBox
-                {
-                    Text = AppConfig.GetString(ConfigKeys.ExtensionNumber, "") ?? "",
-                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY + 22),
-                    Size = new Size(180, 24),
-                    BackColor = UITheme.InputBackground,
-                    ForeColor = UITheme.TextPrimary,
-                    Font = UITheme.FontMedium,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    MaxLength = 16
-                };
-                _txtWebclientExtension.TextChanged += (s, e) =>
-                {
-                    string raw = (_txtWebclientExtension.Text ?? "").Trim();
-                    // Digits only; silently strip anything else so users can paste freely.
-                    string digits = new string(raw.Where(char.IsDigit).ToArray());
-                    if (digits != raw) _txtWebclientExtension.Text = digits;
-                    AppConfig.Set(ConfigKeys.ExtensionNumber, digits);
-                };
-                _contentPanel.Controls.Add(_txtWebclientExtension);
             }
+            AddExtensionOverrideControl();
+        }
+
+        // Shared control so every Step-2 sub-page (Tapi/Pipe/Webclient) exposes
+        // the same extension-override input. Empty value = rely on auto-detect
+        // (TAPI line name, or browser HELLO). Digits only.
+        private void AddExtensionOverrideControl()
+        {
+            int y = StepDetailY + 80;
+            var lblHint = new Label
+            {
+                Text = "Nebenstelle (optional, leer lassen fuer Auto-Erkennung):",
+                Font = UITheme.FontSmall,
+                ForeColor = UITheme.TextSecondary,
+                Location = new Point(LayoutConstants.SpaceLG, y),
+                Size = new Size(ContentWidth, 18)
+            };
+            _contentPanel.Controls.Add(lblHint);
+
+            _txtWebclientExtension = new TextBox
+            {
+                Text = AppConfig.GetString(ConfigKeys.ExtensionNumber, "") ?? "",
+                Location = new Point(LayoutConstants.SpaceLG, y + 22),
+                Size = new Size(180, 24),
+                BackColor = UITheme.InputBackground,
+                ForeColor = UITheme.TextPrimary,
+                Font = UITheme.FontMedium,
+                BorderStyle = BorderStyle.FixedSingle,
+                MaxLength = 16
+            };
+            _txtWebclientExtension.TextChanged += (s, e) =>
+            {
+                string raw = (_txtWebclientExtension.Text ?? "").Trim();
+                string digits = new string(raw.Where(char.IsDigit).ToArray());
+                if (digits != raw) _txtWebclientExtension.Text = digits;
+                AppConfig.Set(ConfigKeys.ExtensionNumber, digits);
+            };
+            _contentPanel.Controls.Add(_txtWebclientExtension);
         }
 
         private void LoadTapiLines()

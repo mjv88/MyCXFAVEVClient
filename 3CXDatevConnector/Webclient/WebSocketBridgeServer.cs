@@ -25,6 +25,7 @@ namespace DatevConnector.Webclient
 
         private readonly int _rangeStart;
         private readonly int _rangeEnd;
+        private readonly int _preferredPort; // 0 = no preference; try first, fall back to range walk.
         public int BoundPort { get; private set; }
         private TcpListener _listener;
         private readonly object _writeLock = new object();
@@ -76,9 +77,13 @@ namespace DatevConnector.Webclient
         public string WebclientVersion => _conn.WebclientVersion;
 
         public WebSocketBridgeServer(int rangeStart, int rangeEnd)
+            : this(rangeStart, rangeEnd, 0) { }
+
+        public WebSocketBridgeServer(int rangeStart, int rangeEnd, int preferredPort)
         {
             _rangeStart = rangeStart;
             _rangeEnd = rangeEnd;
+            _preferredPort = preferredPort;
         }
 
         // ===== Connection lifecycle =====
@@ -490,12 +495,25 @@ namespace DatevConnector.Webclient
 
         // ===== Helpers =====
 
+        // Deterministic port first (computed from user extension number), then
+        // the fallback range walk. Extensions are unique within a 3CX PBX so
+        // the preferred port virtually never collides between our own bridges;
+        // the walk only catches foreign apps squatting on the exact port.
+        private System.Collections.Generic.IEnumerable<int> PortsToTry()
+        {
+            if (_preferredPort > 0) yield return _preferredPort;
+            for (int p = _rangeStart; p <= _rangeEnd; p++)
+            {
+                if (p != _preferredPort) yield return p;
+            }
+        }
+
         private void StartListener()
         {
             if (_listener != null) return;
 
             System.Net.Sockets.SocketException lastError = null;
-            for (int port = _rangeStart; port <= _rangeEnd; port++)
+            foreach (int port in PortsToTry())
             {
                 try
                 {
@@ -503,8 +521,10 @@ namespace DatevConnector.Webclient
                     listener.Start();
                     _listener = listener;
                     BoundPort = port;
-                    LogManager.Log("WebClient Connector: Bridge lauscht auf Port {0} (Session-ID {1})",
-                        port, LoopbackPeerSession.CurrentSessionId());
+                    bool preferred = _preferredPort > 0 && port == _preferredPort;
+                    LogManager.Log("WebClient Connector: Bridge lauscht auf Port {0} (Session-ID {1}{2})",
+                        port, LoopbackPeerSession.CurrentSessionId(),
+                        preferred ? ", aus Nebenstelle berechnet" : "");
                     return;
                 }
                 catch (System.Net.Sockets.SocketException ex)
