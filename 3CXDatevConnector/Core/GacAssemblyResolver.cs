@@ -131,7 +131,19 @@ namespace DatevConnector.Core
                 }
             }
 
-            LogManager.Debug("GAC Resolver: Assembly '{0}' auch nicht in Fallback-Pfaden gefunden", assemblyName.Name);
+            LogManager.Debug("GAC Resolver: Assembly '{0}' nicht in Fallback-Pfaden, probiere Harvest", assemblyName.Name);
+
+            string harvested = TryHarvestFromLocalDatev(assemblyName);
+            if (harvested != null)
+            {
+                try { return context.LoadFromAssemblyPath(harvested); }
+                catch (Exception ex)
+                {
+                    LogManager.Log("GAC Resolver: Harvest-Load von '{0}' fehlgeschlagen: {1}", harvested, ex.Message);
+                }
+            }
+
+            LogManager.Debug("GAC Resolver: Assembly '{0}' konnte nicht aufgeloest werden", assemblyName.Name);
             return null;
         }
 
@@ -141,9 +153,119 @@ namespace DatevConnector.Core
         private static System.Collections.Generic.IEnumerable<string> FallbackDirectories()
         {
             yield return Path.Combine(AppContext.BaseDirectory, "Datev");
-            yield return Path.Combine(
+            yield return AppDataAssemblyDir();
+        }
+
+        private static string AppDataAssemblyDir() =>
+            Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "3CXDATEVConnector", "Assembly");
+
+        // Tracks names we've already scanned (found or not) so a repeated
+        // missing-dependency resolve doesn't rescan the file system every call.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _harvestedNames
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        // Last-ditch: if a DATEV assembly wasn't found in GAC/bundle/AppData,
+        // scan a local DATEV installation for it and copy the first matching
+        // DLL (with verified public-key-token) into the AppData fallback
+        // folder. Returns the destination path on success, null otherwise.
+        private static string TryHarvestFromLocalDatev(AssemblyName requested)
+        {
+            if (requested?.Name == null) return null;
+            if (!_harvestedNames.TryAdd(requested.Name, true))
+                return null; // already attempted this session
+
+            try
+            {
+                string destDir = AppDataAssemblyDir();
+                string destPath = Path.Combine(destDir, requested.Name + ".dll");
+
+                foreach (var root in DatevInstallRoots())
+                {
+                    if (!Directory.Exists(root)) continue;
+                    LogManager.Debug("GAC Resolver: Scanne DATEV-Installation '{0}' nach '{1}'", root, requested.Name);
+
+                    string match;
+                    try
+                    {
+                        match = Directory.EnumerateFiles(root, requested.Name + ".dll",
+                            SearchOption.AllDirectories).FirstOrDefault();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManager.Debug("GAC Resolver: Scan '{0}' abgebrochen: {1}", root, ex.Message);
+                        continue;
+                    }
+                    if (match == null) continue;
+
+                    // Token check — same rule as GAC/fallback loads.
+                    try
+                    {
+                        var candidateName = AssemblyName.GetAssemblyName(match);
+                        var expectedToken = requested.GetPublicKeyToken();
+                        var candidateToken = candidateName.GetPublicKeyToken();
+                        if (expectedToken != null && expectedToken.Length > 0 &&
+                            (candidateToken == null || !expectedToken.SequenceEqual(candidateToken)))
+                        {
+                            LogManager.Debug("GAC Resolver: Harvest-Kandidat '{0}' Token-Mismatch, uebersprungen", match);
+                            continue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManager.Debug("GAC Resolver: Harvest-Kandidat '{0}' nicht lesbar: {1}", match, ex.Message);
+                        continue;
+                    }
+
+                    try
+                    {
+                        Directory.CreateDirectory(destDir);
+                        File.Copy(match, destPath, overwrite: true);
+                        LogManager.Log("GAC Resolver: Assembly '{0}' aus DATEV-Installation kopiert: {1} -> {2}",
+                            requested.Name, match, destPath);
+                        return destPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogManager.Log("GAC Resolver: Kopie von '{0}' nach '{1}' fehlgeschlagen: {2}",
+                            match, destPath, ex.Message);
+                        return null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogManager.Debug("GAC Resolver: Harvest fuer '{0}' fehlgeschlagen: {1}", requested.Name, ex.Message);
+            }
+            return null;
+        }
+
+        private static System.Collections.Generic.IEnumerable<string> DatevInstallRoots()
+        {
+            // Registry-configured install root takes precedence (both 32/64-bit views).
+            foreach (var hive in new[] {
+                Microsoft.Win32.RegistryView.Registry32,
+                Microsoft.Win32.RegistryView.Registry64 })
+            {
+                string fromReg = null;
+                try
+                {
+                    using var baseKey = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                        Microsoft.Win32.RegistryHive.LocalMachine, hive);
+                    using var key = baseKey?.OpenSubKey(@"SOFTWARE\DATEV");
+                    fromReg = key?.GetValue("Installationsverzeichnis") as string;
+                }
+                catch { }
+                if (!string.IsNullOrWhiteSpace(fromReg)) yield return fromReg;
+            }
+
+            // Common default install paths — cover both Englisch- and Deutsch-locale Windows.
+            yield return Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.ProgramFilesX86), "DATEV");
+            yield return Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.ProgramFiles), "DATEV");
+            yield return @"C:\Programme\DATEV";
         }
     }
 }
