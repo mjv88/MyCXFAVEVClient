@@ -93,7 +93,7 @@ namespace DatevConnector.UI
             // ThemedForm handles: BackColor, ForeColor, FormBorderStyle, StartPosition,
             // MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.Wizard.Title;
-            ClientSize = new Size(480, 360);
+            ClientSize = new Size(520, 400);
 
             // Accent bar
             var accentBar = UITheme.CreateAccentBar(UITheme.AccentDatev);

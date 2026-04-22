@@ -121,7 +121,7 @@ namespace DatevConnector.UI
             // ThemedForm base class handles: BackColor, ForeColor, FormBorderStyle,
             // StartPosition, MaximizeBox, MinimizeBox, Font, Icon
             Text = UIStrings.FormTitles.Overview;
-            Size = new Size(540, 546);
+            Size = new Size(540, 590);
 
             var root = new Panel
             {
@@ -161,7 +161,7 @@ namespace DatevConnector.UI
             // === TELEPHONY MODE ===
             var telephonyCard = BuildConnectionModeCard();
             telephonyCard.Location = new Point(LayoutConstants.SpaceMD, 400);
-            telephonyCard.Size = new Size(492, 50);
+            telephonyCard.Size = new Size(492, 88);
             root.Controls.Add(telephonyCard);
 
             // === BUTTONS ===
