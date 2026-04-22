@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using DatevConnector.Core;
@@ -30,6 +31,7 @@ namespace DatevConnector.UI
         // Step 2: TAPI / Pipe / Webclient config
         private ComboBox _cboTapiLine;
         private Label _lblTapiStatus;
+        private TextBox _txtWebclientExtension;
 
         // Step 3: DATEV
         private Label _lblDatevStatus;
@@ -416,6 +418,40 @@ namespace DatevConnector.UI
                     Size = new Size(ContentWidth, 30)
                 };
                 _contentPanel.Controls.Add(_lblTapiStatus);
+
+                // Optional manual extension entry — useful on Terminal Server
+                // where auto-detection via browser HELLO may take a while,
+                // or where an admin wants to pre-configure before login.
+                var lblHint = new Label
+                {
+                    Text = "Nebenstelle (optional, leer lassen fuer Auto-Erkennung):",
+                    Font = UITheme.FontSmall,
+                    ForeColor = UITheme.TextSecondary,
+                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY),
+                    Size = new Size(ContentWidth, 18)
+                };
+                _contentPanel.Controls.Add(lblHint);
+
+                _txtWebclientExtension = new TextBox
+                {
+                    Text = AppConfig.GetString(ConfigKeys.ExtensionNumber, "") ?? "",
+                    Location = new Point(LayoutConstants.SpaceLG, StepDetailY + 22),
+                    Size = new Size(180, 24),
+                    BackColor = UITheme.InputBackground,
+                    ForeColor = UITheme.TextPrimary,
+                    Font = UITheme.FontMedium,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    MaxLength = 16
+                };
+                _txtWebclientExtension.TextChanged += (s, e) =>
+                {
+                    string raw = (_txtWebclientExtension.Text ?? "").Trim();
+                    // Digits only; silently strip anything else so users can paste freely.
+                    string digits = new string(raw.Where(char.IsDigit).ToArray());
+                    if (digits != raw) _txtWebclientExtension.Text = digits;
+                    AppConfig.Set(ConfigKeys.ExtensionNumber, digits);
+                };
+                _contentPanel.Controls.Add(_txtWebclientExtension);
             }
         }
 

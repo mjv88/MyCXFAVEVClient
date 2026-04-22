@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using DatevConnector.Core;
@@ -55,6 +56,7 @@ namespace DatevConnector.UI
 
         // Advanced - Tray
         private CheckBox _chkTrayDoubleClickCallHistory;
+        private TextBox _txtExtensionOverride;
 
         // Telephony Mode
         private ComboBox _cboConnectionMode;
@@ -488,6 +490,36 @@ namespace DatevConnector.UI
             });
             card.Controls.Add(_cboConnectionMode);
 
+            // Extension override — empty = auto-detect (TAPI line name or browser HELLO).
+            int row2 = row1 + 30;
+            card.Controls.Add(new Label
+            {
+                Text = "Nebenstelle:",
+                Font = UITheme.FontLabel,
+                ForeColor = UITheme.TextPrimary,
+                AutoSize = true,
+                Location = new Point(col1, row2)
+            });
+            _txtExtensionOverride = new TextBox
+            {
+                Location = new Point(col2, row2 - 2),
+                Size = new Size(130, 22),
+                BackColor = UITheme.InputBackground,
+                ForeColor = UITheme.TextPrimary,
+                Font = UITheme.FontSmall,
+                BorderStyle = BorderStyle.FixedSingle,
+                MaxLength = 16
+            };
+            card.Controls.Add(_txtExtensionOverride);
+            card.Controls.Add(new Label
+            {
+                Text = "(leer = Auto-Erkennung)",
+                Font = UITheme.FontSmall,
+                ForeColor = UITheme.TextSecondary,
+                AutoSize = true,
+                Location = new Point(col2 + 136, row2 + 2)
+            });
+
             return card;
         }
 
@@ -752,6 +784,10 @@ namespace DatevConnector.UI
             // Tray double-click - default to Call History
             _chkTrayDoubleClickCallHistory.Checked = AppConfig.GetBool(ConfigKeys.TrayDoubleClickCallHistory, true);
 
+            // Extension override (empty = auto-detect)
+            if (_txtExtensionOverride != null)
+                _txtExtensionOverride.Text = AppConfig.GetString(ConfigKeys.ExtensionNumber, "") ?? "";
+
             // Telephony Mode
             var telephonyMode = AppConfig.GetConnectionMode();
             switch (telephonyMode)
@@ -848,6 +884,14 @@ namespace DatevConnector.UI
             if (modeIndex >= 0 && modeIndex < modeValues.Length)
             {
                 AppConfig.Set(ConfigKeys.TelephonyMode, modeValues[modeIndex]);
+            }
+
+            // Extension override — digits only; empty string means "use auto-detection".
+            if (_txtExtensionOverride != null)
+            {
+                string raw = (_txtExtensionOverride.Text ?? "").Trim();
+                string digits = new string(raw.Where(char.IsDigit).ToArray());
+                AppConfig.Set(ConfigKeys.ExtensionNumber, digits);
             }
 
             // Apply settings live to running service
