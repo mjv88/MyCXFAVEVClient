@@ -113,25 +113,14 @@ namespace DatevConnector.Datev
             else
                 progressText?.Invoke("DATEV Arbeitsplatz nicht gefunden");
 
-            // Check SDD availability (contact data via IPC - independent of ROT)
-            progressText?.Invoke("Suche DATEV Stammdatendienst...");
-            bool sddAvailable = CheckSddAvailability();
-            LogManager.Log("DATEV SDD (Kontakte): {0}", sddAvailable ? "Verfügbar" : "NICHT VERFÜGBAR");
+            // SDD availability is reported by the SddProxy itself (PING / GET_CONTACTS
+            // responses carry an ok flag). No in-process pre-check here.
+            LogManager.Log("DATEV SDD (Kontakte): Wird über Proxy geprüft");
 
-            if (sddAvailable)
-                progressText?.Invoke("DATEV Stammdatendienst gefunden");
-            else
-                progressText?.Invoke("DATEV Stammdatendienst nicht gefunden");
-
-            if (rotAvailable && sddAvailable)
+            if (rotAvailable)
             {
                 LogManager.Log("DATEV Alle Komponente Verfügbar");
                 progressText?.Invoke("DATEV verfügbar");
-            }
-            else if (sddAvailable)
-            {
-                LogManager.Log("DATEV SDD verfügbar - Kontakte erreichbar (CTI noch nicht verfügbar)");
-                progressText?.Invoke("DATEV Kontakte verfügbar");
             }
             else
             {
@@ -139,29 +128,9 @@ namespace DatevConnector.Datev
                 progressText?.Invoke("DATEV nicht verfügbar");
             }
 
-            // Available if either component is detected - SDD works via IPC independently of ROT
-            return rotAvailable || sddAvailable;
+            // ROT handles call routing and SDD handles contacts; if ROT is down,
+            // nothing flows, so report availability based on ROT alone.
+            return rotAvailable;
         }
-
-        private static bool CheckSddAvailability()
-        {
-            try
-            {
-                // Try to load the SDD assembly dynamically (resolved via GacAssemblyResolver on .NET 9)
-                var assembly = System.Reflection.Assembly.Load("Datev.Sdd.Data.ClientInterfaces");
-                if (assembly != null)
-                {
-                    LogManager.Debug("SDD Assembly geladen: {0}", assembly.FullName);
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogManager.Debug("SDD Verfügbarkeitsprüfung fehlgeschlagen: {0}", ex.Message);
-            }
-
-            return false;
-        }
-
     }
 }

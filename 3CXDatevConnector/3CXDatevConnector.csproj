@@ -31,35 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- DATEV SDD assemblies (loaded from GAC at runtime via GacAssemblyResolver) -->
-    <Reference Include="Datev.Sdd.Data.ClientInterfaces">
-      <HintPath>..\lib\Datev.Sdd.Data.ClientInterfaces.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Datev.Sdd.Data.ClientPlugIn.Base">
-      <HintPath>..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="UI\Assets\bridge_icon.png" />
     <EmbeddedResource Include="UI\Assets\DATEVLogo.png" />
-  </ItemGroup>
-
-  <!-- Bundled DATEV SDD DLLs. Kept here as a fallback for DatevConnectionChecker's
-       Assembly.Load probe and for any edge case GacAssemblyResolver still handles.
-       The SDD contact-loading path no longer goes through these: it runs out of
-       the net48 SddProxy subprocess (see below), which carries its own copies. -->
-  <ItemGroup>
-    <Content Include="..\lib\Datev.Sdd.Data.ClientInterfaces.dll"
-             Link="Datev\Datev.Sdd.Data.ClientInterfaces.dll"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll"
-             Link="Datev\Datev.Sdd.Data.ClientPlugIn.Base.dll"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Build the net48 SDD proxy first, then pull its .exe into our output as
