@@ -1,11 +1,5 @@
-using Datev.Sdd.Data.ClientInterfaces;
-using Datev.Sdd.Data.ClientPlugIn;
 using DatevConnector.Core;
 using DatevConnector.Core.Config;
-using DatevConnector.Datev.DatevData;
-using DatevConnector.Datev.DatevData.Enums;
-using DatevConnector.Datev.DatevData.Institutions;
-using DatevConnector.Datev.DatevData.Recipients;
 using DatevConnector.Datev.Managers;
 using DatevConnector.Datev.PluginData;
 using DatevConnector.Extensions;
@@ -14,14 +8,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.Serialization;
 
 namespace DatevConnector.Datev
 {
     /// <summary>
-    /// Unified repository for DATEV contacts: fetches from SDD, caches locally,
-    /// and provides phone-number lookup.
+    /// Unified repository for DATEV contacts: orchestrates the net48 SDD proxy
+    /// subprocess for fetching, caches the result locally, and provides
+    /// phone-number lookup.
+    ///
+    /// All direct DATEV SDD type usage has moved into
+    /// 3CXDatevConnector.SddProxy (net48). This file now speaks JSON over a
+    /// named pipe to the proxy and is otherwise a drop-in replacement for the
+    /// older implementation — the public API (method names, return types) is
+    /// preserved so callers don't need to change.
     /// </summary>
     public static class DatevContactRepository
     {
@@ -30,10 +29,15 @@ namespace DatevConnector.Datev
         private static int? _maxCompareLength;
         private static bool _debugLogging;
 
-        // Configuration / state (thread-safe)
         private static readonly object _lock = new object();
         private static bool _filterActiveContactsOnly;
         private static DateTime? _lastSyncTimestamp;
+
+        // Lazily-created, long-lived proxy client. Disposed on process exit via
+        // an AppDomain hook so the proxy subprocess gets a clean EXIT.
+        private static SddProxyClient _proxy;
+        private static readonly object _proxyLock = new object();
+        private static bool _shutdownHookInstalled;
 
         // ===== Public Properties =====
 
@@ -95,7 +99,6 @@ namespace DatevConnector.Datev
 
                 List<DatevContactInfo> result = null;
 
-                // Try exact match first
                 if (_datevContactsSDict != null && _datevContactsSDict.ContainsKey(normalizedNumber))
                 {
                     result = _datevContactsSDict[normalizedNumber];
@@ -103,7 +106,6 @@ namespace DatevConnector.Datev
                         LogManager.Mask(normalizedNumber));
                 }
 
-                // Suffix matching for shorter DATEV numbers (min 6 digits overlap)
                 const int minSuffixMatchLength = 6;
                 if ((result == null || result.Count == 0) && _datevContactsSDict != null &&
                     normalizedNumber.Length >= minSuffixMatchLength)
@@ -164,7 +166,7 @@ namespace DatevConnector.Datev
             }
         }
 
-        // ===== Internals — Init & Build =====
+        // ===== Internals - Init & Build =====
 
         private static void Init(bool isForceReload = false, IProgress<int> progress = null, Action<string> progressText = null)
         {
@@ -251,187 +253,83 @@ namespace DatevConnector.Datev
         }
 
         // ===== SDD Fetching =====
-
-        private static bool CheckCommunications(Communication[] communications)
-        {
-            return communications != null &&
-                   communications.Any(c => c.Medium == Medium.Phone &&
-                                          !string.IsNullOrWhiteSpace(c.EffectiveNormalizedNumber));
-        }
-
-        private static Communication[] FilterPhoneCommunications(Communication[] communications)
-        {
-            if (communications == null || communications.Length == 0)
-                return Array.Empty<Communication>();
-
-            var phoneComms = communications
-                .Where(c => c.Medium == Medium.Phone && !string.IsNullOrWhiteSpace(c.EffectiveNormalizedNumber))
-                .ToArray();
-
-            return phoneComms.Length > 0 ? phoneComms : Array.Empty<Communication>();
-        }
+        //
+        // All DATEV-SDD calls now live in the net48 proxy subprocess; this
+        // method just talks to it over the pipe and hands the tray the same
+        // DatevContact shape the old implementation did.
 
         private static List<DatevContact> FetchContacts(int startProgress, int endProgress,
             IProgress<int> progress, Action<string> progressText)
         {
             int delta = endProgress - startProgress;
             progress?.Report(startProgress);
+            progressText?.Invoke("Suche Kontakte...");
 
-            // Get Recipients (Adressaten)
-            progressText?.Invoke("Suche Adressaten...");
-            List<DatevContact> recipients;
+            SddProxyClient client = GetOrCreateProxy();
+
+            List<DatevContact> contacts;
             try
             {
-                recipients = GetRecipients()
-                    .Where(s => s.Contact != null && CheckCommunications(s.Contact.Communications))
-                    .Select(s => new DatevContact
-                    {
-                        Id = s.Id,
-                        Name = s.Contact.Name,
-                        IsPrivatePerson = s.Contact.Type == ContactType.Person,
-                        IsRecipient = true,
-                        Communications = FilterPhoneCommunications(s.Contact.Communications)
-                    })
-                    .ToList();
-                progressText?.Invoke($"{recipients.Count} Adressaten gefunden");
+                contacts = client.GetContacts(FilterActiveContactsOnly);
             }
             catch (Exception ex)
             {
-                LogManager.Log("Fehler beim Abrufen der Adressaten: {0}", ex.Message);
-                progressText?.Invoke("Fehler beim Laden der Adressaten");
-                recipients = new List<DatevContact>();
+                LogManager.Error(ex, "Fehler beim Abrufen der Kontakte über SDD-Proxy");
+                progressText?.Invoke("Fehler beim Laden der Kontakte");
+                contacts = new List<DatevContact>();
             }
 
-            progress?.Report(startProgress + delta / 2);
-
-            // Get Institutions (Institutionen)
-            progressText?.Invoke("Suche Institutionen...");
-            List<DatevContact> institutions;
-            try
-            {
-                institutions = GetInstitutions()
-                    .Where(s => CheckCommunications(s.Communications))
-                    .Select(s => new DatevContact
-                    {
-                        Id = s.Id,
-                        Name = s.Name,
-                        IsPrivatePerson = false,
-                        IsRecipient = false,
-                        Communications = FilterPhoneCommunications(s.Communications)
-                    })
-                    .ToList();
-                progressText?.Invoke($"{institutions.Count} Institutionen gefunden");
-            }
-            catch (Exception ex)
-            {
-                LogManager.Log("Fehler beim Abrufen der Institutionen: {0}", ex.Message);
-                progressText?.Invoke("Fehler beim Laden der Institutionen");
-                institutions = new List<DatevContact>();
-            }
+            int recipients = contacts.Count(c => c.IsRecipient);
+            int institutions = contacts.Count - recipients;
+            LogManager.Log("SDD: {0} Adressaten, {1} Institutionen", recipients, institutions);
 
             progress?.Report(endProgress);
             LastSyncTimestamp = DateTime.Now;
 
-            var allContacts = recipients.Concat(institutions).ToList();
-            int totalComms = allContacts.Sum(c => c.Communications?.Length ?? 0);
-            LogManager.Log("SDD: {0} Kontakte mit {1} Rufnummnern synchronisiert.", allContacts.Count, totalComms);
-            progressText?.Invoke($"{allContacts.Count} Kontakte geladen");
+            int totalComms = contacts.Sum(c => c.Communications?.Length ?? 0);
+            LogManager.Log("SDD: {0} Kontakte mit {1} Rufnummnern synchronisiert.",
+                contacts.Count, totalComms);
+            progressText?.Invoke($"{contacts.Count} Kontakte geladen");
 
-            return allContacts;
+            return contacts;
         }
 
-        private static RecipientContactDetail[] GetRecipients()
+        private static SddProxyClient GetOrCreateProxy()
         {
-            const string contractIdentifier = "Datev.Sdd.Contract.Browse.1.2";
-            const string elementName = "KontaktDetail";
-
-            RecipientsContactList contactList = GetItemsList<RecipientsContactList>(
-                contractIdentifier, elementName, string.Empty);
-
-            if (contactList?.ContactDetails != null)
+            lock (_proxyLock)
             {
-                var contacts = contactList.ContactDetails;
-
-                if (FilterActiveContactsOnly)
+                if (_proxy == null)
                 {
-                    contacts = contacts.Where(c => c.Status != 0).ToArray();
-                    LogManager.Log("SDD: {0} Adressaten (aktiv, gefiltert von {1})",
-                        contacts.Length, contactList.ContactDetails.Length);
+                    _proxy = new SddProxyClient();
+                    _proxy.Start();
+                    InstallShutdownHookLocked();
                 }
-                else
+                else if (!_proxy.IsConnected)
                 {
-                    LogManager.Log("SDD: {0} Adressaten", contacts.Length);
+                    // IsConnected is false after a broken pipe — Start() will
+                    // re-launch if needed. Request() also handles recovery
+                    // on its own, but we call Start() here so the first GET
+                    // after a reconnect doesn't pay the startup cost inline.
+                    _proxy.Start();
                 }
-
-                return contacts;
+                return _proxy;
             }
-
-            return Array.Empty<RecipientContactDetail>();
         }
 
-        private static InstitutionContactDetail[] GetInstitutions()
+        private static void InstallShutdownHookLocked()
         {
-            const string contractIdentifier = "Datev.Inst.Contract.1.0";
-            const string elementName = "TELEFONIE";
+            if (_shutdownHookInstalled) return;
+            _shutdownHookInstalled = true;
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => ShutdownProxy();
+            AppDomain.CurrentDomain.DomainUnload += (s, e) => ShutdownProxy();
+        }
 
-            InstitutionsContactList contactList = GetItemsList<InstitutionsContactList>(
-                contractIdentifier, elementName, string.Empty);
-
-            if (contactList?.ContactDetails != null)
+        private static void ShutdownProxy()
+        {
+            lock (_proxyLock)
             {
-                LogManager.Log("SDD: {0} Institutionen", contactList.ContactDetails.Length);
-                return contactList.ContactDetails;
-            }
-
-            return Array.Empty<InstitutionContactDetail>();
-        }
-
-        private static T GetItemsList<T>(string contractIdentifier, string elementName, string filterExpression)
-            where T : class
-        {
-            const string dataEnvironment = "Datev.DataEnvironment.Default";
-
-            return RetryHelper.ExecuteWithRetry(
-                () => GetItemsListInternal<T>(contractIdentifier, elementName, dataEnvironment, filterExpression),
-                $"SDD fetch ({elementName})",
-                shouldRetry: RetryHelper.IsTransientError);
-        }
-
-        private static T GetItemsListInternal<T>(string contractIdentifier, string elementName,
-            string dataEnvironment, string filterExpression) where T : class
-        {
-            using (Proxy proxy = Proxy.Instance)
-            {
-                IRequestHandler requestHandler = proxy.RequestHandler;
-                IRequestHelper requestHelper = proxy.RequestHelper;
-
-                Request readRequest =
-                    requestHelper.CreateDataObjectCollectionAccessReadRequest(
-                        elementName,
-                        contractIdentifier,
-                        dataEnvironment,
-                        filterExpression ?? string.Empty);
-
-                using (Response response = requestHandler.Execute(readRequest))
-                {
-                    if (!response.HasData)
-                    {
-                        throw new XmlException($"SDD returned no data ({elementName}, HasData=false)");
-                    }
-
-                    try
-                    {
-                        XmlSerializer xmlSerializer = new XmlSerializer(typeof(T));
-                        using (XmlReader xmlReader = response.CreateReader())
-                        {
-                            return (T)xmlSerializer.Deserialize(xmlReader);
-                        }
-                    }
-                    catch (InvalidOperationException ex) when (ex.InnerException is XmlException xmlEx)
-                    {
-                        throw new XmlException($"SDD XML invalid ({elementName}): {xmlEx.Message}", xmlEx);
-                    }
-                }
+                try { _proxy?.Dispose(); } catch { }
+                _proxy = null;
             }
         }
     }

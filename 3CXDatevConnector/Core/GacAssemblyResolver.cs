@@ -12,6 +12,13 @@ namespace DatevConnector.Core
     /// On .NET 9 the GAC is not used automatically, so we probe the well-known
     /// GAC paths manually. Falls back gracefully if assemblies are not found
     /// (SDD features will be disabled).
+    ///
+    /// NOTE: Since DATEV contact loading was moved into the net48 SddProxy
+    /// subprocess, this resolver is no longer on the hot SDD path. It's kept
+    /// for edge cases — in particular DatevConnectionChecker.CheckSddAvailability
+    /// still probes `Datev.Sdd.Data.ClientInterfaces` via Assembly.Load for
+    /// the "is DATEV installed at all" heuristic, and any future in-process
+    /// DATEV load would still need it. Removing it is a separate cleanup.
     /// </summary>
     internal static class GacAssemblyResolver
     {

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>DatevConnector.SddProxy</RootNamespace>
+    <AssemblyName>3CXDatevConnector.SddProxy</AssemblyName>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>false</UseWindowsForms>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+
+    <AssemblyTitle>3CX - DATEV Connector SDD Proxy</AssemblyTitle>
+    <Description>net48 subprocess that loads DATEV contacts via SDD and serves them over a named pipe. Isolates .NET Framework Remoting dependencies from the net9 tray process.</Description>
+    <Product>3CX - DATEV Connector</Product>
+    <Version>1.0.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DATEV SDD assemblies — compile-time reference against the local stubs in
+         lib/ (same stubs the tray uses; 5 KB, just type shape). At runtime we
+         load the real DLLs via an AssemblyResolve hook in Program.cs that probes
+         the DATEV install folder and the GAC. Private=false so the stubs don't
+         get deployed next to the exe, which would otherwise win over the
+         resolver via appbase probing. -->
+    <Reference Include="Datev.Sdd.Data.ClientInterfaces">
+      <HintPath>..\lib\Datev.Sdd.Data.ClientInterfaces.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Datev.Sdd.Data.ClientPlugIn.Base">
+      <HintPath>..\lib\Datev.Sdd.Data.ClientPlugIn.Base.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -47,10 +47,10 @@
     <EmbeddedResource Include="UI\Assets\DATEVLogo.png" />
   </ItemGroup>
 
-  <!-- Bundled DATEV SDD DLLs. Embedded into the single-file exe via
-       IncludeAllContentForSelfExtract; the runtime bundler extracts them to
-       a temp folder and sets AppContext.BaseDirectory to that folder, so
-       GacAssemblyResolver finds them at <BaseDir>/Datev/<name>.dll. -->
+  <!-- Bundled DATEV SDD DLLs. Kept here as a fallback for DatevConnectionChecker's
+       Assembly.Load probe and for any edge case GacAssemblyResolver still handles.
+       The SDD contact-loading path no longer goes through these: it runs out of
+       the net48 SddProxy subprocess (see below), which carries its own copies. -->
   <ItemGroup>
     <Content Include="..\lib\Datev.Sdd.Data.ClientInterfaces.dll"
              Link="Datev\Datev.Sdd.Data.ClientInterfaces.dll"
@@ -60,5 +60,25 @@
              Link="Datev\Datev.Sdd.Data.ClientPlugIn.Base.dll"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Build the net48 SDD proxy first, then pull its .exe into our output as
+       an embedded Content file. IncludeAllContentForSelfExtract bakes it into
+       the single-file exe; at runtime SddProxyClient re-extracts it to a
+       versioned %LocalAppData%\Temp folder and launches it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\3CXDatevConnector.SddProxy\3CXDatevConnector.SddProxy.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\3CXDatevConnector.SddProxy\bin\$(Configuration)\3CXDatevConnector.SddProxy.exe"
+             Link="SddProxy\3CXDatevConnector.SddProxy.exe"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
   </ItemGroup>
 </Project>
